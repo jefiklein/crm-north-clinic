@@ -2,26 +2,100 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Index from "./pages/Index"; // This will be our Login page
 import NotFound from "./pages/NotFound";
+import Layout from "./components/Layout"; // Our new layout component
+import DashboardPage from "./pages/DashboardPage"; // We will create this
+
+import React, { useState, useEffect } from 'react';
+
+// Define the structure for clinic data
+interface ClinicData {
+  code: string;
+  nome: string;
+  id: string | number | null;
+  acesso_crm: boolean;
+  acesso_config_msg: boolean;
+  id_permissao: number;
+}
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // State to hold clinic data and manage login status
+  const [clinicData, setClinicData] = useState<ClinicData | null>(() => {
+    // Initialize state from localStorage on mount
+    const savedData = localStorage.getItem('clinicData');
+    try {
+      return savedData ? JSON.parse(savedData) : null;
+    } catch (e) {
+      console.error("Failed to parse clinicData from localStorage", e);
+      return null;
+    }
+  });
+
+  // Effect to update localStorage whenever clinicData changes
+  useEffect(() => {
+    if (clinicData) {
+      localStorage.setItem('clinicData', JSON.stringify(clinicData));
+    } else {
+      localStorage.removeItem('clinicData');
+    }
+  }, [clinicData]);
+
+  // Function to handle successful login
+  const handleLogin = (data: ClinicData) => {
+    setClinicData(data);
+  };
+
+  // Function to handle logout
+  const handleLogout = () => {
+    setClinicData(null);
+  };
+
+  // Simple component to protect routes
+  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    if (!clinicData || !clinicData.code) {
+      // If not logged in, redirect to the login page
+      return <Navigate to="/" replace />;
+    }
+    // If logged in, render the children (the route component)
+    return children;
+  };
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Login Page - Renders if not logged in */}
+            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Index onLogin={handleLogin} />} />
+
+            {/* Protected Routes - Require login */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout /> {/* Layout contains Sidebar, Header, and Outlet */}
+                </ProtectedRoute>
+              }
+            >
+              {/* Nested routes within the Layout */}
+              <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard */}
+              {/* ADD OTHER PROTECTED ROUTES HERE AS NESTED ROUTES */}
+              {/* Example: <Route path="users" element={<UsersPage />} /> */}
+            </Route>
+
+            {/* Catch-all route for 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
