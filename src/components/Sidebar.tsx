@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhoneOff as PhonePause, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhoneOff as PhonePause, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
@@ -458,7 +458,8 @@ export const Sidebar: React.FC = () => {
   return (
     // Sidebar container: fixed width, dark background, flex column
     // Added group class for hover effect
-    <div className="group flex flex-col w-16 hover:w-64 bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0">
+    // Updated background and text colors
+    <div className="group flex flex-col w-16 hover:w-64 bg-gray-900 text-gray-100 transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0">
       {/* Logo */}
       <div className="flex items-center justify-center h-16 mt-4 mb-8 flex-shrink-0">
          {/* Replace with your logo component or img tag */}
@@ -468,21 +469,21 @@ export const Sidebar: React.FC = () => {
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto">
         {isLoading && (
-          <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
+          <div className="flex items-center px-4 py-3 text-gray-400"> {/* Adjusted text color */}
             <Loader2 className="h-5 w-5 mr-3 animate-spin" />
             <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Carregando...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center px-4 py-3 text-destructive">
+          <div className="flex items-center px-4 py-3 text-red-500"> {/* Adjusted text color */}
             <TriangleAlert className="h-5 w-5 mr-3" />
             <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{error}</span>
           </div>
         )}
 
         {!isLoading && !error && menuItems.length === 0 && (
-             <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
+             <div className="flex items-center px-4 py-3 text-gray-400"> {/* Adjusted text color */}
                 <Circle className="h-5 w-5 mr-3" /> {/* Using a generic icon */}
                 <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Sem itens de menu</span>
              </div>
@@ -492,23 +493,21 @@ export const Sidebar: React.FC = () => {
             const IconComponent = getLucideIcon(item.icon_class);
             // Determine the target path for react-router-dom Link
             // This is a placeholder logic and needs to be refined based on your routing strategy
-            // For now, let's assume item.id '1' maps to '/dashboard'
-            // Other items might map to '/dashboard/:itemId' or specific paths
-            const toPath = item.id === '1' ? '/dashboard' : `#${item.id}`; // Use # for now if not dashboard
+            // For now, only dashboard is a real route. Others will be placeholders.
+            const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example: map other IDs to nested routes
 
-            // If the item has a webhook_url and it's an external URL, we might not use Link
-            // For simplicity, let's assume internal navigation for now, or handle external links separately
+            // If the item has a webhook_url and it's an external URL, render as a standard anchor tag
             const isExternal = item.webhook_url && item.webhook_url.startsWith('http');
 
             if (isExternal) {
-                // Render as a standard anchor tag for external links
                  return (
                     <a
                         key={item.id}
                         href={item.webhook_url}
                         target="_blank" // Open external links in a new tab
                         rel="noopener noreferrer"
-                        className="flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200"
+                        // Updated colors for external links
+                        className="flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200"
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
                         <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
@@ -516,15 +515,12 @@ export const Sidebar: React.FC = () => {
                  );
             } else {
                 // Render as a react-router-dom Link for internal navigation
-                // The 'to' prop needs to be a valid internal path
-                // For now, only dashboard is a real route. Others will be placeholders.
-                const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example: map other IDs to nested routes
-
                 return (
                     <Link
                         key={item.id}
                         to={internalTo} // Use the determined internal path
-                        className={`flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200 ${getActive(item) ? 'text-sidebar-primary bg-sidebar-accent border-l-4 border-sidebar-primary pl-[calc(1rem-4px)]' : ''}`}
+                        // Updated colors for internal links and active state
+                        className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
                         <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
