@@ -16,7 +16,7 @@ interface ClinicData {
 }
 
 interface MenuItem {
-  id: string; // Assuming id is string from DB or can be converted
+  id: string | number; // Allow id to be string or number
   nome: string; // Corresponds to 'label' in previous structure
   webhook_url?: string; // URL to navigate to (can be external or internal) - Keeping for data structure but not used for navigation logic here
   icon_class?: string; // Old Font Awesome class (kept for reference if needed elsewhere)
@@ -302,9 +302,9 @@ const iconMap: { [key: string]: React.ElementType } = {
   'view': View,
   'voicemail': Voicemail,
   'volume': Volume,
-  'volume-1': Volume1,
-  'volume-2': Volume2,
-  'volume-x': VolumeX,
+  'volume1': Volume1,
+  'volume2': Volume2,
+  'volumeX': VolumeX,
   'wallet': Wallet,
   'wand-2': Wand2,
   'watch': Watch,
@@ -435,11 +435,12 @@ export const Sidebar: React.FC = () => {
   // Determine active menu item based on current route
   const getActive = (item: MenuItem) => {
       // Determine the expected internal path for this item
-      const itemPath = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`;
+      // Use String(item.id) === '1' for robust comparison
+      const itemPath = String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`;
 
       // Check if the current location pathname matches the item's path
       // Use startsWith for /dashboard to match /dashboard and /dashboard/
-      if (item.id === '1') {
+      if (String(item.id) === '1') {
           return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
       }
 
@@ -487,8 +488,8 @@ export const Sidebar: React.FC = () => {
             const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
 
             // Determine the target path for react-router-dom Link
-            // Always use internal path based on item.id
-            const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`;
+            // Use String(item.id) === '1' for robust comparison
+            const internalTo = String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`;
 
             // Always render as a react-router-dom Link for internal navigation
             return (
