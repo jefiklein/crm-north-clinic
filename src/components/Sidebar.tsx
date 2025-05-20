@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileTextIcon, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhonePause, PhoneX, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
@@ -290,7 +290,36 @@ const iconMap: { [key: string]: React.ElementType } = {
   'youtube': Youtube, // Example mapping for youtube
   'zoom-in': ZoomIn, // Example mapping for zoom in
   'zoom-out': ZoomOut, // Example mapping for zoom out
-};
+}
+// Added missing icons from the import list to the map
+iconMap['phone-call'] = PhoneCall;
+iconMap['phone-forwarded'] = PhoneForwarded;
+iconMap['phone-incoming'] = PhoneIncoming;
+iconMap['phone-missed'] = PhoneMissed;
+iconMap['phone-off'] = PhoneOff;
+iconMap['phone-outgoing'] = PhoneOutgoing;
+iconMap['phone-outgoing-alt'] = PhoneOutgoingIcon; // Assuming this mapping
+iconMap['phone-pause'] = PhonePause;
+iconMap['phone-times'] = PhoneX;
+iconMap['file-text'] = FileTextIcon; // Corrected mapping
+iconMap['users'] = UsersIcon; // Corrected mapping
+iconMap['server'] = ServerIcon; // Corrected mapping
+iconMap['settings'] = SettingsIcon; // Corrected mapping
+iconMap['share'] = Share; // Corrected mapping
+iconMap['shopping-cart'] = ShoppingCartIcon; // Corrected mapping
+iconMap['tag'] = TagIcon; // Corrected mapping
+iconMap['target'] = TargetIcon; // Corrected mapping
+iconMap['terminal'] = TerminalIcon; // Corrected mapping
+iconMap['triangle-exclamation'] = TriangleAlertIcon; // Corrected mapping
+iconMap['truck'] = TruckIcon; // Corrected mapping
+iconMap['zap'] = ZapIcon; // Corrected mapping
+iconMap['list'] = ListIcon; // Corrected mapping
+iconMap['table'] = TableIcon; // Corrected mapping
+iconMap['mail'] = MailIcon; // Corrected mapping
+iconMap['globe'] = GlobeIcon; // Corrected mapping
+iconMap['info'] = InfoIcon; // Corrected mapping
+iconMap['award'] = AwardIconLucide; // Corrected mapping
+
 
 // Function to get Lucide icon component from Font Awesome class
 const getLucideIcon = (faClass?: string) => {
@@ -317,10 +346,14 @@ export const Sidebar: React.FC = () => {
   // A better approach would be using React Context or a state management library
   const clinicData: ClinicData | null = JSON.parse(localStorage.getItem('clinicData') || 'null');
 
+  console.log("Sidebar: clinicData from localStorage:", clinicData);
+
 
   useEffect(() => {
     const fetchMenu = async () => {
+      console.log("Sidebar: Inside fetchMenu useEffect");
       if (!clinicData || !clinicData.code || typeof clinicData.id_permissao === 'undefined') {
+        console.log("Sidebar: clinicData incomplete, skipping fetch.");
         setError("Dados da clínica incompletos para carregar o menu.");
         setIsLoading(false);
         setMenuItems([]); // Clear menu if data is incomplete
@@ -332,14 +365,17 @@ export const Sidebar: React.FC = () => {
       setMenuItems([]); // Clear previous menu items
 
       const userPermissionLevel = parseInt(clinicData.id_permissao.toString(), 10);
+      console.log("Sidebar: User permission level:", userPermissionLevel);
+
       if (isNaN(userPermissionLevel)) {
+           console.error("Sidebar: Invalid user permission level:", clinicData.id_permissao);
            setError("Nível de permissão do usuário inválido.");
            setIsLoading(false);
            setMenuItems([]);
            return;
       }
 
-      console.log("Fetching menu from Supabase...");
+      console.log("Sidebar: Fetching menu from Supabase...");
 
       try {
         const { data, error } = await supabase
@@ -347,6 +383,8 @@ export const Sidebar: React.FC = () => {
           .select('*')
           .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
           .order('ordem', { ascending: true }); // Order by 'ordem'
+
+        console.log("Sidebar: Supabase fetch result - data:", data, "error:", error);
 
         if (error) {
           throw new Error(error.message);
@@ -356,27 +394,27 @@ export const Sidebar: React.FC = () => {
           throw new Error("Formato de menu inválido (esperado Array)");
         }
 
+        console.log("Sidebar: Raw menu data from Supabase:", data);
+
         // Filter by permission
         const filteredItems = data.filter(item => {
           const requiredPermission = parseInt(item.permissao_necessaria?.toString(), 10);
-          // If requiredPermission is NaN or <= 0, it's accessible to everyone (or no specific restriction)
-          if (isNaN(requiredPermission) || requiredPermission <= 0) {
-            return true;
-          }
-          // Otherwise, check if user's permission level is sufficient
-          return userPermissionLevel >= requiredPermission;
+          const isPermitted = isNaN(requiredPermission) || requiredPermission <= 0 || userPermissionLevel >= requiredPermission;
+          console.log(`Sidebar: Item "${item.nome}" (ID: ${item.id}) - Required Perm: ${item.permissao_necessaria}, User Perm: ${userPermissionLevel}, Is Permitted: ${isPermitted}`);
+          return isPermitted;
         });
 
-        // Data is already sorted by 'ordem' from the query
+        console.log("Sidebar: Filtered menu items:", filteredItems);
 
         setMenuItems(filteredItems as MenuItem[]); // Cast to MenuItem[]
 
       } catch (err: any) {
-        console.error("Erro ao buscar menu:", err);
+        console.error("Sidebar: Erro ao buscar menu:", err);
         setError(`Falha ao carregar menu: ${err.message}`);
         setMenuItems([]); // Clear menu on error
       } finally {
         setIsLoading(false);
+        console.log("Sidebar: Fetch menu finished.");
       }
     };
 
@@ -384,6 +422,7 @@ export const Sidebar: React.FC = () => {
     if (clinicData && clinicData.code && typeof clinicData.id_permissao !== 'undefined') {
         fetchMenu();
     } else {
+        console.log("Sidebar: clinicData not fully available, skipping fetch.");
         // If clinicData is not available, clear menu and show error/loading state accordingly
         setIsLoading(false);
         setError("Faça login para ver o menu.");
