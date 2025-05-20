@@ -111,11 +111,13 @@ function openLeadDetails(phone: number | string | null) {
 }
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for webhooks)
+// UPDATED: Changed mapping for menu ID 5 to funnel ID 5
 const menuIdToFunnelIdMap: { [key: number]: number } = {
     4: 1, // Funil de Vendas
-    5: 2, // Funil de Recuperação
+    5: 5, // Clientes (usando funnel_id 5) - Anteriormente era Funil de Recuperação (funnel_id 2)
     6: 3, // Funil de Faltas
     7: 4, // Funil Compareceram
+    // Add other menu item IDs and their corresponding funnel IDs here as needed
 };
 
 
@@ -149,12 +151,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
 
     // Check if the menuIdParam corresponds to a valid funnel ID
-    if (!clinicData || isNaN(menuId) || !menuIdToFunnelIdMap.hasOwnProperty(menuId)) {
+    // UPDATED: Check if funnelIdForWebhook is undefined (meaning menuId wasn't in the map)
+    if (!clinicData || isNaN(menuId) || funnelIdForWebhook === undefined) {
         console.error("FunnelPage: Error condition met.", {
             clinicData: clinicData,
             menuId: menuId,
             isNaN_menuId: isNaN(menuId),
-            menuId_in_map: menuIdToFunnelIdMap.hasOwnProperty(menuId)
+            funnelIdForWebhook: funnelIdForWebhook // Log the determined funnelIdForWebhook
         });
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica ou ID do funil inválidos. Faça login novamente ou verifique a URL.</div>;
     }
@@ -196,7 +199,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                  console.warn("Resposta de detalhes do funil inválida:", data);
                  // Return a default structure or throw an error depending on desired strictness
                  // Use the menuIdParam for the default name if funnelIdForWebhook is valid but details fail
-                 return [{ id: funnelIdForWebhook, nome_funil: `Funil ${menuIdParam}` }]; // Provide a default name based on menu ID
+                 // UPDATED: Use a generic name if details fail
+                 return [{ id: funnelIdForWebhook, nome_funil: `Funil ID ${funnelIdForWebhook}` }]; // Provide a default name based on funnel ID
             }
             return data; // Should be an array with one item
         },
@@ -310,7 +314,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     }, [filteredAndSortedLeads, stagesData]);
 
 
-    const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ${menuIdParam}`; // Use menuIdParam for default name display
+    const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ID ${funnelIdForWebhook}`; // Use funnelIdForWebhook for default name display
 
 
     return (
