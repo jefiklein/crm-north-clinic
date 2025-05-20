@@ -161,6 +161,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'headphones': Headphones,
   'image': Image,
   'inbox': Inbox,
+  'info-icon': InfoIcon,
   'instagram': Instagram,
   'key': Key,
   'keyboard': Keyboard,
@@ -259,6 +260,8 @@ const iconMap: { [key: string]: React.ElementType } = {
   'sticker': Sticker,
   'stop-circle': StopCircle,
   'store': Store,
+  'sunrise': Sunrise,
+  'sunset': Sunset,
   'table-icon': TableIcon,
   'thermometer': Thermometer,
   'thumbs-down': ThumbsDown,
@@ -449,18 +452,19 @@ export const Sidebar: React.FC = () => {
       // Also check if the webhook_url matches the current location pathname exactly
       // This is a simple check and might need more robust handling for complex URLs
       try {
-          if (item.webhook_url) {
+          // Check if webhook_url is a non-empty string before trying to parse it as a URL
+          if (item.webhook_url && typeof item.webhook_url === 'string' && item.webhook_url.startsWith('http')) {
               const url = new URL(item.webhook_url);
               if (location.pathname === url.pathname) {
                   return true;
               }
           }
       } catch (e) {
-          // Handle invalid URLs if necessary, maybe log a warning
+          // Log the error but don't stop the process
           console.warn("Invalid webhook_url encountered:", item.webhook_url, e);
       }
 
-
+      // Fallback check for internal paths if webhook_url didn't match or was invalid
       return location.pathname.startsWith(itemPath);
   };
 
@@ -509,7 +513,7 @@ export const Sidebar: React.FC = () => {
             const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example: map other IDs to nested routes
 
             // If the item has a webhook_url and it's an external URL, render as a standard anchor tag
-            const isExternal = item.webhook_url && item.webhook_url.startsWith('http');
+            const isExternal = item.webhook_url && typeof item.webhook_url === 'string' && item.webhook_url.startsWith('http');
 
             if (isExternal) {
                  return (
