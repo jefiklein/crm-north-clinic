@@ -10,6 +10,7 @@ import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingC
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils'; // Utility for class names
+import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -111,7 +112,6 @@ function openLeadDetails(phone: number | string | null) {
 }
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for webhooks)
-// UPDATED: Corrected mapping based on user's clarification
 const menuIdToFunnelIdMap: { [key: number]: number } = {
     4: 1, // Funil de Vendas
     5: 2, // Funil de Recuperação
@@ -307,15 +307,15 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ID ${funnelIdForWebhook}`; // Use funnelIdForWebhook for default name display
 
-    // Display the error message if the funnel is invalid
+    // Display UnderConstructionPage if the funnel is invalid
     if (isInvalidFunnel) {
-        console.error("FunnelPage: Error condition met after hooks.", {
+        console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
             clinicData: clinicData,
             menuId: menuId,
             isNaN_menuId: isNaN(menuId),
             funnelIdForWebhook: funnelIdForWebhook // Log the determined funnelIdForWebhook
         });
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica ou ID do funil inválidos. Faça login novamente ou verifique a URL.</div>;
+        return <UnderConstructionPage />;
     }
 
 
