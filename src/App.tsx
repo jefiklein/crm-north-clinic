@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
 import DashboardPage from "./pages/DashboardPage"; // We will create this
 import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
+import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -86,13 +87,15 @@ const App = () => {
             >
               {/* Nested routes within the Layout */}
               <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard */}
-              {/* ADD OTHER PROTECTED ROUTES HERE AS NESTED ROUTES */}
-              {/* Example: <Route path="users" element={<UsersPage />} /> */}
-              {/* Route for the Clientes page - Assuming menu item ID 2 maps to this */}
-              <Route path="2" element={<ClientesPage clinicData={clinicData} />} />
+              {/* Specific routes for menu items */}
+              <Route path="2" element={<ClientesPage clinicData={clinicData} />} /> {/* Route for Clientes page (assuming menu item ID 2) */}
+
+              {/* Catch-all for any other path under /dashboard */}
+              {/* This must be the LAST route defined within the /dashboard group */}
+              <Route path="*" element={<UnderConstructionPage />} />
             </Route>
 
-            {/* Catch-all route for 404 */}
+            {/* Catch-all route for 404 outside of /dashboard */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

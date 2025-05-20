@@ -18,7 +18,7 @@ interface ClinicData {
 interface MenuItem {
   id: string; // Assuming id is string from DB or can be converted
   nome: string; // Corresponds to 'label' in previous structure
-  webhook_url?: string; // URL to navigate to (can be external or internal)
+  webhook_url?: string; // URL to navigate to (can be external or internal) - Keeping for data structure but not used for navigation logic here
   icon_class?: string; // Old Font Awesome class (kept for reference if needed elsewhere)
   icon_key?: string; // New column for Lucide icon key
   permissao_necessaria: number; // Required permission level
@@ -256,72 +256,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'sort-asc': SortAsc,
   'sort-desc': SortDesc,
   'speaker': Speaker,
-  'square': Square,
-  'sticker': Sticker,
-  'stop-circle': StopCircle,
-  'store': Store,
-  'sunrise': Sunrise,
-  'sunset': Sunset,
-  'table-icon': TableIcon,
-  'thermometer': Thermometer,
-  'thumbs-down': ThumbsDown,
-  'thumbs-up': ThumbsUp,
-  'ticket': Ticket,
-  'timer': Timer,
-  'toggle-left': ToggleLeft,
-  'toggle-right': ToggleRight,
-  'tornado': Tornado,
-  'train': Train,
-  'trash': Trash,
-  'trello': Trello,
-  'trending-down': TrendingDown,
-  'trending-up': TrendingUp,
-  'triangle': Triangle,
-  'triangle-alert-icon': TriangleAlertIcon,
-  'truck-icon': TruckIcon,
-  'tv': Tv,
-  'twitch': Twitch,
-  'twitter': Twitter,
-  'type': Type,
-  'umbrella': Umbrella,
-  'underline': Underline,
-  'undo': Undo,
-  'unlock': Unlock,
-  'upload': Upload,
-  'upload-cloud': UploadCloud,
-  'user': User,
-  'user-check': UserCheck,
-  'user-minus': UserMinus,
-  'user-plus': UserPlus,
-  'user-x': UserX,
-  'users-icon': UsersIcon,
-  'utensils': Utensils,
-  'verified': Verified,
-  'video': Video,
-  'video-off': VideoOff,
-  'view': View,
-  'voicemail': Voicemail,
-  'volume': Volume,
-  'volume-1': Volume1,
-  'volume-2': Volume2,
-  'volume-x': VolumeX,
-  'wallet': Wallet,
-  'wand-2': Wand2,
-  'watch': Watch,
-  'waves': Waves,
-  'webcam': Webcam,
-  'wifi': Wifi,
-  'wifi-off': WifiOff,
-  'wind': Wind,
-  'x': X,
-  'youtube': Youtube,
-  'zap-icon': ZapIcon,
-  'zoom-in': ZoomIn,
-  'zoom-out': ZoomOut,
-  'mail-open': MailOpen,
-  'smartphone': Smartphone, // Added import
-  'messages-square': MessagesSquare, // Added import
-  'badge-dollar-sign': BadgeDollarSign // Added import
+  'square', Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign // Keep only necessary imports
 }
 
 
@@ -433,39 +368,18 @@ export const Sidebar: React.FC = () => {
 
 
   // Determine active menu item based on current route
-  // This needs refinement based on how you map menu items to routes
   const getActive = (item: MenuItem) => {
-      // Example: If item.id '1' corresponds to the dashboard route '/dashboard'
-      // This logic needs to match your actual routing strategy
-      if (item.id === '1' && location.pathname === '/dashboard') {
-          return true;
-      }
-      // Add more logic here to match other menu items to routes
-      // For now, only dashboard is explicitly handled
-      // You might want to map item.webhook_url or item.nome to specific routes
-      // For example, if item.webhook_url is '/dashboard/settings', check location.pathname === '/dashboard/settings'
-      // Or if you have a consistent mapping like item.id maps to '/dashboard/:id'
-      // For now, let's just check if the current path starts with the item's potential path
-      // This is a simple heuristic and might need adjustment
-      const itemPath = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example mapping
+      // Determine the expected internal path for this item
+      const itemPath = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`;
 
-      // Also check if the webhook_url matches the current location pathname exactly
-      // This is a simple check and might need more robust handling for complex URLs
-      try {
-          // Check if webhook_url is a non-empty string before trying to parse it as a URL
-          if (item.webhook_url && typeof item.webhook_url === 'string' && item.webhook_url.startsWith('http')) {
-              const url = new URL(item.webhook_url);
-              if (location.pathname === url.pathname) {
-                  return true;
-              }
-          }
-      } catch (e) {
-          // Log the error but don't stop the process
-          console.warn("Invalid webhook_url encountered:", item.webhook_url, e);
+      // Check if the current location pathname matches the item's path
+      // Use startsWith for /dashboard to match /dashboard and /dashboard/
+      if (item.id === '1') {
+          return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
       }
 
-      // Fallback check for internal paths if webhook_url didn't match or was invalid
-      return location.pathname.startsWith(itemPath);
+      // For other items, check for an exact match
+      return location.pathname === itemPath;
   };
 
 
@@ -508,41 +422,21 @@ export const Sidebar: React.FC = () => {
             const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
 
             // Determine the target path for react-router-dom Link
-            // This is a placeholder logic and needs to be refined based on your routing strategy
-            // For now, only dashboard is a real route. Others will be placeholders.
-            const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example: map other IDs to nested routes
+            // Always use internal path based on item.id
+            const internalTo = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`;
 
-            // If the item has a webhook_url and it's an external URL, render as a standard anchor tag
-            const isExternal = item.webhook_url && typeof item.webhook_url === 'string' && item.webhook_url.startsWith('http');
-
-            if (isExternal) {
-                 return (
-                    <a
-                        key={item.id}
-                        href={item.webhook_url}
-                        target="_blank" // Open external links in a new tab
-                        rel="noopener noreferrer"
-                        // Updated colors for external links
-                        className="flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200"
-                    >
-                        {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
-                        <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
-                    </a>
-                 );
-            } else {
-                // Render as a react-router-dom Link for internal navigation
-                return (
-                    <Link
-                        key={item.id}
-                        to={internalTo} // Use the determined internal path
-                        // Updated colors for internal links and active state
-                        className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
-                    >
-                        {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
-                        <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
-                    </Link>
-                );
-            }
+            // Always render as a react-router-dom Link for internal navigation
+            return (
+                <Link
+                    key={item.id}
+                    to={internalTo} // Use the determined internal path
+                    // Updated colors for internal links and active state
+                    className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
+                >
+                    {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
+                    <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
+                </Link>
+            );
         })}
       </nav>
     </div>
