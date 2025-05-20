@@ -22,7 +22,7 @@ interface SalesData {
 
 // Define the structure for the leads data received from the webhook
 interface LeadsData {
-    count: number; // Assuming the response has a 'count' field
+    count_remoteJid: number; // Updated structure based on the provided response
 }
 
 
@@ -134,7 +134,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     });
 
     // Fetch leads data from webhook using react-query
-    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | number | null>({ // Specify expected data type (array with count or just number)
+    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({ // Specify expected data type
         queryKey: ['leadsData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
         queryFn: async () => {
             if (!clinicData?.code) {
@@ -178,14 +178,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de leads:', data);
                 
-                // Assuming the response is either an array like [{ count: N }] or just the number N
-                if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].count !== undefined) {
-                    return Number(data[0].count); // Return the count as a number
-                } else if (typeof data === 'number') {
-                    return data; // Return the number directly if the response is just the count
+                // Expecting an array with one object: [{ "count_remoteJid": N }]
+                if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].count_remoteJid !== undefined) {
+                    return { count_remoteJid: Number(data[0].count_remoteJid) } as LeadsData; // Return the object with the count
                 }
                 
-                throw new Error("Formato de resposta inesperado do webhook de leads. Esperado: [{ count: N }] ou N");
+                throw new Error("Formato de resposta inesperado do webhook de leads. Esperado: [{ count_remoteJid: N }]");
                 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de leads:', error);
@@ -244,7 +242,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             <div className="text-sm text-destructive">Erro ao carregar leads.</div>
                         ) : (
                             <div className="text-2xl font-bold text-primary">
-                                {leadsData !== undefined && leadsData !== null ? leadsData : 'N/A'}
+                                {/* Display the count_remoteJid */}
+                                {leadsData?.count_remoteJid !== undefined && leadsData.count_remoteJid !== null ? leadsData.count_remoteJid : 'N/A'}
                             </div>
                         )}
                     </CardContent>
