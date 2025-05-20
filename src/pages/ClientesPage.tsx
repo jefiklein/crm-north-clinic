@@ -140,13 +140,6 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
     // --- End Debugging Logs ---
 
 
-    // Check if clinicData is available
-    if (!clinicData) {
-        console.error("ClientesPage: Error condition met - clinicData missing.");
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
-    }
-
-
     // Fetch Stages (using the same webhook as FunnelPage)
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['funnelStages', clinicId, funnelIdForWebhook], // Use fixed funnelIdForWebhook
@@ -272,7 +265,7 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
     // Update current page if filtering/sorting reduces total pages
     useEffect(() => {
-        const newTotalPages = Math.ceil(filteredAndSortedClients.length / ITEMS_PER_PAGE);
+        const newTotalPages = Math(filteredAndSortedClients.length / ITEMS_PER_PAGE);
         if (currentPage > newTotalPages && newTotalPages > 0) {
             setCurrentPage(newTotalPages);
         } else if (filteredAndSortedClients.length > 0 && currentPage === 0) {
@@ -311,6 +304,12 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
     // Funnel Name (using the same logic as FunnelPage, but for the fixed ID)
     const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ${funnelIdForWebhook}`;
+
+
+    // Conditional rendering based on clinicData availability
+    if (!clinicData) {
+        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+    }
 
 
     return (
@@ -386,7 +385,12 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
                         <Info className="h-12 w-12 mb-4" />
                         <span className="text-lg text-center">Nenhum cliente encontrado com o filtro "{searchTerm}".</span> {/* Updated text */}
                     </div>
-                ) : (
+                ) : (filteredAndSortedClients?.length ?? 0) === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
+                           <User className="h-12 w-12 mb-4" />
+                           <span className="text-lg text-center">Nenhum cliente encontrado para esta clínica.</span>
+                       </div>
+                    ) : (
                     <>
                         {/* Kanban View */}
                         {currentView === 'kanban' && (
