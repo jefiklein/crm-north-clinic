@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhoneOff as PhonePause, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhoneOff as PhonePause, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, AddressBook, Funnel, Undo2, CalendarX, MailOpen, Whatsapp, ListChecks // Import new icons
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
@@ -19,329 +19,318 @@ interface MenuItem {
   id: string; // Assuming id is string from DB or can be converted
   nome: string; // Corresponds to 'label' in previous structure
   webhook_url?: string; // URL to navigate to (can be external or internal)
-  icon_class?: string; // Font Awesome class from backend
+  icon_class?: string; // Old Font Awesome class (kept for reference if needed elsewhere)
+  icon_key?: string; // New column for Lucide icon key
   permissao_necessaria: number; // Required permission level
   ordem?: number; // Order for sorting
   ativo: boolean; // Assuming there's an 'ativo' column
 }
 
-// Simple mapping from Font Awesome class parts to Lucide React component names
-// This is a basic mapping and might need expansion based on actual backend data
+// Mapping from simple keys (stored in icon_key) to Lucide React component
 const iconMap: { [key: string]: React.ElementType } = {
   'users': Users,
   'calendar-check': CalendarCheck,
   'chart-line': LineChart,
   'comments': MessageSquare,
-  'sign-out-alt': LogOut, // Although logout is in Header, keeping here for completeness
-  'spinner': Loader2,
-  'exclamation-triangle': TriangleAlert,
-  'cog': Settings, // Example mapping for settings
-  'file-alt': FileText, // Example mapping for file
-  'dollar-sign': DollarSign, // Example mapping for finance
-  'briefcase': Briefcase, // Example mapping for business
-  'clipboard-list': ClipboardList, // Example mapping for lists
-  'bell': Bell, // Example mapping for notifications
-  'chart-bar': BarChart2, // Example mapping for charts
-  'credit-card': CreditCard, // Example mapping for payments
-  'box': Package, // Example mapping for package
-  'shopping-cart': ShoppingCart, // Example mapping for cart
-  'tag': TagIcon, // Corrected mapping to TagIcon
-  'truck': Truck, // Example mapping for shipping
-  'map-marker-alt': MapPin, // Example mapping for location
-  'phone': Phone, // Example mapping for phone
-  'envelope': Mail, // Example mapping for mail
-  'globe': Globe, // Example mapping for globe
-  'home': Home, // Example mapping for home
-  'info-circle': Info, // Example mapping for info
-  'question-circle': HelpCircle, // Example mapping for help
-  'book': Book, // Example mapping for book
-  'folder': Folder, // Example mapping for folder
-  'database': Database, // Example mapping for database
-  'server': Server, // Example mapping for server
-  'cloud': Cloud, // Example mapping for cloud
-  'code': Code, // Example mapping for code
-  'terminal': Terminal, // Example mapping for terminal
-  'layers': Layers, // Example mapping for layers
-  'grip-horizontal': Grid, // Example mapping for grid
-  'list': List, // Example mapping for list
-  'table': Table2, // Example mapping for table
-  'calendar': Calendar, // Example mapping for calendar
-  'clock': Clock, // Example mapping for clock
-  'map': Map, // Example mapping for map
-  'compass': Compass, // Example mapping for compass
-  'crosshairs': Target, // Example mapping for target
-  'award': AwardIconLucide, // Using the aliased name
-  'gift': Gift, // Example mapping for gift
-  'heart': HeartIcon, // Example mapping for heart
-  'star': StarIcon, // Example mapping for star
-  'sun': SunIcon, // Example mapping for sun
-  'moon': MoonIcon, // Example mapping for moon
-  'cloud-rain': CloudRain, // Example mapping for rain
-  'bolt': Zap, // Example mapping for zap
-  'coffee': CoffeeIcon, // Example mapping for coffee
-  'feather': Feather, // Example mapping for feather
-  'anchor': Anchor, // Example mapping for anchor
-  'at': AtSign, // Example mapping for at
-  'battery-charging': BatteryCharging, // Example mapping for battery
-  'bell-slash': BellRing, // Example mapping for bell slash
-  'bookmark': Bookmark, // Example mapping for bookmark
-  'box': Box, // Example mapping for box
-  'camera': Camera, // Example mapping for camera
-  'car': Car, // Example mapping for car
-  'cast': Cast, // Example mapping for cast
-  'check-circle': CheckCircle2, // Example mapping for check circle
-  'chevron-down': ChevronDown, // Example mapping for chevron down
-  'chevron-left': ChevronLeft, // Example mapping for chevron left
-  'chevron-right': ChevronRight, // Example mapping for chevron right
-  'chevron-up': ChevronUp, // Example mapping for chevron up
-  'chrome': Chrome, // Example mapping for chrome
-  'circle-dollar-sign': CircleDollarSign, // Example mapping for circle dollar sign
-  'circle-help': CircleHelp, // Example mapping for circle help
-  'circle-minus': CircleMinus, // Example mapping for circle minus
-  'circle-plus': CirclePlus, // Example mapping for circle plus
-  'clock': Clock4, // Example mapping for clock
-  'cloud-drizzle': CloudDrizzle, // Example mapping for drizzle
-  'cloud-fog': CloudFog, // Example mapping for fog
-  'cloud-hail': CloudHail, // Example mapping for hail
-  'cloud-lightning': CloudLightning, // Example mapping for lightning
-  'cloud-snow': CloudSnow, // Example mapping for snow
-  'cloud-sun': CloudSun, // Example mapping for sun cloud
-  'code-branch': Code2, // Example mapping for code branch
-  'codesandbox': Codesandbox, // Example mapping for codesandbox
-  'command': Command, // Example mapping for command
-  'download': Download, // Example mapping for download
-  'dribbble': Dribbble, // Example mapping for dribbble
-  'droplet': Droplet, // Example mapping for droplet
-  'edit': Edit, // Example mapping for edit
-  'external-link-alt': ExternalLink, // Example mapping for external link
-  'eye': Eye, // Example mapping for eye
-  'facebook': Facebook, // Example mapping for facebook
-  'figma': Figma, // Example mapping for figma
-  'file': File, // Example mapping for file
-  'file-archive': FileArchive, // Example mapping for file archive
-  'file-audio': FileAudio, // Example mapping for file audio
-  'file-code': FileCode, // Example mapping for file code
-  'file-heart': FileHeart, // Example mapping for file heart
-  'file-image': FileImage, // Example mapping for file image
-  'file-json': FileJson, // Example mapping for file json
-  'file-key': FileKey, // Example mapping for file key
-  'file-minus': FileMinus, // Example mapping for file minus
-  'file-music': FileMusic, // Example mapping for file music
-  'file-output': FileOutput, // Example mapping for file output
-  'file-plus': FilePlus, // Example mapping for file plus
-  'file-question': FileQuestion, // Example mapping for file question
-  'file-search': FileSearch, // Example mapping for file search
-  'file-spreadsheet': FileSpreadsheet, // Corrected import
-  'file-stack': FileStack, // Example mapping for file stack
-  'file-symlink': FileSymlink, // Example mapping for file symlink
-  'file-terminal': FileTerminal, // Example mapping for file terminal
-  'file-type': FileType, // Example mapping for file type
-  'file-upload': FileUp, // Example mapping for file upload
-  'file-video': FileVideo, // Example mapping for file video
-  'file-warning': FileWarning, // Example mapping for file warning
-  'file-times': FileX, // Example mapping for file times
-  'filter': Filter, // Example mapping for filter
-  'flag': Flag, // Example mapping for flag
-  'folder-archive': FolderArchive, // Example mapping for folder archive
-  'folder-dot': FolderDot, // Example mapping for folder dot
-  'folder-git': FolderGit, // Example mapping for folder git
-  'folder-open': FolderOpen, // Example mapping for folder open
-  'folder-plus': FolderRoot, // Example mapping for folder plus
-  'folder-search': FolderSearch, // Example mapping for folder search
-  'folder-symlink': FolderSymlink, // Example mapping for folder symlink
-  'folder-tree': FolderTree, // Example mapping for folder tree
-  'frown': Frown, // Example mapping for frown
-  'gamepad': Gamepad2, // Example mapping for gamepad
-  'gauge': Gauge, // Example mapping for gauge
-  'gem': Gem, // Example mapping for gem
-  'github': Github, // Example mapping for github
-  'gitlab': Gitlab, // Example mapping for gitlab
-  'graduation-cap': GraduationCap, // Example mapping for graduation cap
-  'handshake': Handshake, // Example mapping for handshake
-  'hdd': HardDrive, // Example mapping for hdd
-  'hashtag': Hash, // Example mapping for hashtag
-  'headphones': Headphones, // Example mapping for headphones
-  'image': Image, // Example mapping for image
-  'inbox': Inbox, // Example mapping for inbox
-  'instagram': Instagram, // Example mapping for instagram
-  'key': Key, // Example mapping for key
-  'keyboard': Keyboard, // Example mapping for keyboard
-  'lamp': Lamp, // Example mapping for lamp
-  'laptop': Laptop, // Example mapping for laptop
-  'life-ring': LifeBuoy, // Example mapping for life ring
-  'lightbulb': Lightbulb, // Example mapping for lightbulb
-  'link': Link2, // Example mapping for link
-  'linkedin': Linkedin, // Example mapping for linkedin
-  'loader': Loader, // Example mapping for loader
-  'lock': Lock, // Example mapping for lock
-  'log-in': LogIn, // Example mapping for log in
-  'maximize': Maximize, // Example mapping for maximize
-  'microphone': Mic, // Example mapping for microphone
-  'minimize': Minimize, // Example mapping for minimize
-  'minus': Minus, // Example mapping for minus
-  'monitor': Monitor, // Example mapping for monitor
-  'more-horizontal': MoreHorizontal, // Example mapping for more horizontal
-  'more-vertical': MoreVertical, // Example mapping for more vertical
-  'mountain': Mountain, // Example mapping for mountain
-  'mouse': Mouse, // Example mapping for mouse
-  'music': Music, // Example mapping for music
-  'navigation': Navigation, // Example mapping for navigation
-  'newspaper': Newspaper, // Example mapping for newspaper
-  'octagon': Octagon, // Example mapping for octagon
-  'paperclip': Paperclip, // Example mapping for paperclip
-  'pause': Pause, // Example mapping for pause
-  'pen-tool': PenTool, // Example mapping for pen tool
-  'percent': Percent, // Example mapping for percent
-  'picture-in-picture': PictureInPicture, // Example mapping for picture in picture
-  'pie-chart': PieChart, // Example mapping for pie chart
-  'pin': Pin, // Example mapping for pin
-  'play': Play, // Example mapping for play
-  'plus': Plus, // Example mapping for plus
-  'pocket': Pocket, // Example mapping for pocket
-  'power-off': Power, // Example mapping for power off
-  'print': Printer, // Example mapping for print
-  'puzzle-piece': Puzzle, // Example mapping for puzzle piece
-  'qrcode': QrCode, // Example mapping for qrcode
-  'radio': Radio, // Example mapping for radio
-  'receipt': Receipt, // Example mapping for receipt
-  'redo': Redo, // Example mapping for redo
-  'sync-alt': RefreshCcw, // Example mapping for sync alt
-  'repeat': Repeat, // Example mapping for repeat
-  'reply': Reply, // Example mapping for reply
-  'rocket': Rocket, // Example mapping for rocket
-  'rss': Rss, // Example mapping for rss
-  'save': Save, // Example mapping for save
-  'balance-scale': Scale, // Example mapping for balance scale
-  'scan': Scan, // Example mapping for scan
-  'cut': Scissors, // Example mapping for cut
-  'search': Search, // Example mapping for search
-  'paper-plane': Send, // Example mapping for paper plane
-  'share-alt': Share, // Example mapping for share alt
-  'shield-alt': Shield, // Example mapping for shield alt
-  'shopping-bag': ShoppingBag, // Example mapping for shopping bag
-  'shuffle': Shuffle, // Example mapping for shuffle
-  'sidebar': SidebarClose, // Example mapping for sidebar
-  'sigma': Sigma, // Example mapping for sigma
-  'siren': Siren, // Example mapping for siren
-  'skip-back': SkipBack, // Example mapping for skip back
-  'skip-forward': SkipForward, // Example mapping for skip forward
-  'slack': Slack, // Example mapping for slack
-  'slash': Slash, // Example mapping for slash
-  'sliders-h': SlidersHorizontal, // Example mapping for sliders h
-  'sliders-v': SlidersVertical, // Example mapping for sliders v
-  'smile': Smile, // Example mapping for smile
-  'snowflake': Snowflake, // Example mapping for snowflake
-  'sort-alpha-down': SortAsc, // Example mapping for sort alpha down
-  'sort-alpha-up': SortDesc, // Example mapping for sort alpha up
-  'volume-up': Speaker, // Example mapping for volume up
-  'square': Square, // Example mapping for square
-  'sticker': Sticker, // Example mapping for sticker
-  'stop-circle': StopCircle, // Example mapping for stop circle
-  'store': Store, // Example mapping for store
-  'table': Table2, // Example mapping for table
-  'thermometer': Thermometer, // Example mapping for thermometer
-  'thumbs-down': ThumbsDown, // Example mapping for thumbs down
-  'thumbs-up': ThumbsUp, // Example mapping for thumbs up
-  'ticket-alt': Ticket, // Example mapping for ticket alt
-  'clock': Timer, // Example mapping for clock
-  'toggle-off': ToggleLeft, // Example mapping for toggle off
-  'toggle-on': ToggleRight, // Example mapping for toggle on
-  'tornado': Tornado, // Example mapping for tornado
-  'train': Train, // Example mapping for train
-  'trash-alt': Trash, // Example mapping for trash alt
-  'trello': Trello, // Example mapping for trello
-  'trending-down': TrendingDown, // Example mapping for trending down
-  'trending-up': TrendingUp, // Example mapping for trending up
-  'triangle': Triangle, // Example mapping for triangle
-  'truck': TruckIcon, // Example mapping for truck
-  'tv': Tv, // Example mapping for tv
-  'twitch': Twitch, // Example mapping for twitch
-  'twitter': Twitter, // Example mapping for twitter
-  'font': Type, // Example mapping for font
-  'underline': Underline, // Example mapping for underline
-  'undo': Undo, // Example mapping for undo
-  'unlock': Unlock, // Example mapping for unlock
-  'upload': Upload, // Example mapping for upload
-  'upload-cloud': UploadCloud, // Example mapping for upload cloud
-  'user': User, // Example mapping for user
-  'user-check': UserCheck, // Example mapping for user check
-  'user-minus': UserMinus, // Example mapping for user minus
-  'user-plus': UserPlus, // Example mapping for user plus
-  'user-times': UserX, // Example mapping for user times
-  'utensils': Utensils, // Example mapping for utensils
-  'check-double': Verified, // Example mapping for check double
-  'video': Video, // Example mapping for video
-  'video-slash': VideoOff, // Example mapping for video slash
-  'eye-slash': View, // Example mapping for eye slash
-  'voicemail': Voicemail, // Example mapping for voicemail
-  'volume': Volume, // Example mapping for volume
-  'volume-down': Volume1, // Example mapping for volume down
-  'volume-up': Volume2, // Example mapping for volume up
-  'volume-mute': VolumeX, // Example mapping for volume mute
-  'wallet': Wallet, // Example mapping for wallet
-  'wand-magic': Wand2, // Example mapping for wand magic
-  'watch': Watch, // Example mapping for watch
-  'waves': Waves, // Example mapping for waves
-  'webcam': Webcam, // Example mapping for webcam
-  'wifi': Wifi, // Example mapping for wifi
-  'wifi-slash': WifiOff, // Example mapping for wifi slash
-  'wind': Wind, // Example mapping for wind
-  'times': X, // Example mapping for times
-  'youtube': Youtube, // Example mapping for youtube
-  'zoom-in': ZoomIn, // Example mapping for zoom in
-  'zoom-out': ZoomOut, // Example mapping for zoom out
-}
-// Added missing icons from the import list to the map
-iconMap['phone-call'] = PhoneCall;
-iconMap['phone-forwarded'] = PhoneForwarded;
-iconMap['phone-incoming'] = PhoneIncoming;
-iconMap['phone-missed'] = PhoneMissed;
-iconMap['phone-off'] = PhoneOff;
-iconMap['phone-outgoing'] = PhoneOutgoing;
-iconMap['phone-outgoing-alt'] = PhoneOutgoingIcon; // Assuming this mapping
-iconMap['phone-pause'] = PhoneOff; // Changed from PhonePause to PhoneOff
-iconMap['phone-times'] = PhoneOff; // Changed from PhoneX to PhoneOff
-iconMap['file-text'] = FileText; // Corrected mapping from FileTextIcon to FileText
-iconMap['users'] = UsersIcon; // Corrected mapping
-iconMap['server'] = ServerIcon; // Corrected mapping
-iconMap['settings'] = SettingsIcon; // Corrected mapping
-iconMap['share'] = Share; // Corrected mapping
-iconMap['shopping-cart'] = ShoppingCartIcon; // Corrected mapping
-iconMap['tag'] = TagIcon; // Corrected mapping
-iconMap['target'] = TargetIcon; // Corrected mapping
-iconMap['terminal'] = TerminalIcon; // Corrected mapping
-iconMap['triangle-exclamation'] = TriangleAlertIcon; // Corrected mapping
-iconMap['truck'] = TruckIcon; // Corrected mapping
-iconMap['zap'] = ZapIcon; // Corrected mapping
-iconMap['list'] = ListIcon; // Corrected mapping
-iconMap['table'] = TableIcon; // Corrected mapping
-iconMap['mail'] = MailIcon; // Corrected mapping
-iconMap['globe'] = GlobeIcon; // Corrected mapping
-iconMap['info'] = InfoIcon; // Corrected mapping
-iconMap['award'] = AwardIconLucide; // Corrected mapping
-// Removed problematic mappings:
-// iconMap['address-book'] = AddressBook;
-// iconMap['funnel-dollar'] = Funnel;
-// iconMap['undo-alt'] = Undo2;
-// iconMap['calendar-times'] = CalendarX;
-// iconMap['envelope-open-text'] = MailOpen;
-// iconMap['whatsapp'] = Whatsapp;
-// iconMap['list-alt'] = ListChecks;
+  'settings': Settings,
+  'file-text': FileText,
+  'dollar-sign': DollarSign,
+  'briefcase': Briefcase,
+  'clipboard-list': ClipboardList,
+  'bell': Bell,
+  'chart-bar': BarChart2,
+  'credit-card': CreditCard,
+  'package': Package,
+  'shopping-cart': ShoppingCart,
+  'tag': TagIcon,
+  'truck': Truck,
+  'map-pin': MapPin,
+  'phone': Phone,
+  'mail': Mail,
+  'globe': Globe,
+  'home': Home,
+  'info': Info,
+  'help-circle': HelpCircle,
+  'book': Book,
+  'folder': Folder,
+  'database': Database,
+  'server': Server,
+  'cloud': Cloud,
+  'code': Code,
+  'terminal': Terminal,
+  'layers': Layers,
+  'grid': Grid,
+  'list': List,
+  'table': Table2,
+  'calendar': Calendar,
+  'clock': Clock,
+  'map': Map,
+  'compass': Compass,
+  'target': Target,
+  'award': AwardIconLucide,
+  'gift': Gift,
+  'heart': HeartIcon,
+  'star': StarIcon,
+  'sun': SunIcon,
+  'moon': MoonIcon,
+  'cloud-rain': CloudRain,
+  'zap': Zap,
+  'coffee': CoffeeIcon,
+  'feather': Feather,
+  'anchor': Anchor,
+  'at': AtSign,
+  'battery-charging': BatteryCharging,
+  'bell-ring': BellRing,
+  'bookmark': Bookmark,
+  'box': Box,
+  'camera': Camera,
+  'car': Car,
+  'cast': Cast,
+  'check-circle': CheckCircle2,
+  'chevron-down': ChevronDown,
+  'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
+  'chevron-up': ChevronUp,
+  'chrome': Chrome,
+  'circle-dollar-sign': CircleDollarSign,
+  'circle-help': CircleHelp,
+  'circle-minus': CircleMinus,
+  'circle-plus': CirclePlus,
+  'clock-4': Clock4,
+  'cloud-drizzle': CloudDrizzle,
+  'cloud-fog': CloudFog,
+  'cloud-hail': CloudHail,
+  'cloud-lightning': CloudLightning,
+  'cloud-snow': CloudSnow,
+  'cloud-sun': CloudSun,
+  'code-2': Code2,
+  'codesandbox': Codesandbox,
+  'command': Command,
+  'download': Download,
+  'dribbble': Dribbble,
+  'droplet': Droplet,
+  'edit': Edit,
+  'external-link': ExternalLink,
+  'eye': Eye,
+  'facebook': Facebook,
+  'figma': Figma,
+  'file': File,
+  'file-archive': FileArchive,
+  'file-audio': FileAudio,
+  'file-code': FileCode,
+  'file-heart': FileHeart,
+  'file-image': FileImage,
+  'file-json': FileJson,
+  'file-key': FileKey,
+  'file-minus': FileMinus,
+  'file-music': FileMusic,
+  'file-output': FileOutput,
+  'file-plus': FilePlus,
+  'file-question': FileQuestion,
+  'file-search': FileSearch,
+  'file-spreadsheet': FileSpreadsheet,
+  'file-stack': FileStack,
+  'file-symlink': FileSymlink,
+  'file-terminal': FileTerminal,
+  'file-type': FileType,
+  'file-up': FileUp,
+  'file-video': FileVideo,
+  'file-warning': FileWarning,
+  'file-x': FileX,
+  'filter': Filter,
+  'flag': Flag,
+  'folder-archive': FolderArchive,
+  'folder-dot': FolderDot,
+  'folder-git-2': FolderGit2,
+  'folder-git': FolderGit,
+  'folder-open': FolderOpen,
+  'folder-root': FolderRoot,
+  'folder-search': FolderSearch,
+  'folder-symlink': FolderSymlink,
+  'folder-tree': FolderTree,
+  'frown': Frown,
+  'gamepad-2': Gamepad2,
+  'gauge': Gauge,
+  'gem': Gem,
+  'github': Github,
+  'gitlab': Gitlab,
+  'graduation-cap': GraduationCap,
+  'handshake': Handshake,
+  'hard-drive': HardDrive,
+  'hash': Hash,
+  'headphones': Headphones,
+  'image': Image,
+  'inbox': Inbox,
+  'instagram': Instagram,
+  'key': Key,
+  'keyboard': Keyboard,
+  'lamp': Lamp,
+  'laptop': Laptop,
+  'life-buoy': LifeBuoy,
+  'lightbulb': Lightbulb,
+  'link-2': Link2,
+  'linkedin': Linkedin,
+  'list-icon': ListIcon,
+  'loader': Loader,
+  'lock': Lock,
+  'log-in': LogIn,
+  'log-out': LogOut,
+  'mail-icon': MailIcon,
+  'map-icon': MapIcon,
+  'maximize': Maximize,
+  'megaphone': Megaphone,
+  'menu': Menu,
+  'message-circle': MessageCircle,
+  'message-square-icon': MessageSquareIcon,
+  'mic': Mic,
+  'minimize': Minimize,
+  'minus': Minus,
+  'monitor': Monitor,
+  'more-horizontal': MoreHorizontal,
+  'more-vertical': MoreVertical,
+  'mountain': Mountain,
+  'mouse': Mouse,
+  'music': Music,
+  'navigation': Navigation,
+  'newspaper': Newspaper,
+  'octagon': Octagon,
+  'package-2': Package2,
+  'package-icon': PackageIcon,
+  'paperclip': Paperclip,
+  'pause': Pause,
+  'pen-tool': PenTool,
+  'percent': Percent,
+  'phone-call': PhoneCall,
+  'phone-forwarded': PhoneForwarded,
+  'phone-incoming': PhoneIncoming,
+  'phone-missed': PhoneMissed,
+  'phone-off': PhoneOff,
+  'phone-outgoing': PhoneOutgoing,
+  'phone-outgoing-icon': PhoneOutgoingIcon,
+  'picture-in-picture': PictureInPicture,
+  'pie-chart': PieChart,
+  'pin': Pin,
+  'play': Play,
+  'plus': Plus,
+  'pocket': Pocket,
+  'power': Power,
+  'printer': Printer,
+  'puzzle': Puzzle,
+  'qr-code': QrCode,
+  'radio': Radio,
+  'receipt': Receipt,
+  'rectangle-horizontal': RectangleHorizontal,
+  'rectangle-vertical': RectangleVertical,
+  'redo': Redo,
+  'refresh-ccw': RefreshCcw,
+  'repeat': Repeat,
+  'reply': Reply,
+  'rocket': Rocket,
+  'rss': Rss,
+  'save': Save,
+  'scale': Scale,
+  'scan': Scan,
+  'scissors': Scissors,
+  'search': Search,
+  'send': Send,
+  'server-icon': ServerIcon,
+  'settings-icon': SettingsIcon,
+  'share': Share,
+  'shield': Shield,
+  'shopping-bag': ShoppingBag,
+  'shopping-cart-icon': ShoppingCartIcon,
+  'shuffle': Shuffle,
+  'sidebar-close': SidebarClose,
+  'sidebar-open': SidebarOpen,
+  'sigma': Sigma,
+  'siren': Siren,
+  'skip-back': SkipBack,
+  'skip-forward': SkipForward,
+  'slack': Slack,
+  'slash': Slash,
+  'sliders-horizontal': SlidersHorizontal,
+  'sliders-vertical': SlidersVertical,
+  'smile': Smile,
+  'snowflake': Snowflake,
+  'sort-asc': SortAsc,
+  'sort-desc': SortDesc,
+  'speaker': Speaker,
+  'square': Square,
+  'sticker': Sticker,
+  'stop-circle': StopCircle,
+  'store': Store,
+  'table-icon': TableIcon,
+  'thermometer': Thermometer,
+  'thumbs-down': ThumbsDown,
+  'thumbs-up': ThumbsUp,
+  'ticket': Ticket,
+  'timer': Timer,
+  'toggle-left': ToggleLeft,
+  'toggle-right': ToggleRight,
+  'tornado': Tornado,
+  'train': Train,
+  'trash': Trash,
+  'trello': Trello,
+  'trending-down': TrendingDown,
+  'trending-up': TrendingUp,
+  'triangle': Triangle,
+  'triangle-alert-icon': TriangleAlertIcon,
+  'truck-icon': TruckIcon,
+  'tv': Tv,
+  'twitch': Twitch,
+  'twitter': Twitter,
+  'type': Type,
+  'umbrella': Umbrella,
+  'underline': Underline,
+  'undo': Undo,
+  'unlock': Unlock,
+  'upload': Upload,
+  'upload-cloud': UploadCloud,
+  'user': User,
+  'user-check': UserCheck,
+  'user-minus': UserMinus,
+  'user-plus': UserPlus,
+  'user-x': UserX,
+  'users-icon': UsersIcon,
+  'utensils': Utensils,
+  'verified': Verified,
+  'video': Video,
+  'video-off': VideoOff,
+  'view': View,
+  'voicemail': Voicemail,
+  'volume': Volume,
+  'volume-1': Volume1,
+  'volume-2': Volume2,
+  'volume-x': VolumeX,
+  'wallet': Wallet,
+  'wand-2': Wand2,
+  'watch': Watch,
+  'waves': Waves,
+  'webcam': Webcam,
+  'wifi': Wifi,
+  'wifi-off': WifiOff,
+  'wind': Wind,
+  'x': X,
+  'youtube': Youtube,
+  'zap-icon': ZapIcon,
+  'zoom-in': ZoomIn,
+  'zoom-out': ZoomOut,
+  'address-book': AddressBook,
+  'funnel': Funnel,
+  'undo-2': Undo2,
+  'calendar-x': CalendarX,
+  'mail-open': MailOpen,
+  'whatsapp': Whatsapp,
+  'list-checks': ListChecks,
+};
 
 
-// Function to get Lucide icon component from Font Awesome class
-const getLucideIcon = (faClass?: string) => {
-  if (!faClass) return Circle; // Default icon
+// Function to get Lucide icon component from the icon key
+const getLucideIcon = (iconKey?: string) => {
+  if (!iconKey) return Circle; // Default icon if key is missing
 
-  // Extract the icon name part (e.g., 'users' from 'fas fa-users')
-  const nameMatch = faClass.match(/fa-([^ ]+)/);
-  if (nameMatch && nameMatch[1]) {
-    const iconName = nameMatch[1];
-    // Look up in the map, return default if not found
-    return iconMap[iconName] || Circle;
-  }
-
-  return Circle; // Default icon if class format is unexpected
+  // Look up in the map, return default if key not found
+  return iconMap[iconKey] || Circle;
 };
 
 export const Sidebar: React.FC = () => {
@@ -388,7 +377,7 @@ export const Sidebar: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('north_clinic_crm_menu')
-          .select('*')
+          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo') // Select the new icon_key column
           .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
           .order('ordem', { ascending: true }); // Order by 'ordem'
 
@@ -514,7 +503,9 @@ export const Sidebar: React.FC = () => {
         )}
 
         {menuItems.map(item => {
-            const IconComponent = getLucideIcon(item.icon_class);
+            // Use icon_key first, fallback to parsing icon_class if icon_key is missing
+            const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
+
             // Determine the target path for react-router-dom Link
             // This is a placeholder logic and needs to be refined based on your routing strategy
             // For now, only dashboard is a real route. Others will be placeholders.
@@ -533,7 +524,7 @@ export const Sidebar: React.FC = () => {
                         // Updated colors for external links
                         className="flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200"
                     >
-                        <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
+                        {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
                         <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
                     </a>
                  );
@@ -546,7 +537,7 @@ export const Sidebar: React.FC = () => {
                         // Updated colors for internal links and active state
                         className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
                     >
-                        <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
+                        {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
                         <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
                     </Link>
                 );
