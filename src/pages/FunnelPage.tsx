@@ -111,11 +111,13 @@ function openLeadDetails(phone: number | string | null) {
 }
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for webhooks)
+// UPDATED: Corrected mapping based on user's clarification
 const menuIdToFunnelIdMap: { [key: number]: number } = {
     4: 1, // Funil de Vendas
-    5: 5, // Clientes (usando funnel_id 5)
+    5: 2, // Funil de Recuperação
     6: 3, // Funil de Faltas
     7: 4, // Funil Compareceram
+    8: 5, // Clientes
     // Add other menu item IDs and their corresponding funnel IDs here as needed
 };
 
@@ -149,6 +151,10 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     // --- End Debugging Logs ---
 
 
+    // Check if the menuIdParam corresponds to a valid funnel ID
+    // This check is now after hook declarations
+    const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForWebhook === undefined;
+
     // Fetch Stages
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['funnelStages', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
@@ -164,7 +170,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             if (!Array.isArray(data)) throw new Error("Resposta de etapas inválida: não é um array.");
             return data.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -189,7 +195,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
             return data; // Should be an array with one item
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -211,7 +217,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
             return data;
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 60 * 1000, // 1 minute for leads
     });
 
@@ -301,8 +307,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ID ${funnelIdForWebhook}`; // Use funnelIdForWebhook for default name display
 
-    // Check if the menuIdParam corresponds to a valid funnel ID *after* hooks
-    if (!clinicData || isNaN(menuId) || funnelIdForWebhook === undefined) {
+    // Display the error message if the funnel is invalid
+    if (isInvalidFunnel) {
         console.error("FunnelPage: Error condition met after hooks.", {
             clinicData: clinicData,
             menuId: menuId,
