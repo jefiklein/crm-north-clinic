@@ -86,9 +86,10 @@ const App = () => {
               }
             >
               {/* Nested routes within the Layout */}
-              <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard */}
+              <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard (ID 1) */}
               {/* Specific routes for menu items */}
-              <Route path="2" element={<ClientesPage clinicData={clinicData} />} /> {/* Route for Clientes page (assuming menu item ID 2) */}
+              {/* Route for the Clientes page - Using menu item ID 8 */}
+              <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
 
               {/* Catch-all for any other path under /dashboard */}
               {/* This must be the LAST route defined within the /dashboard group */}
