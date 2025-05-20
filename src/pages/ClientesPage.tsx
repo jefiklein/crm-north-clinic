@@ -309,7 +309,11 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
     // Conditional rendering based on clinicData availability
     if (!clinicData) {
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+        return (
+            <div className="text-center text-red-500 p-6">
+                Erro: Dados da clínica não disponíveis. Faça login novamente.
+            </div>
+        );
     }
 
 
