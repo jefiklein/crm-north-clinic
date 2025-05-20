@@ -256,17 +256,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
                 // Check for the specific properties
                 const agendamentos = result.sum_total_agendamentos;
-                const realizados = result.sum_total_realizados;
+                const realizados = result.sum_total_realizadas;
+
+                console.log("DashboardPage: Checking appointment keys. agendamentos:", agendamentos, "realizados:", realizados); // Added log
+                console.log("DashboardPage: Type of agendamentos:", typeof agendamentos, "Type of realizados:", typeof realizados); // Added log
+                console.log("DashboardPage: Result object keys:", Object.keys(result)); // Added log
 
                 if (agendamentos === undefined || realizados === undefined) {
-                     throw new Error(`Resposta inesperada do webhook de avaliações: Objeto não contém as chaves 'sum_total_agendamentos' ou 'sum_total_realizados'. Chaves encontradas: ${Object.keys(result).join(', ')}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                     console.error("DashboardPage: Keys are undefined despite data log. Result object:", result); // Added log inside error block
+                     throw new Error(`Resposta inesperada do webhook de avaliações: Objeto não contém as chaves 'sum_total_agendamentos' ou 'sum_total_realizadas'. Chaves encontradas: ${Object.keys(result).join(', ')}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
                 }
 
                 // Ensure they can be converted to numbers
                  const numAgendamentos = Number(agendamentos);
                  const numRealizados = Number(realizados);
 
+                 console.log("DashboardPage: Checking appointment values. numAgendamentos:", numAgendamentos, "numRealizados:", numRealizados); // Added log
+
                  if (isNaN(numAgendamentos) || isNaN(numRealizados)) {
+                     console.error("DashboardPage: Values are NaN despite data log. Agendados:", agendamentos, "Realizados:", realizados); // Added log inside error block
                      throw new Error(`Resposta inesperada do webhook de avaliações: Os valores para 'sum_total_agendamentos' ou 'sum_total_realizados' não são números. Recebeu: Agendados=${agendamentos}, Realizados=${realizados}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
                  }
 
