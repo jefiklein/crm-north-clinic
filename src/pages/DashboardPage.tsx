@@ -26,7 +26,6 @@ interface LeadsData {
 }
 
 // Define the structure for the appointments data received from the new webhook
-// Updated structure based on the provided response format
 interface AppointmentsData {
     total_agendamentos: number;
     total_realizadas: number;
@@ -61,11 +60,7 @@ const LEADS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c12975e
 const APPOINTMENTS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/72d5e8a4-eb58-4cdd-a784-5f8cfc9ee739'; // New webhook URL for appointments
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
-    // Keep simulated data for other cards for now (excluding 'avaliacoes')
-    const [simulatedData, setSimulatedData] = useState({
-        conversoes: '...',
-        mensagens: '...'
-    });
+    // Removed simulated data state
 
     const [remainingBusinessDays, setRemainingBusinessDays] = useState<number>(0);
     useEffect(() => {
@@ -273,17 +268,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         ? salesData.sum_valor_venda / salesData.count_id_north
         : 0; // Handle division by zero
 
-    // Simulate loading data for other cards (Conversões, Mensagens)
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setSimulatedData({
-                conversoes: "18%",
-                mensagens: "532"
-            });
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, []);
+    // Removed simulated data useEffect
 
     if (!clinicData) {
         return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
@@ -359,40 +344,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-
-                {/* Card: Conversões (Still simulated) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <LineChart className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Conversões</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">{simulatedData.conversoes}</div>
-                    </CardContent>
-                </Card>
-
-                {/* Card: Mensagens (Still simulated) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <MessageSquare className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Mensagens</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">{simulatedData.mensagens}</div>
-                    </CardContent>
-                </Card>
-
-                {/* Card: Dias Úteis Restantes */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <CalendarDays className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Dias Úteis Restantes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">{remainingBusinessDays}</div>
-                    </CardContent>
-                </Card>
-
                 {/* Card: Número de Vendas (Fetched) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
@@ -459,6 +410,17 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 }
                             </div>
                         )}
+                    </CardContent>
+                </Card>
+
+                {/* Card: Dias Úteis Restantes */}
+                <Card className="text-center">
+                    <CardHeader className="pb-2">
+                        <CalendarDays className="mx-auto h-8 w-8 text-primary" />
+                        <CardTitle className="text-md font-medium">Dias Úteis Restantes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-primary">{remainingBusinessDays}</div>
                     </CardContent>
                 </Card>
 
