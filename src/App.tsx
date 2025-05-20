@@ -86,7 +86,8 @@ const App = () => {
               }
             >
               {/* Nested routes within the Layout */}
-              <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard (ID 1) */}
+              {/* Use path="" for the default route /dashboard */}
+              <Route path="" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
               {/* Specific routes for menu items */}
               {/* Route for the Clientes page - Using menu item ID 8 */}
               <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
