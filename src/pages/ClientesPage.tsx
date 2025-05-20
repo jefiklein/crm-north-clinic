@@ -1,29 +1,55 @@
-// ... (mantenha todos os imports e interfaces anteriores)
+// ... (mantenha todos os imports anteriores)
 
 const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
-    // ... (mantenha todo o código anterior até o return)
+    // ... (mantenha o estado e outras declarações)
 
-    // Verificação de clinicData movida para dentro do JSX principal
-    if (!clinicData) {
-        return (
-            <div className="text-center text-red-500 p-6">
-                Erro: Dados da clínica não disponíveis. Faça login novamente.
-            </div>
-        );
-    }
+    // Fetch Clients/Leads - Vamos modificar esta parte
+    const { data: clientsData, isLoading: isLoadingClients, error: clientsError } = useQuery<ClientLead[]>({
+        queryKey: ['funnelClients', clinicId, funnelIdForWebhook],
+        queryFn: async () => {
+            if (!clinicId) {
+                console.error('ID da clínica não disponível');
+                throw new Error("ID da clínica não disponível");
+            }
 
-    return (
-        <div className="clientes-container flex flex-col h-full p-6 bg-gray-100">
-            {/* Restante do JSX */}
-            <div className="content-header flex flex-col sm-flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
-                <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Clientes
-                </h1>
-                {/* Restante do conteúdo */}
-            </div>
-            {/* ... */}
-        </div>
-    );
+            console.log('Iniciando chamada ao webhook de clientes...');
+            
+            try {
+                const response = await fetch(CLIENTS_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        funnel_id: funnelIdForWebhook, 
+                        clinic_id: clinicId 
+                    })
+                });
+
+                console.log('Resposta recebida, status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro na resposta:', errorText);
+                    throw new Error(`Erro ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Dados recebidos do webhook:', data);
+                
+                if (!Array.isArray(data)) {
+                    console.error('Dados não são um array:', data);
+                    throw new Error("Formato de resposta inválido");
+                }
+
+                console.log('Número de clientes recebidos:', data.length);
+                return data;
+            } catch (error) {
+                console.error('Erro na chamada ao webhook:', error);
+                throw error;
+            }
+        },
+        enabled: !!clinicId,
+        staleTime: 60 * 1000,
+    });
+
+    // ... (restante do código permanece igual)
 };
-
-export default ClientesPage;
