@@ -7,7 +7,6 @@ import Index from "./pages/Index"; // This will be our Login page
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
 import DashboardPage from "./pages/DashboardPage"; // We will create this
-import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
 import FilaMensagensPage from "./pages/FilaMensagensPage"; // Added import back
 import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
 import FunnelPage from "./pages/FunnelPage"; // Import the new FunnelPage component
@@ -90,14 +89,11 @@ const App = () => {
               {/* Nested routes within the Layout */}
               {/* Use path="" for the default route /dashboard */}
               <Route path="" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
-              {/* Specific routes for menu items */}
-              {/* Route for the Clientes page - Using menu item ID 8 */}
-              <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
               {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
               <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
 
-              {/* Dynamic route for all Funnel Pages */}
-              {/* The :funnelId parameter will be the menu item ID (4, 5, 6, 7) */}
+              {/* Dynamic route for all Funnel Pages, including the one previously for Clients */}
+              {/* The :funnelId parameter will be the menu item ID (4, 5, 6, 7, etc.) */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
 
