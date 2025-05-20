@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign } from "lucide-react"; // Using Lucide React for icons
-import { useQuery } from "@tanstack/react-query"; // Import useQuery
-import { endOfMonth, getDay, isAfter, startOfDay } from 'date-fns'; // Import date-fns functions
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale } from "lucide-react"; // Added Scale icon
+import { useQuery } from "@tanstack/react-query";
+import { endOfMonth, getDay, isAfter, startOfDay } from 'date-fns';
 
-// Define the structure for clinic data (should match the one in App.tsx)
+// Define the structure for clinic data
 interface ClinicData {
   code: string;
   nome: string;
@@ -14,9 +14,15 @@ interface ClinicData {
   id_permissao: number;
 }
 
+// Define the structure for the sales data received from the webhook
+interface SalesData {
+    count_id_north: number;
+    sum_valor_venda: number;
+}
+
 interface DashboardPageProps {
-    clinicData: ClinicData | null; // clinicData is passed from App.tsx via Layout Outlet
-    onLogout: () => void; // onLogout is passed from App.tsx via Layout Outlet
+    clinicData: ClinicData | null;
+    onLogout: () => void;
 }
 
 // Function to calculate remaining business days (Mon-Sat) in the current month
@@ -31,14 +37,12 @@ const calculateRemainingBusinessDays = (): number => {
         if (dayOfWeek !== 0) { // Exclude Sunday
             businessDays++;
         }
-        // Move to the next day
-        currentDate = new Date(currentDate); // Create a new date object to avoid modifying the original
+        currentDate = new Date(currentDate);
         currentDate.setDate(currentDate.getDate() + 1);
     }
     return businessDays;
 };
 
-// Webhook URL for sales data
 const SALES_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/43a4753b-b7c2-48c0-b57a-61ba5256d5b7';
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
@@ -49,15 +53,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         mensagens: '...'
     });
 
-    // Calculate remaining business days on component mount
     const [remainingBusinessDays, setRemainingBusinessDays] = useState<number>(0);
     useEffect(() => {
         setRemainingBusinessDays(calculateRemainingBusinessDays());
     }, []);
 
     // Fetch sales data from webhook using react-query
-    const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery({
-        queryKey: ['salesData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()], // Query key includes dependencies
+    const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<SalesData | null>({ // Specify the expected data type
+        queryKey: ['salesData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
         queryFn: async () => {
             if (!clinicData?.code) {
                 throw new Error("Código da clínica não disponível para buscar dados de vendas.");
@@ -100,16 +103,18 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook:', data);
                 
-                // Verifica se a resposta contém o campo esperado
-                if (data && typeof data === 'object') {
-                    // Tenta encontrar o valor de vendas em diferentes formatos de resposta
-                    const vendas = data.total_vendas || data.vendas || data.total || data.value;
-                    if (vendas !== undefined) {
-                        return vendas;
+                // Expecting an array with one object: [{ "count_id_north": N, "sum_valor_venda": V }]
+                if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object') {
+                    const result = data[0];
+                    if (result.count_id_north !== undefined && result.sum_valor_venda !== undefined) {
+                        return {
+                            count_id_north: Number(result.count_id_north), // Ensure it's a number
+                            sum_valor_venda: Number(result.sum_valor_venda) // Ensure it's a number
+                        } as SalesData;
                     }
                 }
                 
-                throw new Error("Formato de resposta inesperado do webhook");
+                throw new Error("Formato de resposta inesperado do webhook. Esperado: [{ count_id_north: N, sum_valor_venda: V }]");
                 
             } catch (error) {
                 console.error('Erro na chamada ao webhook:', error);
@@ -121,10 +126,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
+    // Calculate Average Ticket
+    const averageTicket = salesData && salesData.count_id_north > 0
+        ? salesData.sum_valor_venda / salesData.count_id_north
+        : 0; // Handle division by zero
 
     // Simulate loading data for other cards
     useEffect(() => {
-        // In a real app, you would fetch this data from your backend
         const timer = setTimeout(() => {
             setDashboardData({
                 leads: "238",
@@ -132,14 +140,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 conversoes: "18%",
                 mensagens: "532"
             });
-        }, 500); // Simulate network delay
+        }, 500);
 
-        return () => clearTimeout(timer); // Cleanup timeout
-    }, []); // Empty dependency array means this runs once on mount
+        return () => clearTimeout(timer);
+    }, []);
 
     if (!clinicData) {
-        // This case should ideally not happen due to ProtectedRoute,
-        // but it's good practice to handle it.
         return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
     }
 
@@ -193,10 +199,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                {/* NEW Card: Dias Úteis Restantes */}
+                {/* Card: Dias Úteis Restantes */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
-                        <CalendarDays className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarDays icon */}
+                        <CalendarDays className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Dias Úteis Restantes</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -204,10 +210,31 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                {/* NEW Card: Vendas */}
+                {/* Card: Número de Vendas */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
-                        <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" /> {/* Using BadgeDollarSign icon */}
+                        <ShoppingCart className="mx-auto h-8 w-8 text-primary" /> {/* ShoppingCart icon for sales count */}
+                        <CardTitle className="text-md font-medium">Número de Vendas (Mês)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingSales ? (
+                            <div className="flex justify-center items-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        ) : salesError ? (
+                            <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
+                        ) : (
+                            <div className="text-2xl font-bold text-primary">
+                                {salesData?.count_id_north !== undefined && salesData.count_id_north !== null ? salesData.count_id_north : 'N/A'}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Card: Total de Vendas (Mês) - Updated to use sum_valor_venda */}
+                <Card className="text-center">
+                    <CardHeader className="pb-2">
+                        <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Total de Vendas (Mês)</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -219,10 +246,33 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
                         ) : (
                             <div className="text-2xl font-bold text-primary">
-                                {/* Format as currency if it's a number, otherwise display raw data */}
-                                {typeof salesData === 'number' ?
-                                    `R$ ${salesData.toFixed(2).replace('.', ',')}` :
-                                    (salesData !== undefined && salesData !== null ? JSON.stringify(salesData) : 'N/A')
+                                {salesData?.sum_valor_venda !== undefined && salesData.sum_valor_venda !== null ?
+                                    `R$ ${salesData.sum_valor_venda.toFixed(2).replace('.', ',')}` :
+                                    'N/A'
+                                }
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                 {/* Card: Ticket Médio */}
+                <Card className="text-center">
+                    <CardHeader className="pb-2">
+                        <Scale className="mx-auto h-8 w-8 text-primary" /> {/* Scale icon for average ticket */}
+                        <CardTitle className="text-md font-medium">Ticket Médio (Mês)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingSales ? (
+                            <div className="flex justify-center items-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        ) : salesError ? (
+                            <div className="text-sm text-destructive">Erro ao carregar ticket médio.</div>
+                        ) : (
+                            <div className="text-2xl font-bold text-primary">
+                                {averageTicket !== undefined && averageTicket !== null ?
+                                    `R$ ${averageTicket.toFixed(2).replace('.', ',')}` :
+                                    'N/A'
                                 }
                             </div>
                         )}
