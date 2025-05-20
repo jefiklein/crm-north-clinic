@@ -279,152 +279,168 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
             <h2 className="text-2xl font-bold text-primary mb-4">Bem-vindo ao CRM {clinicData.nome}</h2>
             <p className="text-gray-700 mb-6">Utilize o menu lateral para navegar pelas funcionalidades disponíveis para seu acesso.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Card: Total de Leads - Now fetched from webhook */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <Users className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Total de Leads</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                         {isLoadingLeads ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : leadsError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar leads.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {/* Display the count_remoteJid */}
-                                {leadsData?.count_remoteJid !== undefined && leadsData.count_remoteJid !== null ? leadsData.count_remoteJid : 'N/A'}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            {/* Section: Leads and Appointments */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                <h3 className="text-xl font-semibold text-blue-800 mb-4">Resumo de Leads e Avaliações</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 cards */}
+                    {/* Card: Total de Leads - Now fetched from webhook */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <Users className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Total de Leads</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingLeads ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : leadsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar leads.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {/* Display the count_remoteJid */}
+                                    {leadsData?.count_remoteJid !== undefined && leadsData.count_remoteJid !== null ? leadsData.count_remoteJid : 'N/A'}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                {/* Card: Avaliações Agendadas (Fetched) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <CalendarClock className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarClock icon */}
-                        <CardTitle className="text-md font-medium">Avaliações Agendadas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingAppointments ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : appointmentsError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {appointmentsData?.total_agendamentos !== undefined && appointmentsData.total_agendamentos !== null ? appointmentsData.total_agendamentos : 'N/A'}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                    {/* Card: Avaliações Agendadas (Fetched) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <CalendarClock className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarClock icon */}
+                            <CardTitle className="text-md font-medium">Avaliações Agendadas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingAppointments ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : appointmentsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {appointmentsData?.total_agendamentos !== undefined && appointmentsData.total_agendamentos !== null ? appointmentsData.total_agendamentos : 'N/A'}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                 {/* Card: Avaliações Realizadas (Fetched) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <CalendarCheck className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarCheck icon */}
-                        <CardTitle className="text-md font-medium">Avaliações Realizadas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingAppointments ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : appointmentsError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {appointmentsData?.total_realizadas !== undefined && appointmentsData.total_realizadas !== null ? appointmentsData.total_realizadas : 'N/A'}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Card: Número de Vendas (Fetched) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <ShoppingCart className="mx-auto h-8 w-8 text-primary" /> {/* ShoppingCart icon for sales count */}
-                        <CardTitle className="text-md font-medium">Número de Vendas (Mês)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingSales ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : salesError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {salesData?.count_id_north !== undefined && salesData.count_id_north !== null ? salesData.count_id_north : 'N/A'}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Card: Total de Vendas (Mês) - Fetched */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Total de Vendas (Mês)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingSales ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : salesError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {salesData?.sum_valor_venda !== undefined && salesData.sum_valor_venda !== null ?
-                                    `R$ ${salesData.sum_valor_venda.toFixed(2).replace('.', ',')}` :
-                                    'N/A'
-                                }
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                 {/* Card: Ticket Médio (Calculated from fetched sales) */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <Scale className="mx-auto h-8 w-8 text-primary" /> {/* Scale icon for average ticket */}
-                        <CardTitle className="text-md font-medium">Ticket Médio (Mês)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingSales ? (
-                            <div className="flex justify-center items-center">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : salesError ? (
-                            <div className="text-sm text-destructive">Erro ao carregar ticket médio.</div>
-                        ) : (
-                            <div className="text-2xl font-bold text-primary">
-                                {averageTicket !== undefined && averageTicket !== null ?
-                                    `R$ ${averageTicket.toFixed(2).replace('.', ',')}` :
-                                    'N/A'
-                                }
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Card: Dias Úteis Restantes */}
-                <Card className="text-center">
-                    <CardHeader className="pb-2">
-                        <CalendarDays className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Dias Úteis Restantes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">{remainingBusinessDays}</div>
-                    </CardContent>
-                </Card>
-
+                    {/* Card: Avaliações Realizadas (Fetched) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <CalendarCheck className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarCheck icon */}
+                            <CardTitle className="text-md font-medium">Avaliações Realizadas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingAppointments ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : appointmentsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {appointmentsData?.total_realizadas !== undefined && appointmentsData.total_realizadas !== null ? appointmentsData.total_realizadas : 'N/A'}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
+
+            {/* Section: Sales */}
+            <div className="bg-green-50 p-4 rounded-lg mb-6">
+                <h3 className="text-xl font-semibold text-green-800 mb-4">Resumo de Vendas</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 cards */}
+                    {/* Card: Número de Vendas (Fetched) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <ShoppingCart className="mx-auto h-8 w-8 text-primary" /> {/* ShoppingCart icon for sales count */}
+                            <CardTitle className="text-md font-medium">Número de Vendas (Mês)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingSales ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : salesError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.count_id_north !== undefined && salesData.count_id_north !== null ? salesData.count_id_north : 'N/A'}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Card: Total de Vendas (Mês) - Fetched */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Total de Vendas (Mês)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingSales ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : salesError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar vendas.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.sum_valor_venda !== undefined && salesData.sum_valor_venda !== null ?
+                                        `R$ ${salesData.sum_valor_venda.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Card: Ticket Médio (Calculated from fetched sales) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <Scale className="mx-auto h-8 w-8 text-primary" /> {/* Scale icon for average ticket */}
+                            <CardTitle className="text-md font-medium">Ticket Médio (Mês)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingSales ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : salesError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar ticket médio.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {averageTicket !== undefined && averageTicket !== null ?
+                                        `R$ ${averageTicket.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Section: Contexto Mensal */}
+            <div className="bg-yellow-50 p-4 rounded-lg">
+                <h3 className="text-xl font-semibold text-yellow-800 mb-4">Contexto Mensal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Can use a different grid or just one card */}
+                    {/* Card: Dias Úteis Restantes */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <CalendarDays className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Dias Úteis Restantes</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-primary">{remainingBusinessDays}</div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
         </div>
     );
 };
