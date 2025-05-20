@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Index from './pages/Index';
-import DashboardPage from './pages/DashboardPage';
-import FilaMensagensPage from './pages/FilaMensagensPage';
-import FunnelPage from './pages/FunnelPage';
-import ClientesPage from './pages/ClientesPage';
-import NotFound from './pages/NotFound';
-import UnderConstructionPage from './pages/UnderConstructionPage';
-import Layout from './components/Layout';
-import { Toaster } from "@/components/ui/toaster"; // Import Toaster
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Index from "./pages/Index"; // This will be our Login page
+import NotFound from "./pages/NotFound";
+import Layout from "./components/Layout"; // Our new layout component
+import DashboardPage from "./pages/DashboardPage"; // We will create this
+import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
+import FilaMensagensPage from "./pages/FilaMensagensPage"; // Added import back
+import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
+import FunnelPage from "./pages/FunnelPage"; // Import the new FunnelPage component
 
-// Define a estrutura para os dados da clínica
+import React, { useState, useEffect } from 'react';
+
+// Define the structure for clinic data
 interface ClinicData {
   code: string;
   nome: string;
@@ -20,15 +24,22 @@ interface ClinicData {
   id_permissao: number;
 }
 
-function App() {
-  // Estado para armazenar os dados da clínica logada
+const queryClient = new QueryClient();
+
+const App = () => {
+  // State to hold clinic data and manage login status
   const [clinicData, setClinicData] = useState<ClinicData | null>(() => {
-    // Tenta carregar os dados da clínica do localStorage ao iniciar
-    const savedClinicData = localStorage.getItem('clinicData');
-    return savedClinicData ? JSON.parse(savedClinicData) : null;
+    // Initialize state from localStorage on mount
+    const savedData = localStorage.getItem('clinicData');
+    try {
+      return savedData ? JSON.parse(savedData) : null;
+    } catch (e) {
+      console.error("Failed to parse clinicData from localStorage", e);
+      return null;
+    }
   });
 
-  // Efeito para salvar clinicData no localStorage sempre que ele mudar
+  // Effect to update localStorage whenever clinicData changes
   useEffect(() => {
     if (clinicData) {
       localStorage.setItem('clinicData', JSON.stringify(clinicData));
@@ -37,57 +48,71 @@ function App() {
     }
   }, [clinicData]);
 
-
-  // Função para lidar com o login bem-sucedido
+  // Function to handle successful login
   const handleLogin = (data: ClinicData) => {
     setClinicData(data);
   };
 
-  // Função para lidar com o logout
+  // Function to handle logout
   const handleLogout = () => {
     setClinicData(null);
   };
 
+  // Simple component to protect routes
+  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    if (!clinicData || !clinicData.code) {
+      // If not logged in, redirect to the login page
+      return <Navigate to="/" replace />;
+    }
+    // If logged in, render the children (the route component)
+    return children;
+  };
+
   return (
-    <Router>
-      <Routes>
-        {/* Rota para a página de login */}
-        <Route path="/" element={
-          clinicData ? ( // Se já estiver logado, redireciona para o dashboard
-            <Navigate to="/dashboard" replace />
-          ) : ( // Se não estiver logado, mostra a página de login
-            <Index onLogin={handleLogin} />
-          )
-        } />
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Login Page - Renders if not logged in */}
+            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Index onLogin={handleLogin} />} />
 
-        {/* Rotas protegidas que usam o Layout */}
-        <Route element={
-          clinicData ? ( // Se estiver logado, mostra o Layout
-            <Layout clinicData={clinicData} onLogout={handleLogout} />
-          ) : ( // Se não estiver logado, redireciona para a página de login
-            <Navigate to="/" replace />
-          )
-        }>
-          {/* Rotas aninhadas dentro do Layout */}
-          {/* Passamos clinicData como prop para as páginas que precisam */}
-          <Route path="/dashboard" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
-          {/* A rota /dashboard/:id não parece ser usada para carregar dados diferentes,
-              então podemos removê-la ou mantê-la redirecionando para /dashboard se necessário.
-              Por enquanto, vamos mantê-la, mas a DashboardPage só usará clinicData. */}
-          <Route path="/dashboard/:id" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
-          <Route path="/fila-mensagens" element={<FilaMensagensPage clinicData={clinicData} />} />
-          {/* A página de Funil precisa do ID do funil E dos dados da clínica */}
-          <Route path="/funil/:funnelId" element={<FunnelPage clinicData={clinicData} />} />
-          <Route path="/clientes" element={<ClientesPage clinicData={clinicData} />} />
-          <Route path="/under-construction" element={<UnderConstructionPage />} />
-        </Route>
+            {/* Protected Routes - Require login */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout /> {/* Layout contains Sidebar, Header, and Outlet */}
+                </ProtectedRoute>
+              }
+            >
+              {/* Nested routes within the Layout */}
+              {/* Use path="" for the default route /dashboard */}
+              <Route path="" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
+              {/* Specific routes for menu items */}
+              {/* Route for the Clientes page - Using menu item ID 8 */}
+              <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
+              {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
+              <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
 
-        {/* Rota para 404 - Página não encontrada */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <Toaster /> {/* Adiciona o Toaster para exibir as notificações */}
-    </Router>
+              {/* Dynamic route for all Funnel Pages */}
+              {/* The :funnelId parameter will be the menu item ID (4, 5, 6, 7) */}
+              <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
+
+
+              {/* Catch-all for any other path under /dashboard */}
+              {/* This must be the LAST route defined within the /dashboard group */}
+              <Route path="*" element={<UnderConstructionPage />} />
+            </Route>
+
+            {/* Catch-all route for 404 outside of /dashboard */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
-}
+};
 
 export default App;
