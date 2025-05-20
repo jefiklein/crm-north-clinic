@@ -26,9 +26,10 @@ interface LeadsData {
 }
 
 // Define the structure for the appointments data received from the new webhook
+// Updated structure based on the provided response format
 interface AppointmentsData {
-    agendadas: number; // Assuming the webhook returns a field named 'agendadas'
-    realizadas: number; // Assuming the webhook returns a field named 'realizadas'
+    total_agendamentos: number;
+    total_realizadas: number;
 }
 
 
@@ -246,15 +247,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de avaliações:', data);
                 
-                // Assuming the response is an array with one object: [{ "agendadas": N, "realizadas": M }]
-                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].agendadas !== undefined && data[0].realizadas !== undefined) {
+                // Expecting an array with two objects: [{ "total_agendamentos": N }, { "total_realizadas": M }]
+                 if (Array.isArray(data) && data.length === 2 && typeof data[0] === 'object' && typeof data[1] === 'object' && data[0].total_agendamentos !== undefined && data[1].total_realizadas !== undefined) {
                     return {
-                        agendadas: Number(data[0].agendadas), // Ensure it's a number
-                        realizadas: Number(data[0].realizadas) // Ensure it's a number
+                        total_agendamentos: Number(data[0].total_agendamentos), // Ensure it's a number
+                        total_realizadas: Number(data[1].total_realizadas) // Ensure it's a number
                     } as AppointmentsData;
                 }
                 
-                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ agendadas: N, realizadas: M }]");
+                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ total_agendamentos: N }, { total_realizadas: M }]");
                 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de avaliações:', error);
@@ -331,7 +332,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
                         ) : (
                             <div className="text-2xl font-bold text-primary">
-                                {appointmentsData?.agendadas !== undefined && appointmentsData.agendadas !== null ? appointmentsData.agendadas : 'N/A'}
+                                {appointmentsData?.total_agendamentos !== undefined && appointmentsData.total_agendamentos !== null ? appointmentsData.total_agendamentos : 'N/A'}
                             </div>
                         )}
                     </CardContent>
@@ -352,7 +353,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
                         ) : (
                             <div className="text-2xl font-bold text-primary">
-                                {appointmentsData?.realizadas !== undefined && appointmentsData.realizadas !== null ? appointmentsData.realizadas : 'N/A'}
+                                {appointmentsData?.total_realizadas !== undefined && appointmentsData.total_realizadas !== null ? appointmentsData.total_realizadas : 'N/A'}
                             </div>
                         )}
                     </CardContent>
