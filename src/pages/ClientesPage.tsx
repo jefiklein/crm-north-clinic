@@ -82,11 +82,11 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
             console.log(`Fetching clients for clinic ID: ${clinicId} using webhook ${CLIENTS_WEBHOOK_URL}`);
 
-            // Call the webhook with clinic_id
+            // Call the webhook with clinic_id AND funnel_id
             const response = await fetch(CLIENTS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ clinic_id: clinicId })
+                body: JSON.stringify({ clinic_id: clinicId, funnel_id: 5 }) // Added funnel_id: 5
             });
 
             console.log('Clients webhook response:', { status: response.status, statusText: response.statusText });
@@ -107,9 +107,7 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
             const data = await response.json();
             if (!Array.isArray(data)) {
                  console.warn("API Clientes não retornou array:", data);
-                 // Depending on the webhook's expected behavior for no clients,
-                 // you might return [] or throw an error. Returning [] seems safer.
-                 if (data === null) return []; // Treat null response as empty
+                 if (data === null) return [];
                  throw new Error("Resposta inesperada API Clientes.");
             }
             console.log("Client list received:", data.length, "items");
@@ -124,8 +122,6 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
-
-    // Removed the conditional rendering for the configuration message
 
     return (
         <div className="clientes-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6 h-full flex flex-col">
