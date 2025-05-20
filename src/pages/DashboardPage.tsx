@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale } from "lucide-react"; // Added Scale icon
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart } from "lucide-react"; // Added CalendarClock and CalendarHeart icons
 import { useQuery } from "@tanstack/react-query";
 import { endOfMonth, getDay, isAfter, startOfDay } from 'date-fns';
 
@@ -22,7 +22,13 @@ interface SalesData {
 
 // Define the structure for the leads data received from the webhook
 interface LeadsData {
-    count_remoteJid: number; // Updated structure based on the provided response
+    count_remoteJid: number;
+}
+
+// Define the structure for the appointments data received from the new webhook
+interface AppointmentsData {
+    agendadas: number; // Assuming the webhook returns a field named 'agendadas'
+    realizadas: number; // Assuming the webhook returns a field named 'realizadas'
 }
 
 
@@ -50,12 +56,12 @@ const calculateRemainingBusinessDays = (): number => {
 };
 
 const SALES_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/43a4753b-b7c2-48c0-b57a-61ba5256d5b7';
-const LEADS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c12975eb-6e96-4a61-b19c-5e47b62ca642'; // New webhook URL for leads
+const LEADS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c12975eb-6e96-4a61-b19c-5e47b62ca642';
+const APPOINTMENTS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/72d5e8a4-eb58-4cdd-a784-5f8cfc9ee739'; // New webhook URL for appointments
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
-    // Keep simulated data for other cards for now
+    // Keep simulated data for other cards for now (excluding 'avaliacoes')
     const [simulatedData, setSimulatedData] = useState({
-        avaliacoes: '...',
         conversoes: '...',
         mensagens: '...'
     });
@@ -66,7 +72,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     }, []);
 
     // Fetch sales data from webhook using react-query
-    const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<SalesData | null>({ // Specify the expected data type
+    const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<SalesData | null>({
         queryKey: ['salesData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
         queryFn: async () => {
             if (!clinicData?.code) {
@@ -134,7 +140,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     });
 
     // Fetch leads data from webhook using react-query
-    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({ // Specify expected data type
+    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({
         queryKey: ['leadsData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
         queryFn: async () => {
             if (!clinicData?.code) {
@@ -195,29 +201,90 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
+    // Fetch appointments data from webhook using react-query
+    const { data: appointmentsData, isLoading: isLoadingAppointments, error: appointmentsError } = useQuery<AppointmentsData | null>({
+        queryKey: ['appointmentsData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
+        queryFn: async () => {
+            if (!clinicData?.code) {
+                throw new Error("Código da clínica não disponível para buscar dados de avaliações.");
+            }
+            
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+
+            console.log(`Chamando webhook de avaliações para:`, {
+                clinic_code: clinicData.code,
+                mes: currentMonth,
+                ano: currentYear
+            });
+
+            try {
+                const response = await fetch(APPOINTMENTS_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        clinic_code: clinicData.code,
+                        mes: currentMonth,
+                        ano: currentYear
+                    })
+                });
+
+                console.log('Resposta do webhook de avaliações:', {
+                    status: response.status,
+                    statusText: response.statusText
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Appointments webhook error response:", errorText);
+                    throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Dados recebidos do webhook de avaliações:', data);
+                
+                // Assuming the response is an array with one object: [{ "agendadas": N, "realizadas": M }]
+                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].agendadas !== undefined && data[0].realizadas !== undefined) {
+                    return {
+                        agendadas: Number(data[0].agendadas), // Ensure it's a number
+                        realizadas: Number(data[0].realizadas) // Ensure it's a number
+                    } as AppointmentsData;
+                }
+                
+                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ agendadas: N, realizadas: M }]");
+                
+            } catch (error) {
+                console.error('Erro na chamada ao webhook de avaliações:', error);
+                throw error;
+            }
+        },
+        enabled: !!clinicData?.code,
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
 
     // Calculate Average Ticket
     const averageTicket = salesData && salesData.count_id_north > 0
         ? salesData.sum_valor_venda / salesData.count_id_north
         : 0; // Handle division by zero
 
-    // Simulate loading data for other cards (Avaliações, Conversões, Mensagens)
+    // Simulate loading data for other cards (Conversões, Mensagens)
     useEffect(() => {
-        // In a real app, you would fetch this data from your backend
         const timer = setTimeout(() => {
             setSimulatedData({
-                avaliacoes: "42",
                 conversoes: "18%",
                 mensagens: "532"
             });
-        }, 500); // Simulate network delay
+        }, 500);
 
-        return () => clearTimeout(timer); // Cleanup timeout
-    }, []); // Empty dependency array means this runs once on mount
+        return () => clearTimeout(timer);
+    }, []);
 
     if (!clinicData) {
-        // This case should ideally not happen due to ProtectedRoute,
-        // but it's good practice to handle it.
         return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
     }
 
@@ -249,16 +316,48 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                {/* Card: Avaliações (Still simulated) */}
+                {/* Card: Avaliações Agendadas (Fetched) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
-                        <CalendarCheck className="mx-auto h-8 w-8 text-primary" />
-                        <CardTitle className="text-md font-medium">Avaliações</CardTitle>
+                        <CalendarClock className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarClock icon */}
+                        <CardTitle className="text-md font-medium">Avaliações Agendadas</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{simulatedData.avaliacoes}</div>
+                        {isLoadingAppointments ? (
+                            <div className="flex justify-center items-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        ) : appointmentsError ? (
+                            <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
+                        ) : (
+                            <div className="text-2xl font-bold text-primary">
+                                {appointmentsData?.agendadas !== undefined && appointmentsData.agendadas !== null ? appointmentsData.agendadas : 'N/A'}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
+
+                 {/* Card: Avaliações Realizadas (Fetched) */}
+                <Card className="text-center">
+                    <CardHeader className="pb-2">
+                        <CalendarCheck className="mx-auto h-8 w-8 text-primary" /> {/* Using CalendarCheck icon */}
+                        <CardTitle className="text-md font-medium">Avaliações Realizadas</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingAppointments ? (
+                            <div className="flex justify-center items-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        ) : appointmentsError ? (
+                            <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
+                        ) : (
+                            <div className="text-2xl font-bold text-primary">
+                                {appointmentsData?.realizadas !== undefined && appointmentsData.realizadas !== null ? appointmentsData.realizadas : 'N/A'}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
 
                 {/* Card: Conversões (Still simulated) */}
                 <Card className="text-center">
