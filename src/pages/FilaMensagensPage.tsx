@@ -312,7 +312,8 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         <span className={`queue-item-status text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
                                             {item.status || 'Desconhecido'}
                                         </span>
-                                        <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right">
+                                        {/* Adjusted queue-item-details to use flex column and gap */}
+                                        <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
                                             <span><strong>Agendado:</strong> {scheduledTime}</span>
                                             {instanceDetails ? (
                                                 <div className="instance-details">
