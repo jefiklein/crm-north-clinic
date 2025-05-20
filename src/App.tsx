@@ -8,7 +8,7 @@ import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
 import DashboardPage from "./pages/DashboardPage"; // We will create this
 import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
-import FilaMensagensPage from "./pages/FilaMensagensPage"; // Import the new FilaMensagensPage
+// import FilaMensagensPage from "./pages/FilaMensagensPage"; // Removed import
 import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
 
 import React, { useState, useEffect } from 'react';
@@ -93,7 +93,7 @@ const App = () => {
               {/* Route for the Clientes page - Using menu item ID 8 */}
               <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
               {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
-              <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
+              {/* <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} /> Removed route */}
 
 
               {/* Catch-all for any other path under /dashboard */}
