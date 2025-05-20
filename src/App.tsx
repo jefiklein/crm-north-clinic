@@ -4,7 +4,7 @@ import Index from './pages/Index';
 import DashboardPage from './pages/DashboardPage';
 import FilaMensagensPage from './pages/FilaMensagensPage';
 import FunnelPage from './pages/FunnelPage';
-import ClientesPage from './pages/ClientesPage';
+import ClientesPage from './pages/ClientesPage'; // <-- Importação correta
 import NotFound from './pages/NotFound';
 import UnderConstructionPage from './pages/UnderConstructionPage';
 import Layout from './components/Layout';
@@ -28,5 +28,4 @@ function App() {
   );
 }
 
-// Adicione esta linha para exportação padrão
-export default App;
+export default App; // <-- Exportação padrão correta
