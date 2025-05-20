@@ -160,10 +160,11 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
             const instanceDetailsMap = new Map<string, InstanceDetails>();
             if (queueData.length > 0) {
                 const uniqueInstanceNames = [...new Set(queueData.map(item => item.instancia).filter(name => name))];
-                console.log("Unique instance names:", uniqueInstanceNames);
+                console.log("Unique instance names from queue:", uniqueInstanceNames); // Added log
 
                 if (uniqueInstanceNames.length > 0) {
                     const detailPromises = uniqueInstanceNames.map(async (name) => {
+                        console.log(`Fetching details for instance: ${name}`); // Added log
                         // Call the instance details webhook for each unique name
                         const payloadInstance = { "nome_instancia": name };
                         try {
@@ -173,14 +174,20 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                 body: JSON.stringify(payloadInstance)
                             });
 
+                            console.log(`Response status for instance ${name}:`, responseInstance.status); // Added log
+
                             if (!responseInstance.ok) {
                                 console.warn(`API Error ${responseInstance.status} fetching details for instance ${name}`);
                                 return null; // Return null for failed fetches
                             }
                             const detailsArray = await responseInstance.json();
+                            console.log(`Raw details response for instance ${name}:`, detailsArray); // Added log
+
                              if (Array.isArray(detailsArray) && detailsArray.length > 0 && detailsArray[0] && typeof detailsArray[0] === 'object') {
                                 const details = detailsArray[0];
+                                console.log(`Parsed details for instance ${name}:`, details); // Added log
                                 if (details.nome_exibição && details.telefone) {
+                                    console.log(`Valid details found for ${name}:`, { nome: details.nome_exibição, telefone: Number(details.telefone) }); // Added log
                                     return { originalName: name, details: { nome: details.nome_exibição, telefone: Number(details.telefone) } as InstanceDetails };
                                 } else {
                                     console.warn(`Instance details response for '${name}' missing nome_exibição or telefone:`, details);
@@ -197,13 +204,22 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                     });
 
                     const detailResults = await Promise.all(detailPromises); // Use Promise.all to wait for all fetches
+                    console.log("All instance detail fetch results:", detailResults); // Added log
                     detailResults.forEach(result => {
-                        if (result && result.originalName && result.details) {
-                            instanceDetailsMap.set(result.originalName, result.details);
+                        if (result.status === 'fulfilled' && result.value && result.value.originalName && result.value.details) {
+                            instanceDetailsMap.set(result.value.originalName, result.value.details);
+                        } else if (result.status === 'rejected') {
+                             console.warn(`Falha detalhes instância. Razão:`, result.reason); // Added log
+                        } else {
+                             console.warn(`Skipping mapping for instance result (null/undefined value):`, result); // Added log
                         }
                     });
                      console.log("Instance details map built:", instanceDetailsMap);
+                } else {
+                    console.log("No unique instance names found in queue data."); // Added log
                 }
+            } else {
+                 console.log("No queue data received, skipping instance details fetch."); // Added log
             }
 
             // Return both queue items and the instance details map
@@ -306,6 +322,9 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             const instanceOriginalName = item.instancia || 'N/A';
                             const instanceDetails = data?.instanceDetailsMap.get(instanceOriginalName);
 
+                            // Determine the name to display: nome_exibição if available, otherwise original name
+                            const instanceNameToDisplay = instanceDetails?.nome || instanceOriginalName;
+
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
                                     <div className="queue-item-header flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
@@ -315,13 +334,14 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         {/* Adjusted queue-item-details to use flex column and gap */}
                                         <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
                                             <span><strong>Agendado:</strong> {scheduledTime}</span>
+                                            {/* Render instance details if found, otherwise just the original name */}
                                             {instanceDetails ? (
                                                 <div className="instance-details">
-                                                    <span className="instance-name font-medium" title={`Nome original: ${instanceOriginalName}`}>{instanceDetails.nome || instanceOriginalName}</span>
+                                                    <span className="instance-name font-medium" title={`Nome original: ${instanceOriginalName}`}>{instanceNameToDisplay}</span> {/* Use the determined name */}
                                                     <span className="instance-phone text-gray-500">{instanceDetails.telefone || 'Telefone N/A'}</span>
                                                 </div>
                                             ) : (
-                                                <span><strong>Instância:</strong> {instanceOriginalName}</span>
+                                                <span><strong>Instância:</strong> {instanceNameToDisplay}</span> {/* Use the determined name */}
                                             )}
                                             {item.status === 'Enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
                                             {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
