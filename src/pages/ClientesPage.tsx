@@ -265,7 +265,8 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
     // Update current page if filtering/sorting reduces total pages
     useEffect(() => {
-        const newTotalPages = Math(filteredAndSortedClients.length / ITEMS_PER_PAGE);
+        // Corrected Math call here
+        const newTotalPages = Math.ceil(filteredAndSortedClients.length / ITEMS_PER_PAGE);
         if (currentPage > newTotalPages && newTotalPages > 0) {
             setCurrentPage(newTotalPages);
         } else if (filteredAndSortedClients.length > 0 && currentPage === 0) {
@@ -385,12 +386,7 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
                         <Info className="h-12 w-12 mb-4" />
                         <span className="text-lg text-center">Nenhum cliente encontrado com o filtro "{searchTerm}".</span> {/* Updated text */}
                     </div>
-                ) : (filteredAndSortedClients?.length ?? 0) === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
-                           <User className="h-12 w-12 mb-4" />
-                           <span className="text-lg text-center">Nenhum cliente encontrado para esta clínica.</span>
-                       </div>
-                    ) : (
+                ) : (
                     <>
                         {/* Kanban View */}
                         {currentView === 'kanban' && (
