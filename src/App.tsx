@@ -96,12 +96,9 @@ const App = () => {
               {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
               <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
 
-              {/* Routes for the Funnel Pages - Using menu item IDs 4, 5, 6, 7 */}
-              {/* The :funnelId parameter will be read by the FunnelPage component */}
-              <Route path="4" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Vendas */}
-              <Route path="5" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Recuperação */}
-              <Route path="6" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Faltas */}
-              <Route path="7" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil Compareceram */}
+              {/* Dynamic route for all Funnel Pages */}
+              {/* The :funnelId parameter will be the menu item ID (4, 5, 6, 7) */}
+              <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
 
               {/* Catch-all for any other path under /dashboard */}
