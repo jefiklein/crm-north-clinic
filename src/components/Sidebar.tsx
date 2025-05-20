@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, Tag, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, AwardIcon as AwardIconLucide, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileTextIcon, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LayoutDashboard, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhonePause, PhoneX, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Signal, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileTextIcon, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PhonePause, PhoneX, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Signal, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, TagIcon, TargetIcon, Tent, TerminalIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut
 } from 'lucide-react'; // Using Lucide React for icons
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -15,19 +16,14 @@ interface ClinicData {
 }
 
 interface MenuItem {
-  id: string;
-  label: string;
+  id: string; // Assuming id is string from DB or can be converted
+  nome: string; // Corresponds to 'label' in previous structure
   webhook_url?: string; // URL to navigate to (can be external or internal)
   icon_class?: string; // Font Awesome class from backend
   permissao_necessaria: number; // Required permission level
   ordem?: number; // Order for sorting
+  ativo: boolean; // Assuming there's an 'ativo' column
 }
-
-interface SidebarProps {
-  clinicData: ClinicData | null;
-}
-
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host'; // Keep the base URL
 
 // Simple mapping from Font Awesome class parts to Lucide React component names
 // This is a basic mapping and might need expansion based on actual backend data
@@ -311,8 +307,9 @@ const getLucideIcon = (faClass?: string) => {
   return Circle; // Default icon if class format is unexpected
 };
 
+const supabase = createClient(); // Initialize Supabase client
 
-export const Sidebar: React.FC = () => { // Removed clinicData prop for now, will use context later
+export const Sidebar: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -344,24 +341,20 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
            return;
       }
 
-      const menuWebhookUrl = `${N8N_BASE_URL}/webhook/df28c667-ff0d-436d-8b55-f03ccac8ba06`;
-      console.log("Fetching menu from:", menuWebhookUrl);
+      console.log("Fetching menu from Supabase...");
 
       try {
-        const response = await fetch(menuWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clinic_code: clinicData.code })
-        });
+        const { data, error } = await supabase
+          .from('north_clinic_crm_menu')
+          .select('*')
+          .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
+          .order('ordem', { ascending: true }); // Order by 'ordem'
 
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`Erro ${response.status}: ${text || response.statusText}`);
+        if (error) {
+          throw new Error(error.message);
         }
 
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
+        if (!data || !Array.isArray(data)) {
           throw new Error("Formato de menu inválido (esperado Array)");
         }
 
@@ -376,10 +369,9 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
           return userPermissionLevel >= requiredPermission;
         });
 
-        // Sort by 'ordem'
-        filteredItems.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
+        // Data is already sorted by 'ordem' from the query
 
-        setMenuItems(filteredItems);
+        setMenuItems(filteredItems as MenuItem[]); // Cast to MenuItem[]
 
       } catch (err: any) {
         console.error("Erro ao buscar menu:", err);
@@ -407,12 +399,19 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
   // This needs refinement based on how you map menu items to routes
   const getActive = (item: MenuItem) => {
       // Example: If item.id '1' corresponds to the dashboard route '/dashboard'
+      // This logic needs to match your actual routing strategy
       if (item.id === '1' && location.pathname === '/dashboard') {
           return true;
       }
       // Add more logic here to match other menu items to routes
       // For now, only dashboard is explicitly handled
-      return false;
+      // You might want to map item.webhook_url or item.nome to specific routes
+      // For example, if item.webhook_url is '/dashboard/settings', check location.pathname === '/dashboard/settings'
+      // Or if you have a consistent mapping like item.id maps to '/dashboard/:id'
+      // For now, let's just check if the current path starts with the item's potential path
+      // This is a simple heuristic and might need adjustment
+      const itemPath = item.id === '1' ? '/dashboard' : `/dashboard/${item.id}`; // Example mapping
+      return location.pathname.startsWith(itemPath);
   };
 
 
@@ -431,24 +430,21 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
         {isLoading && (
           <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
             <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-            {/* Removed opacity classes */}
-            <span className="menu-text text-sm transition-opacity duration-300">Carregando...</span>
+            <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Carregando...</span>
           </div>
         )}
 
         {error && (
           <div className="flex items-center px-4 py-3 text-destructive">
             <TriangleAlert className="h-5 w-5 mr-3" />
-             {/* Removed opacity classes */}
-            <span className="menu-text text-sm transition-opacity duration-300">{error}</span>
+            <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{error}</span>
           </div>
         )}
 
         {!isLoading && !error && menuItems.length === 0 && (
              <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
                 <Circle className="h-5 w-5 mr-3" /> {/* Using a generic icon */}
-                 {/* Removed opacity classes */}
-                <span className="menu-text text-sm transition-opacity duration-300">Sem itens de menu</span>
+                <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Sem itens de menu</span>
              </div>
         )}
 
@@ -475,8 +471,7 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
                         className="flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200"
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
-                        {/* Removed opacity classes */}
-                        <span className="menu-text text-sm transition-opacity duration-300">{item.label}</span>
+                        <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
                     </a>
                  );
             } else {
@@ -492,8 +487,7 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
                         className={`flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200 ${getActive(item) ? 'text-sidebar-primary bg-sidebar-accent border-l-4 border-sidebar-primary pl-[calc(1rem-4px)]' : ''}`}
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
-                        {/* Removed opacity classes */}
-                        <span className="menu-text text-sm transition-opacity duration-300">{item.label}</span>
+                        <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
                     </Link>
                 );
             }
