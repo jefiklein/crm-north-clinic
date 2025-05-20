@@ -20,6 +20,12 @@ interface SalesData {
     sum_valor_venda: number;
 }
 
+// Define the structure for the leads data received from the webhook
+interface LeadsData {
+    count: number; // Assuming the response has a 'count' field
+}
+
+
 interface DashboardPageProps {
     clinicData: ClinicData | null;
     onLogout: () => void;
@@ -44,10 +50,11 @@ const calculateRemainingBusinessDays = (): number => {
 };
 
 const SALES_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/43a4753b-b7c2-48c0-b57a-61ba5256d5b7';
+const LEADS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c12975eb-6e96-4a61-b19c-5e47b62ca642'; // New webhook URL for leads
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
-    const [dashboardData, setDashboardData] = useState({
-        leads: '...',
+    // Keep simulated data for other cards for now
+    const [simulatedData, setSimulatedData] = useState({
         avaliacoes: '...',
         conversoes: '...',
         mensagens: '...'
@@ -89,7 +96,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     })
                 });
 
-                console.log('Resposta do webhook:', {
+                console.log('Resposta do webhook de vendas:', {
                     status: response.status,
                     statusText: response.statusText
                 });
@@ -101,7 +108,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 }
 
                 const data = await response.json();
-                console.log('Dados recebidos do webhook:', data);
+                console.log('Dados recebidos do webhook de vendas:', data);
                 
                 // Expecting an array with one object: [{ "count_id_north": N, "sum_valor_venda": V }]
                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object') {
@@ -114,10 +121,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     }
                 }
                 
-                throw new Error("Formato de resposta inesperado do webhook. Esperado: [{ count_id_north: N, sum_valor_venda: V }]");
+                throw new Error("Formato de resposta inesperado do webhook de vendas. Esperado: [{ count_id_north: N, sum_valor_venda: V }]");
                 
             } catch (error) {
-                console.error('Erro na chamada ao webhook:', error);
+                console.error('Erro na chamada ao webhook de vendas:', error);
                 throw error;
             }
         },
@@ -126,26 +133,93 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
+    // Fetch leads data from webhook using react-query
+    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | number | null>({ // Specify expected data type (array with count or just number)
+        queryKey: ['leadsData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
+        queryFn: async () => {
+            if (!clinicData?.code) {
+                throw new Error("Código da clínica não disponível para buscar dados de leads.");
+            }
+            
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+
+            console.log(`Chamando webhook de leads para:`, {
+                clinic_code: clinicData.code,
+                mes: currentMonth,
+                ano: currentYear
+            });
+
+            try {
+                const response = await fetch(LEADS_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        clinic_code: clinicData.code,
+                        mes: currentMonth,
+                        ano: currentYear
+                    })
+                });
+
+                console.log('Resposta do webhook de leads:', {
+                    status: response.status,
+                    statusText: response.statusText
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Leads webhook error response:", errorText);
+                    throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Dados recebidos do webhook de leads:', data);
+                
+                // Assuming the response is either an array like [{ count: N }] or just the number N
+                if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].count !== undefined) {
+                    return Number(data[0].count); // Return the count as a number
+                } else if (typeof data === 'number') {
+                    return data; // Return the number directly if the response is just the count
+                }
+                
+                throw new Error("Formato de resposta inesperado do webhook de leads. Esperado: [{ count: N }] ou N");
+                
+            } catch (error) {
+                console.error('Erro na chamada ao webhook de leads:', error);
+                throw error;
+            }
+        },
+        enabled: !!clinicData?.code,
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
+
     // Calculate Average Ticket
     const averageTicket = salesData && salesData.count_id_north > 0
         ? salesData.sum_valor_venda / salesData.count_id_north
         : 0; // Handle division by zero
 
-    // Simulate loading data for other cards
+    // Simulate loading data for other cards (Avaliações, Conversões, Mensagens)
     useEffect(() => {
+        // In a real app, you would fetch this data from your backend
         const timer = setTimeout(() => {
-            setDashboardData({
-                leads: "238",
+            setSimulatedData({
                 avaliacoes: "42",
                 conversoes: "18%",
                 mensagens: "532"
             });
-        }, 500);
+        }, 500); // Simulate network delay
 
-        return () => clearTimeout(timer);
-    }, []);
+        return () => clearTimeout(timer); // Cleanup timeout
+    }, []); // Empty dependency array means this runs once on mount
 
     if (!clinicData) {
+        // This case should ideally not happen due to ProtectedRoute,
+        // but it's good practice to handle it.
         return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
     }
 
@@ -155,47 +229,57 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
             <p className="text-gray-700 mb-6">Utilize o menu lateral para navegar pelas funcionalidades disponíveis para seu acesso.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Card: Total de Leads */}
+                {/* Card: Total de Leads - Now fetched from webhook */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <Users className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Total de Leads</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{dashboardData.leads}</div>
+                         {isLoadingLeads ? (
+                            <div className="flex justify-center items-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                        ) : leadsError ? (
+                            <div className="text-sm text-destructive">Erro ao carregar leads.</div>
+                        ) : (
+                            <div className="text-2xl font-bold text-primary">
+                                {leadsData !== undefined && leadsData !== null ? leadsData : 'N/A'}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
-                {/* Card: Avaliações */}
+                {/* Card: Avaliações (Still simulated) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <CalendarCheck className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Avaliações</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{dashboardData.avaliacoes}</div>
+                        <div className="text-2xl font-bold text-primary">{simulatedData.avaliacoes}</div>
                     </CardContent>
                 </Card>
 
-                {/* Card: Conversões */}
+                {/* Card: Conversões (Still simulated) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <LineChart className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Conversões</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{dashboardData.conversoes}</div>
+                        <div className="text-2xl font-bold text-primary">{simulatedData.conversoes}</div>
                     </CardContent>
                 </Card>
 
-                {/* Card: Mensagens */}
+                {/* Card: Mensagens (Still simulated) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <MessageSquare className="mx-auto h-8 w-8 text-primary" />
                         <CardTitle className="text-md font-medium">Mensagens</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{dashboardData.mensagens}</div>
+                        <div className="text-2xl font-bold text-primary">{simulatedData.mensagens}</div>
                     </CardContent>
                 </Card>
 
@@ -210,7 +294,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                {/* Card: Número de Vendas */}
+                {/* Card: Número de Vendas (Fetched) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <ShoppingCart className="mx-auto h-8 w-8 text-primary" /> {/* ShoppingCart icon for sales count */}
@@ -231,7 +315,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                {/* Card: Total de Vendas (Mês) - Updated to use sum_valor_venda */}
+                {/* Card: Total de Vendas (Mês) - Fetched */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
@@ -255,7 +339,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     </CardContent>
                 </Card>
 
-                 {/* Card: Ticket Médio */}
+                 {/* Card: Ticket Médio (Calculated from fetched sales) */}
                 <Card className="text-center">
                     <CardHeader className="pb-2">
                         <Scale className="mx-auto h-8 w-8 text-primary" /> {/* Scale icon for average ticket */}
