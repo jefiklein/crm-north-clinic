@@ -110,10 +110,21 @@ function openLeadDetails(phone: number | string | null) {
     }
 }
 
+// Mapping from menu item ID (from URL) to actual funnel ID (for webhooks)
+const menuIdToFunnelIdMap: { [key: number]: number } = {
+    4: 1, // Funil de Vendas
+    5: 2, // Funil de Recuperação
+    6: 3, // Funil de Faltas
+    7: 4, // Funil Compareceram
+};
+
 
 const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
-    const { funnelId: funnelIdParam } = useParams<{ funnelId: string }>();
-    const funnelId = parseInt(funnelIdParam || '0', 10);
+    const { funnelId: menuIdParam } = useParams<{ funnelId: string }>(); // Get menu item ID from URL
+    const menuId = parseInt(menuIdParam || '0', 10);
+
+    // Determine the actual funnel ID to use for webhook calls
+    const funnelIdForWebhook = menuIdToFunnelIdMap[menuId];
 
     const [currentView, setCurrentView] = useState<'kanban' | 'list'>('kanban');
     const [searchTerm, setSearchTerm] = useState('');
@@ -126,32 +137,32 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     // Fetch Stages
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['funnelStages', clinicId, funnelId],
+        queryKey: ['funnelStages', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelId)) throw new Error("Dados da clínica ou ID do funil inválidos.");
+            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
             const response = await fetch(STAGES_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelId, clinic_id: clinicId })
+                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
             });
             if (!response.ok) throw new Error(`Erro ao buscar etapas: ${response.status}`);
             const data = await response.json();
             if (!Array.isArray(data)) throw new Error("Resposta de etapas inválida: não é um array.");
             return data.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
         },
-        enabled: !!clinicId && !isNaN(funnelId),
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
     // Fetch Funnel Details
     const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails[]>({
-        queryKey: ['funnelDetails', clinicId, funnelId],
+        queryKey: ['funnelDetails', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelId)) throw new Error("Dados da clínica ou ID do funil inválidos.");
+            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
             const response = await fetch(FUNNEL_DETAILS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelId, clinic_id: clinicId })
+                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
             });
             if (!response.ok) throw new Error(`Erro ao buscar detalhes do funil: ${response.status}`);
             const data = await response.json();
@@ -159,23 +170,24 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             if (!Array.isArray(data) || data.length === 0 || !data[0] || typeof data[0].nome_funil === 'undefined') {
                  console.warn("Resposta de detalhes do funil inválida:", data);
                  // Return a default structure or throw an error depending on desired strictness
-                 return [{ id: funnelId, nome_funil: `Funil ${funnelId}` }]; // Provide a default name
+                 // Use the menuIdParam for the default name if funnelIdForWebhook is valid but details fail
+                 return [{ id: funnelIdForWebhook, nome_funil: `Funil ${menuIdParam}` }]; // Provide a default name based on menu ID
             }
             return data; // Should be an array with one item
         },
-        enabled: !!clinicId && !isNaN(funnelId),
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
     // Fetch Leads
     const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<FunnelLead[]>({
-        queryKey: ['funnelLeads', clinicId, funnelId],
+        queryKey: ['funnelLeads', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelId)) throw new Error("Dados da clínica ou ID do funil inválidos.");
+            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
             const response = await fetch(LEADS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelId, clinic_id: clinicId })
+                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
             });
             if (!response.ok) throw new Error(`Erro ao buscar leads: ${response.status}`);
             const data = await response.json();
@@ -185,7 +197,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
             return data;
         },
-        enabled: !!clinicId && !isNaN(funnelId),
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook), // Enable only if clinicId and valid funnelIdForWebhook exist
         staleTime: 60 * 1000, // 1 minute for leads
     });
 
@@ -273,11 +285,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     }, [filteredAndSortedLeads, stagesData]);
 
 
-    if (!clinicData || isNaN(funnelId) || funnelId === 0) {
+    // Check if the menuIdParam corresponds to a valid funnel ID
+    if (!clinicData || isNaN(menuId) || !menuIdToFunnelIdMap.hasOwnProperty(menuId)) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica ou ID do funil inválidos. Faça login novamente ou verifique a URL.</div>;
     }
 
-    const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ${funnelId}`;
+    const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ${menuIdParam}`; // Use menuIdParam for default name display
+
 
     return (
         <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
@@ -317,7 +331,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                     <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'kanban' | 'list')}>
                         <TabsList>
                             <TabsTrigger value="kanban" title="Visão Kanban">
-                                <Kanban className="h-4 w-4 mr-2" /> Kanban {/* Changed icon here */}
+                                <Kanban className="h-4 w-4 mr-2" /> Kanban
                             </TabsTrigger>
                             <TabsTrigger value="list" title="Visão Lista">
                                 <List className="h-4 w-4 mr-2" /> Lista
