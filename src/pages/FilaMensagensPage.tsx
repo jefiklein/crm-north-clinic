@@ -367,7 +367,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                                     {isExpanded ? 'Recolher [-]' : 'Expandir [+]'}
                                                 </Button>
                                             </>
-                                        ) : (
+                                ) : (
                                             <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
                                         )}
                                     </div>
