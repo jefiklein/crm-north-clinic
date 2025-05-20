@@ -48,7 +48,10 @@ interface ClientesPageProps {
 
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // Using the same webhook URL as the leads page as requested
-const CLIENTS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192cb618d4`;
+const CLIENTS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192db618d4`;
+
+// Define the specific funnel ID for the Clients page as requested
+const CLIENTS_FUNNEL_ID = 5;
 
 
 // Helper function to format phone number
@@ -84,19 +87,20 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
 
     // Fetch client data using react-query
     const { data: clients, isLoading, error } = useQuery<Client[]>({
-        queryKey: ['clients', clinicId],
+        // Use a query key that includes the funnel ID, similar to FunnelPage
+        queryKey: ['clients', clinicId, CLIENTS_FUNNEL_ID],
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
 
-            console.log(`Fetching clients for clinic ID: ${clinicId} using webhook ${CLIENTS_WEBHOOK_URL}`);
+            console.log(`Fetching clients for clinic ID: ${clinicId}, Funnel ID: ${CLIENTS_FUNNEL_ID} using webhook ${CLIENTS_WEBHOOK_URL}`);
 
             // Call the webhook with clinic_id AND funnel_id
             const response = await fetch(CLIENTS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ clinic_id: clinicId, funnel_id: 5 }) // Added funnel_id: 5
+                body: JSON.stringify({ clinic_id: clinicId, funnel_id: CLIENTS_FUNNEL_ID }) // Pass both clinic_id and funnel_id
             });
 
             console.log('Clients webhook response:', { status: response.status, statusText: response.statusText });
