@@ -34,7 +34,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'comments': MessageSquare,
   'settings': Settings,
   'file-text': FileText,
-  'dollar-sign': DollarSign,
+  'dollar-sign': DollarSign, // Added DollarSign icon mapping
   'briefcase': Briefcase,
   'clipboard-list': ClipboardList,
   'bell': Bell,
@@ -322,7 +322,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'smartphone': Smartphone,
   'messages-square': MessagesSquare,
   'badge-dollar-sign': BadgeDollarSign
-};
+}
 
 
 // Function to get Lucide icon component from the icon key
