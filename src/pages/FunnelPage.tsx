@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, LayoutKanban, Star, User } from "lucide-react";
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react"; // Changed LayoutKanban to Kanban
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils'; // Utility for class names
@@ -317,7 +317,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                     <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'kanban' | 'list')}>
                         <TabsList>
                             <TabsTrigger value="kanban" title="Visão Kanban">
-                                <LayoutKanban className="h-4 w-4 mr-2" /> Kanban
+                                <Kanban className="h-4 w-4 mr-2" /> Kanban {/* Changed icon here */}
                             </TabsTrigger>
                             <TabsTrigger value="list" title="Visão Lista">
                                 <List className="h-4 w-4 mr-2" /> Lista
