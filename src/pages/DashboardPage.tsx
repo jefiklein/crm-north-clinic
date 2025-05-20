@@ -243,19 +243,46 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de avaliações:', data);
                 
-                // UPDATED: Expecting an array with one object: [{ "sum_total_agendamentos": N, "sum_total_realizados": M }]
-                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].sum_total_agendamentos !== undefined && data[0].sum_total_realizados !== undefined) {
-                    return {
-                        sum_total_agendamentos: Number(data[0].sum_total_agendamentos), // Ensure it's a number
-                        sum_total_realizados: Number(data[0].sum_total_realizados) // Ensure it's a number
-                    } as AppointmentsData;
+                // Detailed check for the expected format: [{ "sum_total_agendamentos": N, "sum_total_realizados": M }]
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error(`Resposta inesperada do webhook de avaliações: Esperado um array não vazio, mas recebeu ${Array.isArray(data) ? 'um array vazio' : typeof data}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
                 }
-                
-                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ sum_total_agendamentos: N, sum_total_realizados: M }]");
-                
-            } catch (error) {
+
+                const result = data[0];
+
+                if (typeof result !== 'object' || result === null) {
+                     throw new Error(`Resposta inesperada do webhook de avaliações: O primeiro item do array não é um objeto. Recebeu: ${typeof result}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                }
+
+                // Check for the specific properties
+                const agendamentos = result.sum_total_agendamentos;
+                const realizados = result.sum_total_realizados;
+
+                if (agendamentos === undefined || realizados === undefined) {
+                     throw new Error(`Resposta inesperada do webhook de avaliações: Objeto não contém as chaves 'sum_total_agendamentos' ou 'sum_total_realizados'. Chaves encontradas: ${Object.keys(result).join(', ')}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                }
+
+                // Ensure they can be converted to numbers
+                 const numAgendamentos = Number(agendamentos);
+                 const numRealizados = Number(realizados);
+
+                 if (isNaN(numAgendamentos) || isNaN(numRealizados)) {
+                     throw new Error(`Resposta inesperada do webhook de avaliações: Os valores para 'sum_total_agendamentos' ou 'sum_total_realizados' não são números. Recebeu: Agendados=${agendamentos}, Realizados=${realizados}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                 }
+
+
+                return {
+                    sum_total_agendamentos: numAgendamentos,
+                    sum_total_realizados: numRealizados
+                } as AppointmentsData;
+
+            } catch (error: any) {
                 console.error('Erro na chamada ao webhook de avaliações:', error);
-                throw error;
+                // Re-throw the error with a more specific message if it's a known type
+                if (error.message.startsWith('Resposta inesperada do webhook de avaliações:')) {
+                     throw error; // Keep the detailed error message
+                }
+                throw new Error(`Falha ao buscar dados de avaliações: ${error.message}`); // Generic error for others
             }
         },
         enabled: !!clinicData?.code,
