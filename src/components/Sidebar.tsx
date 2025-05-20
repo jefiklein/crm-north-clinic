@@ -60,7 +60,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'terminal': Terminal,
   'layers': Layers,
   'grid': Grid,
-  'list': List,
+  'list': List, // Added List icon mapping
   'table': Table2,
   'calendar': Calendar,
   'clock': Clock,
