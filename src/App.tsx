@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage"; // We will create this
 import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
 import FilaMensagensPage from "./pages/FilaMensagensPage"; // Added import back
 import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
+import FunnelPage from "./pages/FunnelPage"; // Import the new FunnelPage component
 
 import React, { useState, useEffect } from 'react';
 
@@ -93,7 +94,14 @@ const App = () => {
               {/* Route for the Clientes page - Using menu item ID 8 */}
               <Route path="8" element={<ClientesPage clinicData={clinicData} />} />
               {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
-              <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} /> {/* Added route back */}
+              <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
+
+              {/* Routes for the Funnel Pages - Using menu item IDs 4, 5, 6, 7 */}
+              {/* The :funnelId parameter will be read by the FunnelPage component */}
+              <Route path="4" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Vendas */}
+              <Route path="5" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Recuperação */}
+              <Route path="6" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil de Faltas */}
+              <Route path="7" element={<FunnelPage clinicData={clinicData} />} /> {/* Funil Compareceram */}
 
 
               {/* Catch-all for any other path under /dashboard */}
