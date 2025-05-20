@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2 } from "lucide-react"; // Using Lucide React for icons
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign } from "lucide-react"; // Using Lucide React for icons
 import { useQuery } from "@tanstack/react-query"; // Import useQuery
 import { endOfMonth, getDay, isAfter, startOfDay } from 'date-fns'; // Import date-fns functions
 
