@@ -227,8 +227,8 @@ const iconMap: { [key: string]: React.ElementType } = {
   'sidebar': SidebarClose, // Example mapping for sidebar
   'sigma': Sigma, // Example mapping for sigma
   'siren': Siren, // Example mapping for siren
-  'backward': SkipBack, // Example mapping for backward
-  'forward': SkipForward, // Example mapping for forward
+  'skip-back': SkipBack, // Example mapping for skip back
+  'skip-forward': SkipForward, // Example mapping for skip forward
   'slack': Slack, // Example mapping for slack
   'slash': Slash, // Example mapping for slash
   'sliders-h': SlidersHorizontal, // Example mapping for sliders h
@@ -431,21 +431,24 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
         {isLoading && (
           <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
             <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-            <span className="menu-text opacity-0 group-hover:opacity-100 transition-opacity duration-300">Carregando...</span>
+            {/* Removed opacity classes */}
+            <span className="menu-text text-sm transition-opacity duration-300">Carregando...</span>
           </div>
         )}
 
         {error && (
           <div className="flex items-center px-4 py-3 text-destructive">
             <TriangleAlert className="h-5 w-5 mr-3" />
-            <span className="menu-text opacity-0 group-hover:opacity-100 transition-opacity duration-300">{error}</span>
+             {/* Removed opacity classes */}
+            <span className="menu-text text-sm transition-opacity duration-300">{error}</span>
           </div>
         )}
 
         {!isLoading && !error && menuItems.length === 0 && (
              <div className="flex items-center px-4 py-3 text-sidebar-foreground/70">
                 <Circle className="h-5 w-5 mr-3" /> {/* Using a generic icon */}
-                <span className="menu-text opacity-0 group-hover:opacity-100 transition-opacity duration-300">Sem itens de menu</span>
+                 {/* Removed opacity classes */}
+                <span className="menu-text text-sm transition-opacity duration-300">Sem itens de menu</span>
              </div>
         )}
 
@@ -472,7 +475,8 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
                         className="flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200"
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
-                        <span className="menu-text text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">{item.label}</span>
+                        {/* Removed opacity classes */}
+                        <span className="menu-text text-sm transition-opacity duration-300">{item.label}</span>
                     </a>
                  );
             } else {
@@ -488,7 +492,8 @@ export const Sidebar: React.FC = () => { // Removed clinicData prop for now, wil
                         className={`flex items-center px-4 py-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors duration-200 ${getActive(item) ? 'text-sidebar-primary bg-sidebar-accent border-l-4 border-sidebar-primary pl-[calc(1rem-4px)]' : ''}`}
                     >
                         <IconComponent className="h-5 w-5 mr-3 flex-shrink-0" />
-                        <span className="menu-text text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">{item.label}</span>
+                        {/* Removed opacity classes */}
+                        <span className="menu-text text-sm transition-opacity duration-300">{item.label}</span>
                     </Link>
                 );
             }
