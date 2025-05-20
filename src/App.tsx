@@ -7,6 +7,7 @@ import Index from "./pages/Index"; // This will be our Login page
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
 import DashboardPage from "./pages/DashboardPage"; // We will create this
+import ClientesPage from "./pages/ClientesPage"; // Import the new ClientesPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -87,6 +88,8 @@ const App = () => {
               <Route index element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} /> {/* Default route for /dashboard */}
               {/* ADD OTHER PROTECTED ROUTES HERE AS NESTED ROUTES */}
               {/* Example: <Route path="users" element={<UsersPage />} /> */}
+              {/* Route for the Clientes page - Assuming menu item ID 2 maps to this */}
+              <Route path="2" element={<ClientesPage clinicData={clinicData} />} />
             </Route>
 
             {/* Catch-all route for 404 */}
