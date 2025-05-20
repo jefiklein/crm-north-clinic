@@ -135,6 +135,31 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const clinicId = clinicData?.id;
 
+    // --- Debugging Logs ---
+    console.log("FunnelPage: Rendering");
+    console.log("FunnelPage: menuIdParam from URL:", menuIdParam);
+    console.log("FunnelPage: Parsed menuId:", menuId);
+    console.log("FunnelPage: isNaN(menuId):", isNaN(menuId));
+    console.log("FunnelPage: menuIdToFunnelIdMap:", menuIdToFunnelIdMap);
+    console.log("FunnelPage: menuId in map?", menuIdToFunnelIdMap.hasOwnProperty(menuId));
+    console.log("FunnelPage: clinicData:", clinicData);
+    console.log("FunnelPage: !clinicData:", !clinicData);
+    console.log("FunnelPage: funnelIdForWebhook:", funnelIdForWebhook);
+    // --- End Debugging Logs ---
+
+
+    // Check if the menuIdParam corresponds to a valid funnel ID
+    if (!clinicData || isNaN(menuId) || !menuIdToFunnelIdMap.hasOwnProperty(menuId)) {
+        console.error("FunnelPage: Error condition met.", {
+            clinicData: clinicData,
+            menuId: menuId,
+            isNaN_menuId: isNaN(menuId),
+            menuId_in_map: menuIdToFunnelIdMap.hasOwnProperty(menuId)
+        });
+        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica ou ID do funil inválidos. Faça login novamente ou verifique a URL.</div>;
+    }
+
+
     // Fetch Stages
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['funnelStages', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
@@ -285,11 +310,6 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     }, [filteredAndSortedLeads, stagesData]);
 
 
-    // Check if the menuIdParam corresponds to a valid funnel ID
-    if (!clinicData || isNaN(menuId) || !menuIdToFunnelIdMap.hasOwnProperty(menuId)) {
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica ou ID do funil inválidos. Faça login novamente ou verifique a URL.</div>;
-    }
-
     const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ${menuIdParam}`; // Use menuIdParam for default name display
 
 
@@ -297,7 +317,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                 <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    {clinicData.nome} | {funnelName}
+                    {clinicData?.nome} | {funnelName} {/* Use optional chaining for clinicData */}
                 </h1>
                 <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
                     <div className="relative flex-grow max-w-sm">
