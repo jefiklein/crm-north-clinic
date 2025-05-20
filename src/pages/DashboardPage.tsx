@@ -26,9 +26,10 @@ interface LeadsData {
 }
 
 // Define the structure for the appointments data received from the new webhook
+// UPDATED: Changed structure to match the new webhook output
 interface AppointmentsData {
-    total_agendamentos: number;
-    total_realizadas: number;
+    sum_total_agendamentos: number;
+    sum_total_realizados: number;
 }
 
 
@@ -242,15 +243,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de avaliações:', data);
                 
-                // Expecting an array with two objects: [{ "total_agendamentos": N }, { "total_realizadas": M }]
-                 if (Array.isArray(data) && data.length === 2 && typeof data[0] === 'object' && typeof data[1] === 'object' && data[0].total_agendamentos !== undefined && data[1].total_realizadas !== undefined) {
+                // UPDATED: Expecting an array with one object: [{ "sum_total_agendamentos": N, "sum_total_realizados": M }]
+                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].sum_total_agendamentos !== undefined && data[0].sum_total_realizados !== undefined) {
                     return {
-                        total_agendamentos: Number(data[0].total_agendamentos), // Ensure it's a number
-                        total_realizadas: Number(data[1].total_realizadas) // Ensure it's a number
+                        sum_total_agendamentos: Number(data[0].sum_total_agendamentos), // Ensure it's a number
+                        sum_total_realizados: Number(data[0].sum_total_realizados) // Ensure it's a number
                     } as AppointmentsData;
                 }
                 
-                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ total_agendamentos: N }, { total_realizadas: M }]");
+                throw new Error("Formato de resposta inesperado do webhook de avaliações. Esperado: [{ sum_total_agendamentos: N, sum_total_realizados: M }]");
                 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de avaliações:', error);
@@ -320,7 +321,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
                             ) : (
                                 <div className="text-2xl font-bold text-primary">
-                                    {appointmentsData?.total_agendamentos !== undefined && appointmentsData.total_agendamentos !== null ? appointmentsData.total_agendamentos : 'N/A'}
+                                    {/* UPDATED: Use sum_total_agendamentos */}
+                                    {appointmentsData?.sum_total_agendamentos !== undefined && appointmentsData.sum_total_agendamentos !== null ? appointmentsData.sum_total_agendamentos : 'N/A'}
                                 </div>
                             )}
                         </CardContent>
@@ -341,7 +343,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
                             ) : (
                                 <div className="text-2xl font-bold text-primary">
-                                    {appointmentsData?.total_realizadas !== undefined && appointmentsData.total_realizadas !== null ? appointmentsData.total_realizadas : 'N/A'}
+                                    {/* UPDATED: Use sum_total_realizados */}
+                                    {appointmentsData?.sum_total_realizados !== undefined && appointmentsData.sum_total_realizados !== null ? appointmentsData.sum_total_realizados : 'N/A'}
                                 </div>
                             )}
                         </CardContent>
