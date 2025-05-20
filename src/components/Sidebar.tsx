@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign // Keep only necessary imports
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
@@ -256,8 +256,73 @@ const iconMap: { [key: string]: React.ElementType } = {
   'sort-asc': SortAsc,
   'sort-desc': SortDesc,
   'speaker': Speaker,
-  'square', Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign // Keep only necessary imports
-}
+  'square': Square, // Corrected syntax here
+  'sticker': Sticker,
+  'stop-circle': StopCircle,
+  'store': Store,
+  'sunrise': Sunrise,
+  'sunset': Sunset,
+  'table-icon': TableIcon,
+  'thermometer': Thermometer,
+  'thumbs-down': ThumbsDown,
+  'thumbs-up': ThumbsUp,
+  'ticket': Ticket,
+  'timer': Timer,
+  'toggle-left': ToggleLeft,
+  'toggle-right': ToggleRight,
+  'tornado': Tornado,
+  'train': Train,
+  'trash': Trash,
+  'trello': Trello,
+  'trending-down': TrendingDown,
+  'trending-up': TrendingUp,
+  'triangle': Triangle,
+  'triangle-alert-icon': TriangleAlertIcon,
+  'truck-icon': TruckIcon,
+  'tv': Tv,
+  'twitch': Twitch,
+  'twitter': Twitter,
+  'type': Type,
+  'umbrella': Umbrella,
+  'underline': Underline,
+  'undo': Undo,
+  'unlock': Unlock,
+  'upload': Upload,
+  'upload-cloud': UploadCloud,
+  'user': User,
+  'user-check': UserCheck,
+  'user-minus': UserMinus,
+  'user-plus': UserPlus,
+  'user-x': UserX,
+  'users-icon': UsersIcon,
+  'utensils': Utensils,
+  'verified': Verified,
+  'video': Video,
+  'video-off': VideoOff,
+  'view': View,
+  'voicemail': Voicemail,
+  'volume': Volume,
+  'volume-1': Volume1,
+  'volume-2': Volume2,
+  'volume-x': VolumeX,
+  'wallet': Wallet,
+  'wand-2': Wand2,
+  'watch': Watch,
+  'waves': Waves,
+  'webcam': Webcam,
+  'wifi': Wifi,
+  'wifi-off': WifiOff,
+  'wind': Wind,
+  'x': X,
+  'youtube': Youtube,
+  'zap-icon': ZapIcon,
+  'zoom-in': ZoomIn,
+  'zoom-out': ZoomOut,
+  'mail-open': MailOpen,
+  'smartphone': Smartphone,
+  'messages-square': MessagesSquare,
+  'badge-dollar-sign': BadgeDollarSign
+};
 
 
 // Function to get Lucide icon component from the icon key
