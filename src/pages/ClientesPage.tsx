@@ -43,8 +43,8 @@ interface ClientesPageProps {
 }
 
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-// TODO: Replace with the actual webhook URL for fetching clients
-const CLIENTS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/SEU_WEBHOOK_DE_CLIENTES_AQUI`;
+// Using the same webhook URL as the leads page as requested
+const CLIENTS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192db618d4`;
 
 
 // Helper function to format phone number
@@ -80,11 +80,9 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
                 throw new Error("ID da clínica não disponível.");
             }
 
-            console.log(`Fetching clients for clinic ID: ${clinicId}`);
+            console.log(`Fetching clients for clinic ID: ${clinicId} using webhook ${CLIENTS_WEBHOOK_URL}`);
 
-            // TODO: Ensure CLIENTS_WEBHOOK_URL is configured correctly in n8n
-            // It should accept a POST request with { clinic_id: clinicId }
-            // and return an array of client objects from north_clinic_clientes
+            // Call the webhook with clinic_id
             const response = await fetch(CLIENTS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -117,7 +115,7 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
             console.log("Client list received:", data.length, "items");
             return data;
         },
-        enabled: !!clinicId && CLIENTS_WEBHOOK_URL !== `${N8N_BASE_URL}/webhook/SEU_WEBHOOK_DE_CLIENTES_AQUI`, // Only fetch if clinicId is available AND webhook URL is updated
+        enabled: !!clinicId, // Only fetch if clinicId is available
         staleTime: 5 * 60 * 1000, // Data is considered fresh for 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -127,28 +125,7 @@ const ClientesPage: React.FC<ClientesPageProps> = ({ clinicData }) => {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
-    // Display a message if the webhook URL hasn't been updated
-    if (CLIENTS_WEBHOOK_URL === `${N8N_BASE_URL}/webhook/SEU_WEBHOOK_DE_CLIENTES_AQUI`) {
-         return (
-             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
-                 <Card className="w-full max-w-md text-center">
-                     <CardHeader>
-                         <TriangleAlert className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
-                         <CardTitle className="text-2xl font-bold text-primary">Configuração Necessária</CardTitle>
-                     </CardHeader>
-                     <CardContent>
-                         <p className="text-gray-700 mb-4">
-                             Por favor, configure o webhook para buscar dados de clientes no n8n e atualize a constante <code>CLIENTS_WEBHOOK_URL</code> no arquivo <code>src/pages/ClientesPage.tsx</code> com o URL correto.
-                         </p>
-                         <p className="text-sm text-gray-500">
-                             O webhook deve aceitar um POST com <code>{`{ "clinic_id": ID_DA_CLINICA }`}</code> e retornar um array de objetos da tabela <code>north_clinic_clientes</code>.
-                         </p>
-                     </CardContent>
-                 </Card>
-             </div>
-         );
-    }
-
+    // Removed the conditional rendering for the configuration message
 
     return (
         <div className="clientes-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6 h-full flex flex-col">
