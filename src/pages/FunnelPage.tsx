@@ -51,17 +51,18 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
+// Define the return type for the leads query
+interface LeadsQueryData {
+    leads: FunnelLead[];
+    totalCount?: number | null; // totalCount is optional, only present for list view
+}
+
 
 interface FunnelPageProps {
     clinicData: ClinicData | null;
 }
 
-// Removed webhook URLs, fetching directly from Supabase now
-// const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-// const STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/b300a010-6bb8-470f-9028-c796f4f8bf0e`;
-// const FUNNEL_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9eee236a-9103-48e5-82bd-8178396dedfd`;
-// const LEADS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192db618d4`;
-// Placeholder for the update webhook URL - REPLACE WITH ACTUAL URL
+// Placeholder for the update webhook URL - KEEP THIS IF NEEDED FOR FUTURE DRAG-AND-DROP UPDATES
 const UPDATE_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/seu-webhook-real-para-atualizar-etapa'; // Keep this if needed for future drag-and-drop updates
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a'; // Keep this for opening lead details
 
@@ -226,11 +227,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Leads directly from Supabase - Keep id_clinica filter
-    const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: FunnelLead[], totalCount: number } | null>({
-        queryKey: ['funnelLeads', clinicId, funnelIdForQuery, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], // Add stagesData dependency
-        queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForQuery)) {
+    // Fetch Leads directly from Supabase - Conditional Pagination based on view
+    const { data: leadsQueryData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsQueryData | null>({
+        queryKey: ['funnelLeads', clinicId, funnelIdForQuery, currentView, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], // Add currentView to key
+        queryFn: async ({ queryKey }) => {
+            const [, currentClinicId, currentFunnelIdForQuery, currentView, currentPage, itemsPerPage, currentSearchTerm, currentSortValue, stagesDependency] = queryKey;
+
+            if (!currentClinicId || isNaN(currentFunnelIdForQuery)) {
                  console.warn("FunnelPage: Skipping leads fetch due to missing clinicId or invalid funnelIdForQuery.");
                  throw new Error("Dados da clínica ou ID do funil inválidos.");
             }
@@ -246,27 +249,27 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                  return { leads: [], totalCount: 0 };
             }
 
-            console.log(`FunnelPage: Fetching leads for clinic ${clinicId}, funnel ${funnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase...`);
+            console.log(`FunnelPage: Fetching leads for clinic ${currentClinicId}, funnel ${currentFunnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase... View: ${currentView}`);
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
-                .eq('id_clinica', clinicId) // Filter by clinic ID - KEEP THIS
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Request count only for list view
+                .eq('id_clinica', currentClinicId) // Filter by clinic ID - KEEP THIS
                 .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
 
             // Apply filtering if searchTerm is not empty
-            if (searchTerm) {
-                const searchTermLower = searchTerm.toLowerCase();
+            if (currentSearchTerm) {
+                const searchTermLower = currentSearchTerm.toLowerCase();
                 // Note: 'telefone::text' is the correct way to cast to text for ilike in Supabase/Postgres
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
-                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${currentSearchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             // Apply sorting
             let orderByColumn = 'created_at';
             let ascending = false; // Default to recent (descending created_at)
 
-            switch (sortValue) {
+            switch (currentSortValue) {
                 case 'created_at_desc':
                     orderByColumn = 'created_at';
                     ascending = false;
@@ -292,11 +295,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             console.log(`FunnelPage: Applying sort: order by ${orderByColumn} ${ascending ? 'ASC' : 'DESC'}`);
 
 
-            // Apply pagination
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE - 1;
-            query = query.range(startIndex, endIndex);
-            console.log(`FunnelPage: Applying pagination: range from ${startIndex} to ${endIndex}`);
+            // Apply pagination ONLY for list view
+            if (currentView === 'list') {
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage - 1;
+                query = query.range(startIndex, endIndex);
+                console.log(`FunnelPage: Applying pagination: range from ${startIndex} to ${endIndex}`);
+            }
 
 
             const { data, error, count } = await query;
@@ -308,13 +313,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                 throw new Error(`Erro ao buscar leads: ${error.message}`);
             }
 
-            if (count === null) {
-                 console.warn("FunnelPage: Supabase count is null.");
-                 // Decide how to handle null count - maybe assume data.length if count is not critical for this view?
-                 // For now, let's return 0 for count if null, to allow rendering with available data.
-            }
-
-            return { leads: data || [], totalCount: count ?? 0 }; // Return data and count
+            // Return data and count (count will be undefined for kanban view)
+            return { leads: data || [], totalCount: count };
 
         },
         enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData, // Enable only if clinicId, valid funnelIdForQuery, stagesData exist, and not invalid overall
@@ -327,31 +327,34 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads;
     const fetchError = stagesError || funnelDetailsError || leadsError;
 
-    // Data for rendering is now directly from paginatedLeadsData
-    const leadsToDisplay = paginatedLeadsData?.leads || [];
-    const totalItems = paginatedLeadsData?.totalCount ?? 0;
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    // Data for rendering is now directly from leadsQueryData
+    const leadsToDisplay = leadsQueryData?.leads || [];
+    // totalItems and totalPages are only relevant for list view
+    const totalItems = currentView === 'list' ? (leadsQueryData?.totalCount ?? 0) : leadsToDisplay.length; // Use actual length for Kanban count display
+    const totalPages = currentView === 'list' ? Math.ceil(totalItems / ITEMS_PER_PAGE) : 1; // Only calculate pages for list view
 
 
-    // Update current page if filtering/sorting reduces total pages
+    // Update current page if filtering/sorting reduces total pages (only for list view)
     useEffect(() => {
-        // Only adjust if totalItems is loaded and greater than 0
-        if (totalItems > 0) {
-            const newTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-            if (currentPage > newTotalPages) {
-                setCurrentPage(newTotalPages);
+        if (currentView === 'list') {
+            // Only adjust if totalItems is loaded and greater than 0
+            if (totalItems > 0) {
+                const newTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+                if (currentPage > newTotalPages) {
+                    setCurrentPage(newTotalPages);
+                }
+            } else if (totalItems === 0 && currentPage !== 1) {
+                 // If no items match filter, reset to page 1
+                 setCurrentPage(1);
             }
-        } else if (totalItems === 0 && currentPage !== 1) {
-             // If no items match filter, reset to page 1
-             setCurrentPage(1);
+             // No need to reset page if totalItems is 0 and currentPage is already 1
         }
-         // No need to reset page if totalItems is 0 and currentPage is already 1
-    }, [totalItems, currentPage]);
+    }, [totalItems, currentPage, currentView]); // Add currentView dependency
 
 
-    // Handle pagination clicks
+    // Handle pagination clicks (only for list view)
     const handlePageChange = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
+        if (currentView === 'list' && page >= 1 && page <= totalPages) {
             setCurrentPage(page);
         }
     };
@@ -370,6 +373,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         stagesData?.forEach(stage => {
             grouped[stage.id] = [];
         });
+        // Use leadsToDisplay which contains ALL leads for Kanban view
         leadsToDisplay.forEach(lead => {
             if (lead.id_etapa !== null && grouped[lead.id_etapa]) {
                 grouped[lead.id_etapa].push(lead);
@@ -415,9 +419,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                          />
                     </div>
                     <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoading ? 'Carregando...' : `${totalItems} leads`}
+                        {isLoading ? 'Carregando...' : `${totalItems} leads`} {/* Use totalItems here */}
                     </span>
-                    {currentView === 'list' && (
+                    {currentView === 'list' && ( // Only show sort for list view
                         <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Ordenar por..." />
@@ -525,39 +529,43 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                         {currentView === 'list' && (
                             <Card className="leads-list-container h-full flex flex-col">
                                 <CardContent className="p-0 flex-grow overflow-y-auto">
-                                    {leadsToDisplay.map(lead => (
-                                        <div
-                                            key={lead.id}
-                                            className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                            onClick={() => openLeadDetails(lead.telefone)}
-                                        >
-                                            <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
-                                            <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
-                                                <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                                <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                                {/* Removed rendering of interests */}
-                                            </div>
-                                            <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
-                                                {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
-                                                {lead.sourceUrl && <div className="lead-source truncate">Anúncio: <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Ver link</a></div>}
-                                                <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.created_at)}</div>
-                                            </div>
-                                            <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
-                                                {/* Funnel name is not directly available per lead in this query */}
-                                                {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
-                                                <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{getStageName(lead.id_etapa)}</span> {/* Display stage name */}
-                                            </div>
-                                            {lead.lead_score !== null && (
-                                                <div className="lead-score flex items-center ml-4">
-                                                    <div className="stars flex gap-0.5" title={`Lead Score: ${lead.lead_score}`}>
-                                                        {renderStars(lead.lead_score)}
-                                                    </div>
+                                    {leadsToDisplay.map(lead => {
+                                         // Get stage and funnel info for list view
+                                        const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
+                                        return (
+                                            <div
+                                                key={lead.id}
+                                                className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                                                onClick={() => openLeadDetails(lead.telefone)}
+                                            >
+                                                <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
+                                                <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
+                                                    <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
+                                                    <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
+                                                    {/* Removed rendering of interests */}
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                                <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
+                                                    {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
+                                                    {lead.sourceUrl && <div className="lead-source truncate">Anúncio: <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Ver link</a></div>}
+                                                    <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.created_at)}</div>
+                                                </div>
+                                                <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
+                                                    {/* Funnel name is not directly available per lead in this query */}
+                                                    {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
+                                                    <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo.etapa}</span> {/* Display stage name */}
+                                                </div>
+                                                {lead.lead_score !== null && (
+                                                    <div className="lead-score flex items-center ml-4">
+                                                        <div className="stars flex gap-0.5" title={`Lead Score: ${lead.lead_score}`}>
+                                                            {renderStars(lead.lead_score)}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </CardContent>
-                                {totalItems > 0 && (
+                                {totalItems > 0 && ( // Only show pagination for list view if there are items
                                     <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
                                         <div className="pagination-info text-sm text-gray-600">
                                             Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
