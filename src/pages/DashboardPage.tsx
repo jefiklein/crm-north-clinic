@@ -515,7 +515,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         {/* Card: Recompras (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
                                 <CardTitle className="text-md font-medium">Recompras</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
@@ -568,7 +568,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 </div>
             </div>
 
-        </div>
+        </div> // This div now correctly wraps all content
     );
 };
 
