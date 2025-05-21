@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart } from "lucide-react"; // Added CalendarClock and CalendarHeart icons
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Repeat, TagIcon } from "lucide-react"; // Added Repeat and TagIcon
 import { useQuery } from "@tanstack/react-query";
 import { endOfMonth, getDay, isAfter, startOfDay } from 'date-fns';
 
@@ -15,7 +15,6 @@ interface ClinicData {
 }
 
 // Define the structure for the sales data received from the webhook
-// UPDATED: Define interfaces for each object type in the array response
 interface TotalSalesData {
     count_id_north: number;
     sum_valor_venda: number;
@@ -31,7 +30,7 @@ interface NewSalesData {
     sum_nova_compra: number;
 }
 
-// UPDATED: Combined interface for the processed sales data
+// Combined interface for the processed sales data
 interface DetailedSalesData {
     total: TotalSalesData;
     rebuy: RebuySalesData;
@@ -86,7 +85,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     }, []);
 
     // Fetch sales data from webhook using react-query
-    // UPDATED: Use DetailedSalesData interface
     const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<DetailedSalesData | null>({
         queryKey: ['salesData', clinicData?.code, new Date().getMonth() + 1, new Date().getFullYear()],
         queryFn: async () => {
@@ -131,7 +129,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de vendas:', data);
 
-                // UPDATED: Process the array response
+                // Process the array response
                 if (Array.isArray(data) && data.length >= 3) {
                     const total = data.find(item => item.count_id_north !== undefined && item.sum_valor_venda !== undefined);
                     const rebuy = data.find(item => item.num_recompra !== undefined && item.sum_recompra !== undefined);
@@ -274,7 +272,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de avaliações:', data);
 
-                // Detailed check for the expected format: [{ "sum_total_agendamentos": N, "sum_total_realizados": M }]
+                // Detailed check for the expected format: [{ "sum_total_agendamentos": N, "sum_total_realizadas": M }]
                 if (!Array.isArray(data) || data.length === 0) {
                     throw new Error(`Resposta inesperada do webhook de avaliações: Esperado um array não vazio, mas recebeu ${Array.isArray(data) ? 'um array vazio' : typeof data}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
                 }
@@ -306,7 +304,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
                  if (isNaN(numAgendamentos) || isNaN(numRealizados)) {
                      console.error("DashboardPage: Values are NaN despite data log. Agendados:", agendamentos, "Realizados:", realizados); // Added log inside error block
-                     throw new Error(`Resposta inesperada do webhook de avaliações: Os valores para 'sum_total_agendamentos' ou 'sum_total_realizados' não são números. Recebeu: Agendados=${agendamentos}, Realizados=${realizados}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                     throw new Error(`Resposta inesperada do webhook de avaliações: Os valores para 'sum_total_agendamentos' ou 'sum_total_realizadas' não são números. Recebeu: Agendados=${agendamentos}, Realizados=${realizados}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
                  }
 
 
@@ -330,9 +328,17 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     });
 
 
-    // Calculate Average Ticket - UPDATED to use total sales data
-    const averageTicket = salesData?.total && salesData.total.count_id_north > 0
+    // Calculate Average Ticket for Total, Rebuy, and New Sales
+    const totalAverageTicket = salesData?.total && salesData.total.count_id_north > 0
         ? salesData.total.sum_valor_venda / salesData.total.count_id_north
+        : 0; // Handle division by zero
+
+    const rebuyAverageTicket = salesData?.rebuy && salesData.rebuy.num_recompra > 0
+        ? salesData.rebuy.sum_recompra / salesData.rebuy.num_recompra
+        : 0; // Handle division by zero
+
+    const newSalesAverageTicket = salesData?.new && salesData.new.num_nova_compra > 0
+        ? salesData.new.sum_nova_compra / salesData.new.num_nova_compra
         : 0; // Handle division by zero
 
 
@@ -432,7 +438,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                          {/* Add a retry button if needed */}
                      </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 6 cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted grid for 8 cards */}
                         {/* Card: Número de Vendas Totais */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
@@ -462,16 +468,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                         {/* Card: Ticket Médio (Calculated from total sales) */}
+                         {/* Card: Ticket Médio Total */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <Scale className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Ticket Médio</CardTitle>
+                                <CardTitle className="text-md font-medium">Ticket Médio Total</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
-                                    {averageTicket !== undefined && averageTicket !== null ?
-                                        `R$ ${averageTicket.toFixed(2).replace('.', ',')}` :
+                                    {totalAverageTicket !== undefined && totalAverageTicket !== null ?
+                                        `R$ ${totalAverageTicket.toFixed(2).replace('.', ',')}` :
                                         'N/A'
                                     }
                                 </div>
@@ -507,6 +513,23 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
+                         {/* Card: Ticket Médio Recompra */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <Scale className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Ticket Médio Recompra</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {rebuyAverageTicket !== undefined && rebuyAverageTicket !== null ?
+                                        `R$ ${rebuyAverageTicket.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            </CardContent>
+                        </Card>
+
+
                         {/* Card: Número de Novas Vendas */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
@@ -530,6 +553,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {salesData?.new?.sum_nova_compra !== undefined && salesData.new.sum_nova_compra !== null ?
                                         `R$ ${salesData.new.sum_nova_compra.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                         {/* Card: Ticket Médio Nova Venda */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <Scale className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Ticket Médio Nova Venda</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {newSalesAverageTicket !== undefined && newSalesAverageTicket !== null ?
+                                        `R$ ${newSalesAverageTicket.toFixed(2).replace('.', ',')}` :
                                         'N/A'
                                     }
                                 </div>
