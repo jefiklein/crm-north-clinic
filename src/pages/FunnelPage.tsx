@@ -121,9 +121,6 @@ const menuIdToFunnelIdMap: { [key: number]: number } = {
     // Add other menu item IDs and their corresponding funnel IDs here as needed
 };
 
-// List of known menu IDs that are *not* funnel pages handled by this component
-const nonFunnelMenuIds = new Set([1, 3, 12, 14]); // 1: Dashboard, 3: All Leads, 12: Fila Mensagens, 14: Cashback
-
 
 const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const { funnelId: menuIdParam } = useParams<{ funnelId: string }>(); // Get menu item ID from URL
@@ -151,18 +148,12 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     console.log("FunnelPage: clinicData:", clinicData);
     console.log("FunnelPage: !clinicData:", !clinicData);
     console.log("FunnelPage: funnelIdForWebhook:", funnelIdForWebhook);
-    console.log("FunnelPage: nonFunnelMenuIds:", nonFunnelMenuIds);
-    console.log("FunnelPage: menuId is a known non-funnel ID?", nonFunnelMenuIds.has(menuId));
     // --- End Debugging Logs ---
 
 
-    // Check if the menuIdParam corresponds to a valid funnel ID *or* is a known non-funnel ID
-    // If it's a known non-funnel ID, this component shouldn't render its content
-    const shouldRenderFunnelContent = !!clinicData && !isNaN(menuId) && funnelIdForWebhook !== undefined && !nonFunnelMenuIds.has(menuId);
-
-    // If it's not a valid funnel ID *and* not a known non-funnel ID, or clinic data is missing, show Under Construction
-    const shouldShowUnderConstruction = !shouldRenderFunnelContent && (!clinicData || isNaN(menuId) || !nonFunnelMenuIds.has(menuId));
-
+    // Check if the menuIdParam corresponds to a valid funnel ID
+    // This check is now after hook declarations
+    const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForWebhook === undefined;
 
     // Fetch Stages
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
@@ -179,7 +170,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             if (!Array.isArray(data)) throw new Error("Resposta de etapas inválida: não é um array.");
             return data.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
         },
-        enabled: shouldRenderFunnelContent, // Enable only if we should render funnel content
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -204,7 +195,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
             return data; // Should be an array with one item
         },
-        enabled: shouldRenderFunnelContent, // Enable only if we should render funnel content
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -226,58 +217,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
             return data;
         },
-        enabled: shouldRenderFunnelContent, // Enable only if we should render funnel content
+        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
         staleTime: 60 * 1000, // 1 minute for leads
     });
 
     // Combine loading states and errors
     const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads;
     const fetchError = stagesError || funnelDetailsError || leadsError;
-
-    // Map stages and funnels for quick lookup
-    const stageMap = useMemo(() => {
-        const map = new Map<number, FunnelStage>();
-        allStages?.forEach(stage => map.set(stage.id, stage));
-        return map;
-    }, [allStages]);
-
-    const funnelMap = useMemo(() => {
-        const map = new Map<number, FunnelDetails>();
-        allFunnelDetails?.forEach(funnel => map.set(funnel.id, funnel));
-        return map;
-    }, [allFunnelDetails]);
-
-    // Get Stage and Funnel Name Helper
-    const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string, etapaClass: string, funilClass: string } => {
-        let stageInfo = { etapa: 'Não definida', funil: 'Não definido', etapaClass: '', funilClass: '' };
-        if (idEtapa !== null) {
-            const stage = stageMap.get(idEtapa);
-            if (stage) {
-                stageInfo.etapa = stage.nome_etapa || 'Sem nome';
-                if (stage.id_funil !== null) {
-                    const funnel = funnelMap.get(stage.id_funil);
-                    if (funnel) {
-                        stageInfo.funil = funnel.nome_funil || 'Sem nome';
-                    }
-                }
-
-                // Determine classes based on names (simplified from HTML)
-                const etapaLower = stageInfo.etapa.toLowerCase();
-                if (etapaLower.includes('novo') || etapaLower.includes('lead')) { stageInfo.etapaClass = 'bg-blue-100 text-blue-800 border border-blue-800'; }
-                else if (etapaLower.includes('agendado')) { stageInfo.etapaClass = 'bg-purple-100 text-purple-800 border border-purple-800'; } // Using purple for scheduled
-                else if (etapaLower.includes('qualificação')) { stageInfo.etapaClass = 'bg-orange-100 text-orange-800 border border-orange-800'; } // Using orange for qualified
-                else { stageInfo.etapaClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
-
-                const funnelLower = stageInfo.funil.toLowerCase();
-                 if (funnelLower.includes('vendas')) { stageInfo.funnelClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
-                 else if (funnelLower.includes('recuperação')) { stageInfo.funnelClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
-                 else if (funnelLower.includes('compareceram')) { stageInfo.funnelClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
-                 else { stageInfo.funnelClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
-            }
-        }
-        return stageInfo;
-    };
-
 
     // Filter and Sort Leads
     const filteredAndSortedLeads = useMemo(() => {
@@ -361,19 +307,17 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ID ${funnelIdForWebhook}`; // Use funnelIdForWebhook for default name display
 
-    // Render UnderConstructionPage if it's a known non-funnel ID or invalid
-    if (shouldShowUnderConstruction) {
-        console.log("FunnelPage: Rendering UnderConstructionPage.", {
+    // Display UnderConstructionPage if the funnel is invalid
+    if (isInvalidFunnel) {
+        console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
+            clinicData: clinicData,
             menuId: menuId,
-            isKnownNonFunnel: nonFunnelMenuIds.has(menuId),
-            isValidFunnelId: funnelIdForWebhook !== undefined,
-            clinicDataAvailable: !!clinicData
+            isNaN_menuId: isNaN(menuId),
+            funnelIdForWebhook: funnelIdForWebhook // Log the determined funnelIdForWebhook
         });
         return <UnderConstructionPage />;
     }
 
-    // If we reach here, it means shouldRenderFunnelContent is true,
-    // so we proceed with rendering the funnel content.
 
     return (
         <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
@@ -523,8 +467,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.data_entrada)}</div>
                                             </div>
                                             <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
-                                                <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span>
-                                                <span className={cn("stage px-2 py-1 rounded-md mt-1", stageInfo.etapaClass)}>{stageInfo.etapa}</span>
+                                                <span className="funnel px-2 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-800">{funnelName}</span>
+                                                <span className="stage px-2 py-1 rounded-md bg-green-100 text-green-800 border border-green-800 mt-1">{getStageName(lead.id_etapa)}</span>
                                             </div>
                                             {lead.lead_score !== null && (
                                                 <div className="lead-score flex items-center ml-4">
