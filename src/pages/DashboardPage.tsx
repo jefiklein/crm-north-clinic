@@ -334,11 +334,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         : 0; // Handle division by zero
 
     const rebuyAverageTicket = salesData?.rebuy && salesData.rebuy.num_recompra > 0
-        ? salesData.rebuy.sum_valor_venda / salesData.rebuy.num_recompra // Corrected to use sum_valor_venda from rebuy
+        ? salesData.rebuy.sum_recompra / salesData.rebuy.num_recompra
         : 0; // Handle division by zero
 
     const newSalesAverageTicket = salesData?.new && salesData.new.num_nova_compra > 0
-        ? salesData.new.sum_valor_venda / salesData.new.num_nova_compra // Corrected to use sum_valor_venda from new
+        ? salesData.new.sum_nova_compra / salesData.new.num_nova_compra
         : 0; // Handle division by zero
 
 
@@ -439,12 +439,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                      </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 columns */}
+                        {/* Card: Número de Vendas Totais */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <ShoppingCart className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Vendas Totais (Qtd)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.total?.count_id_north !== undefined && salesData.total.count_id_north !== null ? salesData.total.count_id_north : 'N/A'}
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Card: Total de Vendas (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Vendas Totais</CardTitle> {/* Removed (Valor) */}
+                                <CardTitle className="text-md font-medium">Vendas Totais (Valor)</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -472,11 +484,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                        {/* Card: Novas Vendas (Valor) */}
+                        {/* Card: Número de Novas Vendas */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" /> {/* Reverted icon to BadgeDollarSign */}
-                                <CardTitle className="text-md font-medium">Novas Vendas</CardTitle> {/* Removed (Valor) */}
+                                <TagIcon className="mx-auto h-8 w-8 text-primary" /> {/* Using TagIcon for new sales */}
+                                <CardTitle className="text-md font-medium">Novas Vendas (Qtd)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.new?.num_nova_compra !== undefined && salesData.new.num_nova_compra !== null ? salesData.new.num_nova_compra : 'N/A'}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                         {/* Card: Valor de Novas Vendas */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Novas Vendas (Valor)</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -504,11 +529,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                        {/* Card: Recompras (Valor) */}
+                        {/* Card: Número de Recompras */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" /> {/* Reverted icon to BadgeDollarSign */}
-                                <CardTitle className="text-md font-medium">Recompras</CardTitle> {/* Removed (Valor) */}
+                                <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
+                                <CardTitle className="text-md font-medium">Recompras (Qtd)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra !== null ? salesData.rebuy.num_recompra : 'N/A'}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card: Valor de Recompras */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Recompras (Valor)</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -535,7 +573,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 </div>
                             </CardContent>
                         </Card>
-
                     </div>
                 )}
             </div>
