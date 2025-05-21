@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, Calendar
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -18,24 +19,27 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for a sale item from the webhook
-interface SaleData {
+// Define the structure for a sale item fetched from Supabase
+interface SupabaseSale {
     id_north: number;
-    data_venda: string; // Assuming ISO date string
+    data_venda: string; // ISO date string
     codigo_cliente_north: number | null;
-    nome_north: string | null; // Corrected field name for client name
     cod_funcionario_north: number | null;
-    nome_funcionario_north: string | null; // Assuming this field exists based on request
+    nome_funcionario_north: string | null;
     valor_venda: number | null;
-    // Add other fields if needed from the webhook response
+    // The client name comes from the joined table
+    north_clinic_clientes: { nome_north: string | null } | null; // Nested client data
+    // Add other fields if needed from the Supabase query
 }
+
 
 interface CashbackPageProps {
     clinicData: ClinicData | null;
 }
 
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const SALES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0ddb4be8-65ee-486b-8b29-86a9a2eafb92`;
+// Removed webhook URL, fetching directly from Supabase now
+// const SALES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0ddb4be8-65ee-486b-8b29-86a9a2eafb92`;
+
 
 // Helper function to clean salesperson name (remove leading numbers and hyphen)
 function cleanSalespersonName(name: string | null): string {
@@ -78,73 +82,47 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: string } }>({});
 
     const clinicId = clinicData?.id;
-    const currentMonth = format(currentDate, 'MM');
-    const currentYear = format(currentDate, 'yyyy');
+    // Format dates for Supabase query filters
+    const startDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-    // Fetch sales data using react-query
-    const { data: salesData, isLoading, error, refetch } = useQuery<SaleData[]>({
-        queryKey: ['monthlySales', clinicId, currentMonth, currentYear],
+
+    // Fetch sales data using react-query directly from Supabase
+    const { data: salesData, isLoading, error, refetch } = useQuery<SupabaseSale[]>({
+        queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate], // Use date range in key
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
 
-            console.log(`Fetching sales for clinic ${clinicId}, month ${currentMonth}, year ${currentYear}`);
-
-            const payload = {
-                clinic_code: clinicData.code, // Use clinic code for webhook
-                mes: parseInt(currentMonth, 10),
-                ano: parseInt(currentYear, 10)
-            };
+            console.log(`Fetching sales for clinic ${clinicId} from Supabase for date range ${startDate} to ${endDate}`);
 
             try {
-                const response = await fetch(SALES_WEBHOOK_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                const { data, error } = await supabase
+                    .from('north_clinic_vendas')
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, north_clinic_clientes(nome_north)') // Select sales data and join client name
+                    .eq('id_clinica', clinicId) // Filter by clinic ID
+                    .gte('data_venda', startDate) // Filter by start date of the month
+                    .lte('data_venda', endDate) // Filter by end date of the month
+                    .order('data_venda', { ascending: true }); // Order by sale date
 
-                console.log('Sales webhook response:', { status: response.status, statusText: response.statusText });
+                console.log('Supabase sales fetch result:', { data, error });
 
-                if (!response.ok) {
-                    let errorDetail = response.statusText;
-                     try {
-                        const errorBody = await response.text();
-                        errorDetail = errorBody.substring(0, 200) + (errorBody.length > 200 ? '...' : '');
-                        try {
-                            const errorJson = JSON.parse(errorBody);
-                            errorDetail = errorJson.message || errorJson.error || JSON.stringify(errorJson);
-                        } catch(e) { /* ignore parse error */ }
-                    } catch(readError) { /* ignore read error */ }
-                    throw new Error(`Falha API Vendas (${response.status}): ${errorDetail}`);
+                if (error) {
+                    console.error('Supabase sales fetch error:', error);
+                    throw new Error(`Erro ao buscar dados de vendas: ${error.message}`);
                 }
 
-                const data = await response.json();
-                console.log("Sales data received:", data);
-
-                if (!Array.isArray(data)) {
-                     console.warn("API Vendas não retornou array:", data);
-                     // Depending on webhook behavior, might need to check data[0] if it returns [{ json: [...] }]
-                     if (data && typeof data === 'object' && Array.isArray(data.json)) {
-                         // Sort by data_venda before returning
-                         return (data.json as SaleData[]).sort((a, b) => {
-                             const dateA = new Date(a.data_venda).getTime();
-                             const dateB = new Date(b.data_venda).getTime();
-                             return dateA - dateB; // Ascending order
-                         });
-                     }
-                     throw new Error("Resposta inesperada API Vendas.");
+                if (!data) {
+                    console.warn("Supabase sales fetch returned null data.");
+                    return []; // Return empty array if data is null
                 }
 
-                // Sort by data_venda before returning
-                return (data as SaleData[]).sort((a, b) => {
-                    const dateA = new Date(a.data_venda).getTime();
-                    const dateB = new Date(b.data_venda).getTime();
-                    return dateA - dateB; // Ascending order
-                });
+                console.log("Sales data received from Supabase:", data.length, "items");
+                return data as SupabaseSale[]; // Cast to the defined interface
 
             } catch (err: any) {
-                console.error('Erro ao buscar dados de vendas:', err);
+                console.error('Erro ao buscar dados de vendas do Supabase:', err);
                 throw err; // Re-throw to be caught by react-query
             }
         },
@@ -244,7 +222,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         return (
                                             <TableRow key={saleId}>
                                                 <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{sale.nome_north || 'N/D'}</TableCell> {/* Use nome_north here */}
+                                                {/* Access client name from the nested object */}
+                                                <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
                                                 <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
                                                 <TableCell className="text-right whitespace-nowrap">
                                                     {sale.valor_venda !== null && sale.valor_venda !== undefined ?
