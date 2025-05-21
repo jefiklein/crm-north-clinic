@@ -438,7 +438,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                          {/* Add a retry button if needed */}
                      </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted grid for 8 cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 columns */}
                         {/* Card: Número de Vendas Totais */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
@@ -484,52 +484,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                        {/* Card: Número de Recompras */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
-                                <CardTitle className="text-md font-medium">Recompras (Qtd)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra !== null ? salesData.rebuy.num_recompra : 'N/A'}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Card: Valor de Recompras */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Recompras (Valor)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
-                                        `R$ ${salesData.rebuy.sum_recompra.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
-                                    }
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                         {/* Card: Ticket Médio Recompra */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <Scale className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Ticket Médio Recompra</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {rebuyAverageTicket !== undefined && rebuyAverageTicket !== null ?
-                                        `R$ ${rebuyAverageTicket.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
-                                    }
-                                </div>
-                            </CardContent>
-                        </Card>
-
-
                         {/* Card: Número de Novas Vendas */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
@@ -569,6 +523,51 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {newSalesAverageTicket !== undefined && newSalesAverageTicket !== null ?
                                         `R$ ${newSalesAverageTicket.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card: Número de Recompras */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
+                                <CardTitle className="text-md font-medium">Recompras (Qtd)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra !== null ? salesData.rebuy.num_recompra : 'N/A'}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card: Valor de Recompras */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Recompras (Valor)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
+                                        `R$ ${salesData.rebuy.sum_recompra.toFixed(2).replace('.', ',')}` :
+                                        'N/A'
+                                    }
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                         {/* Card: Ticket Médio Recompra */}
+                        <Card className="text-center">
+                            <CardHeader className="pb-2">
+                                <Scale className="mx-auto h-8 w-8 text-primary" />
+                                <CardTitle className="text-md font-medium">Ticket Médio Recompra</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-primary">
+                                    {rebuyAverageTicket !== undefined && rebuyAverageTicket !== null ?
+                                        `R$ ${rebuyAverageTicket.toFixed(2).replace('.', ',')}` :
                                         'N/A'
                                     }
                                 </div>
