@@ -14,6 +14,7 @@ import AllLeadsPage from "./pages/AllLeadsPage"; // Import the new AllLeadsPage
 import CashbackPage from "./pages/CashbackPage"; // Import the new CashbackPage
 import ConversasPage from "./pages/ConversasPage"; // Import the correct ConversasPage
 import WhatsappInstancesPage from "./pages/WhatsappInstancesPage"; // Import the new WhatsappInstancesPage
+import MensagensListPage from "./pages/MensagensListPage"; // Import the new MensagensListPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -109,10 +110,13 @@ const App = () => {
               {/* Route for the Whatsapp Instances page - Using menu item ID 10 */}
               <Route path="10" element={<WhatsappInstancesPage clinicData={clinicData} />} />
 
+              {/* Route for the Mensagens List page - Using menu item ID 11 */}
+              <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
+
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/10, /dashboard/12, /dashboard/14 */}
+              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14 */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
 
