@@ -42,7 +42,7 @@ interface SupabaseLead {
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
-    // interesses: string | null; // Removed interests
+    interesses: string | null; // Assuming interests is a comma-separated string
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
     // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
@@ -79,17 +79,16 @@ function renderStars(score: number | null): JSX.Element[] {
     return stars;
 }
 
-// This function is no longer used with data from the main leads query
-// function renderInterests(interests: string | null): JSX.Element[] {
-//     if (!interests) return [];
-//     const arr = interests.split(',').map(i => i.trim()).filter(i => i);
-//     const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
-//     return arr.map((interest, index) => (
-//         <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
-//             {interest}
-//         </span>
-//     ));
-// }
+function renderInterests(interests: string | null): JSX.Element[] {
+    if (!interests) return [];
+    const arr = interests.split(',').map(i => i.trim()).filter(i => i);
+    const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
+    return arr.map((interest, index) => (
+        <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
+            {interest}
+        </span>
+    ));
+}
 
 function formatLeadTimestamp(iso: string | null): string {
     if (!iso) return 'N/D';
@@ -243,8 +242,8 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                // Removed 'interesses' from the select list
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }); // Request exact count
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, interesses, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                .eq('id_clinica', clinicId); // Filter by clinic ID
 
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
@@ -419,7 +418,11 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                         <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                        {/* Removed rendering of interests */}
+                                        {lead.interesses && (
+                                            <div className="lead-tags flex flex-wrap gap-1 mt-1">
+                                                {renderInterests(lead.interesses)}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
