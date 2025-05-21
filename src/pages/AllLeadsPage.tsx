@@ -42,7 +42,7 @@ interface SupabaseLead {
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
-    interesses: string | null; // Assuming interests is a comma-separated string
+    // interesses: string | null; // Removed interests
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
     // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
@@ -57,7 +57,7 @@ const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // Removed ALL_LEADS_WEBHOOK_URL
 const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
 const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
-const LEAD_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9c8216dd-f489-464e-8ce4-45c227857707`;
+const LEAD_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a`;
 
 
 // Helper functions (adapted from HTML)
@@ -79,16 +79,17 @@ function renderStars(score: number | null): JSX.Element[] {
     return stars;
 }
 
-function renderInterests(interests: string | null): JSX.Element[] {
-    if (!interests) return [];
-    const arr = interests.split(',').map(i => i.trim()).filter(i => i);
-    const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
-    return arr.map((interest, index) => (
-        <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
-            {interest}
-        </span>
-    ));
-}
+// This function is no longer used with data from the main leads query
+// function renderInterests(interests: string | null): JSX.Element[] {
+//     if (!interests) return [];
+//     const arr = interests.split(',').map(i => i.trim()).filter(i => i);
+//     const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
+//     return arr.map((interest, index) => (
+//         <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
+//             {interest}
+//         </span>
+//     ));
+// }
 
 function formatLeadTimestamp(iso: string | null): string {
     if (!iso) return 'N/D';
@@ -242,7 +243,8 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, interesses, created_at, sourceUrl', { count: 'exact' }); // Request exact count
+                // Removed 'interesses' from the select list
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }); // Request exact count
 
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
@@ -417,11 +419,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                         <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                        {lead.interesses && (
-                                            <div className="lead-tags flex flex-wrap gap-1 mt-1">
-                                                {renderInterests(lead.interesses)}
-                                            </div>
-                                        )}
+                                        {/* Removed rendering of interests */}
                                     </div>
                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
