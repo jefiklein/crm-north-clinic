@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils'; // Utility for class names
 import { showSuccess, showError, showToast } from '@/utils/toast'; // Using our toast utility
 import Choices from 'choices.js'; // Import Choices.js
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Ensure the emoji picker element is defined
 import 'emoji-picker-element';
@@ -47,7 +48,7 @@ interface MessageDetails {
     para_grupo: boolean;
     para_cliente: boolean;
     url_arquivo: string | null; // Redundant? Assuming midia_mensagem is the key
-    prioridade: number;
+    prioridade: number; // Added priority field
     created_at: string;
     updated_at: string;
 }
@@ -95,7 +96,7 @@ const GET_GROUPS_URL = `${N8N_BASE_URL}/webhook/29203acf-7751-4b18-8d69-d4bdb380
 const GET_LINKED_SERVICES_URL = `${N8N_BASE_URL}/webhook/1e9c1d33-c815-4afb-8317-40195863ab3a`;
 const SAVE_MESSAGE_URL_CREATE = `${N8N_BASE_URL}/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d`;
 const SAVE_MESSAGE_URL_UPDATE = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`;
-const GET_MESSAGE_DETAILS_URL = `${N8N_BASE_URL}/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`;
+// REMOVED: const GET_MESSAGE_DETAILS_URL = `${N8N_BASE_URL}/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`;
 const GENERATE_PREVIEW_URL = `${N8N_BASE_URL}/webhook/ajustar-mensagem-modelo`;
 const AI_VARIATION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/225ecff5-6081-466f-a0d7-9cfe3ea2ce84`;
 const UPLOAD_SUPABASE_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase';
@@ -173,6 +174,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     const isEditing = !!messageId;
 
     const clinicCode = clinicData?.code;
+    const clinicId = clinicData?.id; // Use clinicId for Supabase queries
 
     // State for form data
     const [formData, setFormData] = useState({
@@ -190,6 +192,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         variacao_3: '',
         variacao_4: '',
         variacao_5: '',
+        prioridade: 1, // Added priority field, default to 1
         // Media is handled separately
     });
     const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
@@ -211,30 +214,46 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
     // --- Data Fetching ---
 
-    // Fetch Message Details (if editing)
+    // Fetch Message Details (if editing) - NOW FROM SUPABASE
     const { data: messageDetails, isLoading: isLoadingDetails, error: detailsError } = useQuery<MessageDetails | null>({
-        queryKey: ['messageDetails', messageId, clinicCode],
+        queryKey: ['messageDetails', messageId, clinicId], // Use clinicId in key
         queryFn: async () => {
-            if (!messageId || !clinicCode) return null;
-            console.log(`[MensagensConfigPage] Fetching details for message ID: ${messageId}`);
-            const response = await fetch(GET_MESSAGE_DETAILS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ id_mensagem: messageId, codigo_clinica: clinicCode })
-            });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar detalhes: ${errorText.substring(0, 100)}...`);
+            if (!messageId || !clinicId) {
+                 console.warn("[MensagensConfigPage] Skipping message details fetch: messageId or clinicId missing.");
+                 return null;
             }
-            const data = await response.json();
-             if (!data || typeof data !== 'object') {
-                 console.warn("[MensagensConfigPage] Invalid message details response format:", data);
-                 throw new Error("Formato de resposta inválido para detalhes da mensagem.");
-             }
-            console.log("[MensagensConfigPage] Message details loaded:", data);
-            return data as MessageDetails;
+            console.log(`[MensagensConfigPage] Fetching details for message ID ${messageId} from Supabase (Clinic ID: ${clinicId})...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_config_mensagens')
+                    .select('*') // Select all fields
+                    .eq('id', parseInt(messageId, 10)) // Filter by message ID (ensure it's a number)
+                    .eq('id_clinica', clinicId) // Filter by clinic ID
+                    .single(); // Expecting a single result
+
+                console.log("[MensagensConfigPage] Supabase message details fetch result:", { data, error });
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+                    console.error("[MensagensConfigPage] Supabase message details fetch error:", error);
+                    throw new Error(`Erro ao buscar detalhes da mensagem: ${error.message}`);
+                }
+
+                // If no rows found or data is null, return null
+                if (!data) {
+                     console.warn(`[MensagensConfigPage] No message details found for ID ${messageId} and Clinic ID ${clinicId}.`);
+                     return null;
+                }
+
+                console.log("[MensagensConfigPage] Message details loaded:", data);
+                return data as MessageDetails; // Return the single object
+
+            } catch (err: any) {
+                console.error("[MensagensConfigPage] Error fetching message details from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
+            }
         },
-        enabled: isEditing && !!clinicCode, // Only fetch if editing and clinicCode is available
+        enabled: isEditing && !!messageId && !!clinicId, // Only fetch if editing, messageId, and clinicId are available
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -551,6 +570,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 variacao_3: messageDetails.variacao_3 || '',
                 variacao_4: messageDetails.variacao_4 || '',
                 variacao_5: messageDetails.variacao_5 || '',
+                prioridade: messageDetails.prioridade ?? 1, // Populate priority, default to 1 if null/undefined
             });
             setExistingMediaKey(messageDetails.midia_mensagem || null);
             // Initial population of variations counter
@@ -561,6 +581,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                  ...prev,
                  categoria: initialCategoryFromUrl, // Ensure category is set from URL
                  modelo_mensagem: defaultTemplates[initialCategoryFromUrl] || '',
+                 prioridade: 1, // Default priority for new messages
              }));
         }
     }, [messageDetails, isEditing, initialCategoryFromUrl]); // Re-run if details change or mode/initial category changes
@@ -593,7 +614,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 break;
             case 'Aniversário':
                 if (birthdayTimeGroupEl) birthdayTimeGroupEl.style.display = 'block';
-                if (serviceSelectionGroupEl) serviceSelectionGroupGroupEl.style.display = 'none'; // Corrected ID
+                if (serviceSelectionGroupEl) serviceSelectionGroupEl.style.display = 'none'; // Corrected ID
                 break;
             case 'Chegou':
             case 'Liberado':
@@ -757,7 +778,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         const { id, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [id]: type === 'checkbox' ? checked : value
+            [id]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value, 10) || 0 : value) // Parse number input
         }));
     };
 
@@ -854,6 +875,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         dataToSave.append('id_instancia', currentFormData.id_instancia);
         dataToSave.append('modelo_mensagem', currentFormData.modelo_mensagem);
         dataToSave.append('ativo', String(currentFormData.ativo)); // Send as string 'true' or 'false'
+        dataToSave.append('prioridade', String(currentFormData.prioridade)); // Add priority to FormData
 
         // Add conditional fields (Hora, Grupo, Target Type)
         if (currentFormData.hora_envio) dataToSave.append('hora_envio', currentFormData.hora_envio);
@@ -900,8 +922,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         if (!currentFormData.categoria) validationError = "Categoria é obrigatória.";
         else if (!currentFormData.id_instancia) validationError = "Instância é obrigatória.";
         else if (!currentFormData.modelo_mensagem.trim()) validationError = "Texto da mensagem principal é obrigatório.";
-        // Check linked services only if the service selection group is visible
-        else if (isServiceSelectionVisible && linkedServices.length === 0) { validationError = "Pelo menos um serviço deve ser vinculado (exceto para Aniversário)."; }
+        // Check linked services only if the service selection group is visible AND category is NOT Aniversário
+        else if (isServiceSelectionVisible && currentFormData.categoria !== 'Aniversário' && linkedServices.length === 0) { validationError = "Pelo menos um serviço deve ser vinculado (exceto para Aniversário)."; }
         else if (currentFormData.categoria === 'Confirmar Agendamento' && !currentFormData.hora_envio) { validationError = "Hora de envio (Confirmação) é obrigatória."; }
         else if (currentFormData.categoria === 'Aniversário' && !currentFormData.hora_envio) { validationError = "Hora de envio (Aniversário) é obrigatória."; }
         else if ((currentFormData.categoria === 'Chegou' || currentFormData.categoria === 'Liberado') && currentFormData.para_grupo && !currentFormData.grupo) { validationError = "Grupo alvo é obrigatório para Chegou/Liberado quando o alvo é Grupo."; }
@@ -1255,6 +1277,20 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                                     </Select>
                                 </div>
                             )}
+                             {/* Priority Field */}
+                            <div className="form-group" id="messagePriorityGroup">
+                                <Label htmlFor="prioridade">Prioridade</Label>
+                                <Input
+                                    id="prioridade"
+                                    type="number"
+                                    placeholder="1"
+                                    value={formData.prioridade}
+                                    onChange={handleInputChange}
+                                    disabled={isLoading}
+                                    min="1" // Assuming priority is 1 or higher
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Define a ordem de envio (menor número = maior prioridade).</p>
+                            </div>
                         </div>
                     </div>
 
