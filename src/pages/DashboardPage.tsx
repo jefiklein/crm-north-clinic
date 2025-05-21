@@ -343,7 +343,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         : 0; // Handle division by zero
 
     // Get current month and year for the title
-    const currentMonthYear = format(new Date(), 'MM/yyyy');
+    // UPDATED: Format date to show month name and year
+    const currentMonthYear = format(new Date(), 'MMMM - yyyy', { locale: ptBR });
 
 
     if (!clinicData) {
@@ -444,7 +445,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                      </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 columns */}
-                        {/* Card: Vendas Totais (Qtd) */}
+                        {/* Card: Número de Vendas Totais */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <ShoppingCart className="mx-auto h-8 w-8 text-primary" />
