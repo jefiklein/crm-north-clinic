@@ -475,7 +475,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         {/* Card: Novas Vendas (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" /> {/* Reverted icon to BadgeDollarSign */}
                                 <CardTitle className="text-md font-medium">Novas Vendas</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
@@ -507,7 +507,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         {/* Card: Recompras (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" /> {/* Reverted icon to BadgeDollarSign */}
                                 <CardTitle className="text-md font-medium">Recompras</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
