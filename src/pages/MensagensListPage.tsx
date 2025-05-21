@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils'; // Utility for class names
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -19,14 +20,14 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for a message item from the webhook
+// Define the structure for a message item fetched from Supabase
 interface MessageItem {
     id: number;
     categoria: string;
     modelo_mensagem: string | null;
     midia_mensagem: string | null;
     id_instancia: number | null;
-    grupo: string | null;
+    grupo: string | null; // Group ID
     ativo: boolean;
     hora_envio: string | null; // HH:mm format
     intervalo: number | null;
@@ -40,17 +41,18 @@ interface MessageItem {
     para_grupo: boolean;
     para_cliente: boolean;
     url_arquivo: string | null;
-    prioridade: number;
+    prioridade: number; // Added priority field
     created_at: string;
     updated_at: string;
 }
 
-// Define the structure for Instance Info from the webhook
+// Define the structure for Instance Info from Supabase
 interface InstanceInfo {
     id: number;
     nome_exibição: string;
     telefone: number | null;
-    // Add other fields if the webhook returns them
+    nome_instancia_evolution: string | null; // Technical name for Evolution API
+    // Add other fields if needed from Supabase
 }
 
 
@@ -58,10 +60,10 @@ interface MensagensListPageProps {
     clinicData: ClinicData | null;
 }
 
-// Webhook URLs
+// Webhook URLs (Keeping mutations webhooks for now)
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const MESSAGES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/17fc5ed8-b363-4786-ab1b-daa43f63f818`; // Webhook para lista de mensagens
-const INSTANCES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
+// REMOVED: const MESSAGES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/17fc5ed8-b363-4786-ab1b-daa43f63f818`; // Webhook para lista de mensagens
+// REMOVED: const INSTANCES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
 const MESSAGE_TOGGLE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`; // Webhook para ativar/desativar
 const MESSAGE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/4632ce57-e78a-4c62-9578-5a33b576ad73`; // Webhook para excluir
 // const MESSAGE_EDIT_PAGE_URL = `${N8N_BASE_URL}/webhook/detalhe-mensagem`; // URL da página de edição (externa) - REMOVED
@@ -106,62 +108,88 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
     const navigate = useNavigate(); // Get the navigate function
     const [expandedPreviews, setExpandedPreviews] = useState<Set<number>>(new Set()); // State to track expanded previews
 
-    const clinicCode = clinicData?.code;
+    const clinicId = clinicData?.id; // Use clinicId for Supabase queries
 
-    // --- Fetch Messages List ---
+    // --- Fetch Messages List --- NOW FROM SUPABASE
     const { data: messagesList, isLoading: isLoadingMessages, error: messagesError, refetch: refetchMessages } = useQuery<MessageItem[]>({
-        queryKey: ['messagesList', clinicCode],
+        queryKey: ['messagesList', clinicId], // Use clinicId in key
         queryFn: async () => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
-            console.log("[MensagensListPage] Fetching messages list...");
-            const response = await fetch(MESSAGES_LIST_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ codigo_clinica: clinicCode }) // Sending clinic code
-            });
-            console.log(`[MensagensListPage] Messages list fetch status: ${response.status}`);
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar mensagens: ${errorText.substring(0, 100)}...`);
+            if (!clinicId) {
+                 console.warn("[MensagensListPage] Skipping messages fetch: clinicId missing.");
+                 throw new Error("ID da clínica não disponível.");
             }
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.error("[MensagensListPage] Unexpected messages list data format:", data);
-                 throw new Error("Formato inesperado da lista de mensagens.");
+            console.log(`[MensagensListPage] Fetching messages list from Supabase (Clinic ID: ${clinicId})...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_config_mensagens')
+                    .select('*') // Select all fields
+                    .eq('id_clinica', clinicId) // Filter by clinic ID
+                    .order('prioridade', { ascending: true }) // Order by priority
+                    .order('categoria', { ascending: true }); // Then order by category
+
+                console.log("[MensagensListPage] Supabase messages fetch result:", { data, error });
+
+                if (error) {
+                    console.error("[MensagensListPage] Supabase messages fetch error:", error);
+                    throw new Error(`Erro ao buscar mensagens: ${error.message}`);
+                }
+
+                if (!data) {
+                    console.warn("[MensagensListPage] Supabase messages fetch returned null data.");
+                    return []; // Return empty array if data is null
+                }
+
+                console.log("[MensagensListPage] Messages list loaded:", data.length, "items");
+                return data as MessageItem[]; // Cast to the defined interface
+
+            } catch (err: any) {
+                console.error("[MensagensListPage] Error fetching messages from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
             }
-            console.log("[MensagensListPage] Messages list received:", data.length, "items");
-            return data as MessageItem[];
         },
-        enabled: !!clinicCode, // Only fetch if clinicCode is available
+        enabled: !!clinicId, // Only fetch if clinicId is available
         staleTime: 60 * 1000, // Cache messages for 1 minute
         refetchOnWindowFocus: false,
     });
 
-    // --- Fetch Instances List ---
+    // --- Fetch Instances List --- NOW FROM SUPABASE
     const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
-        queryKey: ['instancesListMessagesPage', clinicCode], // Use a distinct key
+        queryKey: ['instancesListMessagesPage', clinicId], // Use clinicId for Supabase fetch
         queryFn: async () => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
-            console.log("[MensagensListPage] Fetching instances list...");
-            const response = await fetch(INSTANCES_LIST_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ codigo_clinica: clinicCode }) // Sending clinic code
-            });
-            console.log(`[MensagensListPage] Instances list fetch status: ${response.status}`);
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar instâncias: ${errorText.substring(0, 100)}...`);
+            if (!clinicId) {
+                console.warn("[MensagensListPage] Skipping instances fetch: clinicId missing.");
+                throw new Error("ID da clínica não disponível.");
             }
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.error("[MensagensListPage] Unexpected instances list data format:", data);
-                 throw new Error("Formato inesperado da lista de instâncias.");
+            console.log(`[MensagensListPage] Fetching instances list from Supabase (Clinic ID: ${clinicId})...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_config_instancias')
+                    .select('id, nome_exibição, telefone, nome_instancia_evolution') // Select necessary fields
+                    .eq('id_clinica', clinicId); // Filter by clinic ID
+
+                console.log("[MensagensListPage] Supabase instances fetch result:", { data, error });
+
+                if (error) {
+                    console.error("[MensagensListPage] Supabase instances fetch error:", error);
+                    throw new Error(`Erro ao buscar instâncias: ${error.message}`);
+                }
+
+                if (!data) {
+                    console.warn("[MensagensListPage] Supabase instances fetch returned null data.");
+                    return []; // Return empty array if data is null
+                }
+
+                console.log("[MensagensListPage] Instances list loaded:", data.length, "items");
+                return data as InstanceInfo[]; // Cast to the defined interface
+
+            } catch (err: any) {
+                console.error("[MensagensListPage] Error fetching instances from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
             }
-            console.log("[MensagensListPage] Instances list received:", data.length, "items");
-            return data as InstanceInfo[];
         },
-        enabled: !!clinicCode, // Only fetch if clinicCode is available
+        enabled: !!clinicId, // Only fetch if clinicId is available
         staleTime: 5 * 60 * 1000, // Cache instances for 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -178,12 +206,14 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
     // Mutation for toggling active status
     const toggleMessageMutation = useMutation({
         mutationFn: async ({ id, ativo }: { id: number; ativo: boolean }) => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
+            if (!clinicId) throw new Error("ID da clínica não disponível.");
             console.log(`[MensagensListPage] Toggling message ID ${id} to active: ${ativo}`);
+            // This mutation still uses a webhook. If you want to migrate this to Supabase,
+            // you would use supabase.from('north_clinic_config_mensagens').update({ ativo: ativo }).eq('id', id).eq('id_clinica', clinicId);
             const response = await fetch(MESSAGE_TOGGLE_WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, ativo: ativo, id_clinica: clinicCode }) // Sending ID, new status, and clinic code
+                body: JSON.stringify({ id: id, ativo: ativo, id_clinica: clinicId }) // Sending ID, new status, and clinic ID
             });
             if (!response.ok) {
                  const errorText = await response.text();
@@ -193,7 +223,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         },
         onSuccess: (_, variables) => {
             showSuccess(`Mensagem ${variables.ativo ? 'ativada' : 'desativada'} com sucesso!`);
-            queryClient.invalidateQueries({ queryKey: ['messagesList', clinicCode] }); // Refetch messages list
+            queryClient.invalidateQueries({ queryKey: ['messagesList', clinicId] }); // Refetch messages list
         },
         onError: (error: Error) => {
             showError(`Erro ao alterar status da mensagem: ${error.message}`);
@@ -203,12 +233,14 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
     // Mutation for deleting a message
     const deleteMessageMutation = useMutation({
         mutationFn: async (id: number) => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
+            if (!clinicId) throw new Error("ID da clínica não disponível.");
             console.log(`[MensagensListPage] Deleting message ID ${id}`);
+             // This mutation still uses a webhook. If you want to migrate this to Supabase,
+            // you would use supabase.from('north_clinic_config_mensagens').delete().eq('id', id).eq('id_clinica', clinicId);
             const response = await fetch(MESSAGE_DELETE_WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id, id_clinica: clinicCode }) // Sending ID and clinic code
+                body: JSON.stringify({ id: id, id_clinica: clinicId }) // Sending ID and clinic ID
             });
             if (!response.ok) {
                  const errorText = await response.text();
@@ -218,7 +250,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         },
         onSuccess: () => {
             showSuccess('Mensagem excluída com sucesso!');
-            queryClient.invalidateQueries({ queryKey: ['messagesList', clinicCode] }); // Refetch messages list
+            queryClient.invalidateQueries({ queryKey: ['messagesList', clinicId] }); // Refetch messages list
         },
         onError: (error: Error) => {
             showError(`Erro ao excluir mensagem: ${error.message}`);
@@ -231,23 +263,23 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
     // Handle click on "Configurar Nova Mensagem" button
     const handleAddMessage = () => {
         console.log("[MensagensListPage] Navigating to add new message page...");
-        if (!clinicCode) {
+        if (!clinicData?.code) { // Use clinicData.code for the URL param
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Use navigate to go to the internal config page, passing clinic code and optionally category
-        navigate(`/config-mensagem?clinic_code=${encodeURIComponent(clinicCode)}`);
+        // Use navigate to go to the internal config page, passing clinic code
+        navigate(`/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
     // Handle click on "Editar" button
-    const handleEditMessage = (messageId: number) => { // Removed category param as it's fetched on config page
+    const handleEditMessage = (messageId: number) => {
         console.log(`[MensagensListPage] Navigating to edit message ID: ${messageId}`);
-         if (!clinicCode) {
+         if (!clinicData?.code) { // Use clinicData.code for the URL param
             showError("Erro: Código da clínica não disponível.");
             return;
         }
         // Use navigate to go to the internal config page, passing message ID and clinic code
-        navigate(`/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicCode)}`);
+        navigate(`/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
     // Handle click on "Ativar/Desativar" button
@@ -312,7 +344,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                 <div className="error-message flex items-center gap-2 p-3 mb-4 bg-red-100 text-red-700 border border-red-200 rounded-md">
                     <TriangleAlert className="h-5 w-5 flex-shrink-0" />
                     <span>Erro ao carregar dados: {fetchError.message}</span>
-                    <Button variant="outline" size="sm" onClick={() => { refetchMessages(); instancesList?.length === 0 && isLoadingInstances && instancesError && queryClient.invalidateQueries({ queryKey: ['instancesListMessagesPage', clinicCode] }); }} className="ml-auto">Tentar Novamente</Button>
+                    <Button variant="outline" size="sm" onClick={() => { refetchMessages(); instancesList?.length === 0 && isLoadingInstances && instancesError && queryClient.invalidateQueries({ queryKey: ['instancesListMessagesPage', clinicId] }); }} className="ml-auto">Tentar Novamente</Button>
                 </div>
             )}
 
@@ -338,6 +370,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                 <TableHead>Categoria</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Instância</TableHead>
+                                <TableHead className="text-center">Prioridade</TableHead> {/* Added Priority Header */}
                                 <TableHead className="text-center">Horário Prog.</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
                             </tr>
@@ -362,6 +395,9 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                 <span className={cn("instance-info inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded", instanceClass)}>
                                                     <MessagesSquare className="h-3 w-3" /> {instanceName}
                                                 </span>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                {message.prioridade ?? 'N/D'} {/* Display priority */}
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 {/* Show time only for relevant categories */}
@@ -453,7 +489,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={5} className="bg-gray-100 text-gray-800 text-sm border-t border-gray-200"> {/* Colspan 5 */}
+                                            <TableCell colSpan={6} className="bg-gray-100 text-gray-800 text-sm border-t border-gray-200"> {/* Colspan 6 */}
                                                 <div
                                                     className="preview-content"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
