@@ -347,6 +347,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     }
 
     return (
+        // Wrapped the entire content in a single div
         <div className="welcome-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6"> {/* Increased max-w for more space */}
             <h2 className="text-2xl font-bold text-primary mb-4">Bem-vindo ao CRM {clinicData.nome}</h2>
             <p className="text-gray-700 mb-6">Utilize o menu lateral para navegar pelas funcionalidades disponíveis para seu acesso.</p>
@@ -472,13 +473,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         </Card>
 
                         {/* Placeholder to align the next row if needed, or let grid handle it */}
-                        <div></div>
+                        {/* Removed placeholder div as it's not needed with 3 columns */}
 
 
                         {/* Card: Novas Vendas (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <TagIcon className="mx-auto h-8 w-8 text-primary" /> {/* Using TagIcon for new sales */}
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
                                 <CardTitle className="text-md font-medium">Novas Vendas</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
@@ -508,13 +509,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         </Card>
 
                          {/* Placeholder to align the next row if needed, or let grid handle it */}
-                        <div></div>
+                         {/* Removed placeholder div as it's not needed with 3 columns */}
 
 
                         {/* Card: Recompras (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
-                                <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
+                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
                                 <CardTitle className="text-md font-medium">Recompras</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
@@ -544,7 +545,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         </Card>
 
                          {/* Placeholder to align the next row if needed, or let grid handle it */}
-                        <div></div>
+                         {/* Removed placeholder div as it's not needed with 3 columns */}
 
                     </div>
                 )}
