@@ -20,7 +20,7 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for Funnel Stages (needed to display stage names)
+// Define the structure for Funnel Stages (from Supabase)
 interface FunnelStage {
     id: number;
     nome_etapa: string;
@@ -28,7 +28,7 @@ interface FunnelStage {
     id_funil: number;
 }
 
-// Define the structure for Funnel Details (needed to display funnel names)
+// Define the structure for Funnel Details (from Supabase)
 interface FunnelDetails {
     id: number;
     nome_funil: string;
@@ -53,11 +53,11 @@ interface AllLeadsPageProps {
     clinicData: ClinicData | null;
 }
 
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-// Removed ALL_LEADS_WEBHOOK_URL
-const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
-const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
-const LEAD_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a`;
+// Removed webhook URLs, fetching directly from Supabase now
+// const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
+// const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
+// const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a'; // Keep this for opening lead details
 
 
 // Helper functions (adapted from HTML)
@@ -79,16 +79,8 @@ function renderStars(score: number | null): JSX.Element[] {
     return stars;
 }
 
-function renderInterests(interests: string | null): JSX.Element[] {
-    if (!interests) return [];
-    const arr = interests.split(',').map(i => i.trim()).filter(i => i);
-    const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
-    return arr.map((interest, index) => (
-        <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
-            {interest}
-        </span>
-    ));
-}
+// Removed renderInterests as interests are not fetched in this query
+
 
 function formatLeadTimestamp(iso: string | null): string {
     if (!iso) return 'N/D';
@@ -120,32 +112,35 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
     const clinicId = clinicData?.id;
 
-    // Fetch All Stages (for displaying stage names)
+    // Fetch All Stages directly from Supabase (for displaying stage names)
     const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['allStages', clinicId],
         queryFn: async () => {
-            if (!clinicId) throw new Error("ID da clínica não disponível para buscar etapas.");
-
-            console.log(`Fetching all stages for clinic ${clinicId}`);
-            const response = await fetch(ALL_STAGES_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ action: "get_etapas", clinic_id: clinicId })
-            });
-
-            console.log('All Stages webhook response:', { status: response.status, statusText: response.statusText });
-
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 console.error("All Stages webhook error response:", errorText);
-                 throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+            if (!clinicId) {
+                 console.warn("AllLeadsPage: Skipping stages fetch due to missing clinicId.");
+                 throw new Error("ID da clínica não disponível para buscar etapas.");
             }
 
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.warn("Unexpected data format for all stages:", data);
-                 return [];
+            console.log(`AllLeadsPage: Fetching all stages for clinic ${clinicId} from Supabase...`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_crm_etapa')
+                .select('id, nome_etapa, ordem, id_funil') // Select necessary fields
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .order('ordem', { ascending: true }); // Order by 'ordem'
+
+            console.log("AllLeadsPage: Supabase all stages fetch result - data:", data, "error:", error);
+
+            if (error) {
+                console.error("AllLeadsPage: Supabase all stages fetch error:", error);
+                throw new Error(`Erro ao buscar etapas: ${error.message}`);
             }
+
+            if (!data || !Array.isArray(data)) {
+                 console.warn("AllLeadsPage: Supabase all stages fetch returned non-array data:", data);
+                 return []; // Return empty array if data is null or not an array
+            }
+
             return data as FunnelStage[];
         },
         enabled: !!clinicId, // Only fetch if clinicId is available
@@ -153,32 +148,35 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Fetch All Funnels (for displaying funnel names)
+    // Fetch All Funnels directly from Supabase (for displaying funnel names)
     const { data: allFunnelDetails, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
         queryKey: ['allFunnels', clinicId],
         queryFn: async () => {
-            if (!clinicId) throw new Error("ID da clínica não disponível para buscar funis.");
-
-            console.log(`Fetching all funnels for clinic ${clinicId}`);
-            const response = await fetch(ALL_FUNNELS_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ action: "get_funis", clinic_id: clinicId })
-            });
-
-            console.log('All Funnels webhook response:', { status: response.status, statusText: response.statusText });
-
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 console.error("All Funnels webhook error response:", errorText);
-                 throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+            if (!clinicId) {
+                 console.warn("AllLeadsPage: Skipping funnels fetch due to missing clinicId.");
+                 throw new Error("ID da clínica não disponível para buscar funis.");
             }
 
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.warn("Unexpected data format for all funnels:", data);
-                 return [];
+            console.log(`AllLeadsPage: Fetching all funnels for clinic ${clinicId} from Supabase...`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_crm_funil')
+                .select('id, nome_funil') // Select necessary fields
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .order('nome_funil', { ascending: true }); // Order by name
+
+            console.log("AllLeadsPage: Supabase all funnels fetch result - data:", data, "error:", error);
+
+            if (error) {
+                console.error("AllLeadsPage: Supabase all funnels fetch error:", error);
+                throw new Error(`Erro ao buscar funis: ${error.message}`);
             }
+
+            if (!data || !Array.isArray(data)) {
+                 console.warn("AllLeadsPage: Supabase all funnels fetch returned non-array data:", data);
+                 return []; // Return empty array if data is null or not an array
+            }
+
             return data as FunnelDetails[];
         },
         enabled: !!clinicId, // Only fetch if clinicId is available
@@ -187,7 +185,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     });
 
 
-    // Map stages and funnels for quick lookup
+    // Map stages and funnels for quick lookup (uses the fetched data)
     const stageMap = useMemo(() => {
         const map = new Map<number, FunnelStage>();
         allStages?.forEach(stage => map.set(stage.id, stage));
@@ -200,7 +198,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         return map;
     }, [allFunnelDetails]);
 
-    // Get Stage and Funnel Name Helper
+    // Get Stage and Funnel Info Helper (uses the maps)
     const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string, etapaClass: string, funilClass: string } => {
         let stageInfo = { etapa: 'Não definida', funil: 'Não definido', etapaClass: '', funilClass: '' };
         if (idEtapa !== null) {
@@ -232,12 +230,12 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     };
 
 
-    // Fetch Paginated, Filtered, and Sorted Leads from Supabase
+    // Fetch Paginated, Filtered, and Sorted Leads from Supabase (already doing this)
     const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
         queryKey: ['paginatedLeads', clinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue],
         queryFn: async () => {
             if (!clinicId) {
-                console.error("ID da clínica não disponível para buscar leads.");
+                console.error("AllLeadsPage: ID da clínica não disponível para buscar leads.");
                 throw new Error("ID da clínica não disponível para buscar leads.");
             }
 
@@ -319,7 +317,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
             return { leads: data || [], totalCount: count ?? 0 }; // Return data and count
 
         },
-        enabled: !!clinicId, // Only fetch if clinicId is available
+        enabled: !!clinicId && !!allStages && !!allFunnelDetails, // Enable only if clinicId, stages, and funnels are available
         staleTime: 60 * 1000, // 1 minute
         refetchOnWindowFocus: false,
     });
@@ -346,6 +344,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
              // If no items match filter, reset to page 1
              setCurrentPage(1);
         }
+         // No need to reset page if totalItems is 0 and currentPage is already 1
     }, [totalItems, currentPage]);
 
 
@@ -460,7 +459,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
                         <div className="pagination-info text-sm text-gray-600">
                             Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} leads
+                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} registros
                         </div>
                         <Pagination>
                             <PaginationContent>

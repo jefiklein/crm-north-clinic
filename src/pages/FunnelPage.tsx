@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react"; // Changed LayoutKanban to Kanban
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils'; // Utility for class names
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -22,7 +23,7 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for Funnel Stages
+// Define the structure for Funnel Stages (from Supabase)
 interface FunnelStage {
     id: number;
     nome_etapa: string;
@@ -30,7 +31,7 @@ interface FunnelStage {
     id_funil: number;
 }
 
-// Define the structure for Funnel Leads
+// Define the structure for Funnel Leads (from Supabase)
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
@@ -38,11 +39,13 @@ interface FunnelLead {
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
-    interesses: string | null; // Assuming interests is a comma-separated string
-    data_entrada: string | null; // ISO timestamp
+    // interesses: string | null; // Removed interests property as it's not in the Supabase query
+    created_at: string; // ISO timestamp from DB
+    sourceUrl?: string | null; // Optional source URL
+    // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
 }
 
-// Define the structure for Funnel Details
+// Define the structure for Funnel Details (from Supabase)
 interface FunnelDetails {
     id: number;
     nome_funil: string;
@@ -53,13 +56,14 @@ interface FunnelPageProps {
     clinicData: ClinicData | null;
 }
 
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/b300a010-6bb8-470f-9028-c796f4f8bf0e`;
-const FUNNEL_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9eee236a-9103-48e5-82bd-8178396dedfd`;
-const LEADS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192db618d4`;
+// Removed webhook URLs, fetching directly from Supabase now
+// const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
+// const STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/b300a010-6bb8-470f-9028-c796f4f8bf0e`;
+// const FUNNEL_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9eee236a-9103-48e5-82bd-8178396dedfd`;
+// const LEADS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/41744e59-6dec-4583-99e1-66192db618d4`;
 // Placeholder for the update webhook URL - REPLACE WITH ACTUAL URL
-const UPDATE_STAGE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/seu-webhook-real-para-atualizar-etapa`;
-const LEAD_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9c8216dd-f489-464e-8ce4-45c227857707`;
+const UPDATE_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/seu-webhook-real-para-atualizar-etapa'; // Keep this if needed for future drag-and-drop updates
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a'; // Keep this for opening lead details
 
 
 // Helper functions (adapted from HTML)
@@ -73,23 +77,16 @@ function formatPhone(phone: number | string | null): string {
 
 function renderStars(score: number | null): JSX.Element[] {
     const stars = [];
-    const numScore = score ? Math.min(5, Math.max(0, Math.round(score))) : 0;
+    // Assuming score is out of 10 based on HTML, but rendering 5 stars
+    const numScore = score ? Math.min(5, Math.max(0, Math.round(score / 2))) : 0; // Adjusting for 5 stars
     for (let i = 1; i <= 5; i++) {
         stars.push(<Star key={i} className={cn("h-3 w-3", i <= numScore ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />);
     }
     return stars;
 }
 
-function renderInterests(interests: string | null): JSX.Element[] {
-    if (!interests) return [];
-    const arr = interests.split(',').map(i => i.trim()).filter(i => i);
-    const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800', 'bg-purple-100 text-purple-800'];
-    return arr.map((interest, index) => (
-        <span key={index} className={cn("px-2 py-0.5 rounded-full text-xs font-medium", colors[index % colors.length])}>
-            {interest}
-        </span>
-    ));
-}
+// Removed renderInterests as interests are not fetched in this query
+
 
 function formatLeadTimestamp(iso: string | null): string {
     if (!iso) return 'N/D';
@@ -111,7 +108,7 @@ function openLeadDetails(phone: number | string | null) {
     }
 }
 
-// Mapping from menu item ID (from URL) to actual funnel ID (for webhooks)
+// Mapping from menu item ID (from URL) to actual funnel ID (for database queries)
 const menuIdToFunnelIdMap: { [key: number]: number } = {
     4: 1, // Funil de Vendas
     5: 2, // Funil de Recuperação
@@ -126,12 +123,12 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const { funnelId: menuIdParam } = useParams<{ funnelId: string }>(); // Get menu item ID from URL
     const menuId = parseInt(menuIdParam || '0', 10);
 
-    // Determine the actual funnel ID to use for webhook calls
-    const funnelIdForWebhook = menuIdToFunnelIdMap[menuId];
+    // Determine the actual funnel ID to use for database queries
+    const funnelIdForQuery = menuIdToFunnelIdMap[menuId];
 
     const [currentView, setCurrentView] = useState<'kanban' | 'list'>('kanban');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortValue, setSortValue] = useState('recent');
+    const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
 
     const ITEMS_PER_PAGE = 15;
@@ -147,152 +144,233 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     console.log("FunnelPage: menuId in map?", menuIdToFunnelIdMap.hasOwnProperty(menuId));
     console.log("FunnelPage: clinicData:", clinicData);
     console.log("FunnelPage: !clinicData:", !clinicData);
-    console.log("FunnelPage: funnelIdForWebhook:", funnelIdForWebhook);
+    console.log("FunnelPage: funnelIdForQuery:", funnelIdForQuery);
     // --- End Debugging Logs ---
 
 
     // Check if the menuIdParam corresponds to a valid funnel ID
-    // This check is now after hook declarations
-    const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForWebhook === undefined;
+    const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
-    // Fetch Stages
+    // Fetch Stages directly from Supabase
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['funnelStages', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
+        queryKey: ['funnelStages', clinicId, funnelIdForQuery], // Use funnelIdForQuery here
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
-            const response = await fetch(STAGES_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
-            });
-            if (!response.ok) throw new Error(`Erro ao buscar etapas: ${response.status}`);
-            const data = await response.json();
-            if (!Array.isArray(data)) throw new Error("Resposta de etapas inválida: não é um array.");
-            return data.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
+            if (!clinicId || isNaN(funnelIdForQuery)) {
+                 console.warn("FunnelPage: Skipping stages fetch due to missing clinicId or invalid funnelIdForQuery.");
+                 throw new Error("Dados da clínica ou ID do funil inválidos.");
+            }
+
+            console.log(`FunnelPage: Fetching stages for clinic ${clinicId}, funnel ${funnelIdForQuery} from Supabase...`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_crm_etapa')
+                .select('id, nome_etapa, ordem, id_funil')
+                .eq('id_funil', funnelIdForQuery) // Filter by the determined funnel ID
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .order('ordem', { ascending: true }); // Order by 'ordem'
+
+            console.log("FunnelPage: Supabase stages fetch result - data:", data, "error:", error);
+
+            if (error) {
+                console.error("FunnelPage: Supabase stages fetch error:", error);
+                throw new Error(`Erro ao buscar etapas: ${error.message}`);
+            }
+
+            if (!data || !Array.isArray(data)) {
+                 console.warn("FunnelPage: Supabase stages fetch returned non-array data:", data);
+                 return []; // Return empty array if data is null or not an array
+            }
+
+            return data as FunnelStage[];
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
+        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForQuery exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 
-    // Fetch Funnel Details
-    const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails[]>({
-        queryKey: ['funnelDetails', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
+    // Fetch Funnel Details directly from Supabase
+    const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails | null>({
+        queryKey: ['funnelDetails', clinicId, funnelIdForQuery], // Use funnelIdForQuery here
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
-            const response = await fetch(FUNNEL_DETAILS_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
-            });
-            if (!response.ok) throw new Error(`Erro ao buscar detalhes do funil: ${response.status}`);
-            const data = await response.json();
-             // Expecting an array with one object: [{ "nome_funil": "Nome do Funil" }]
-            if (!Array.isArray(data) || data.length === 0 || !data[0] || typeof data[0].nome_funil === 'undefined') {
-                 console.warn("Resposta de detalhes do funil inválida:", data);
-                 // Return a default structure or throw an error depending on desired strictness
-                 // Use a generic name if details fail
-                 return [{ id: funnelIdForWebhook, nome_funil: `Funil ID ${funnelIdForWebhook}` }]; // Provide a default name based on funnel ID
+            if (!clinicId || isNaN(funnelIdForQuery)) {
+                 console.warn("FunnelPage: Skipping funnel details fetch due to missing clinicId or invalid funnelIdForQuery.");
+                 throw new Error("Dados da clínica ou ID do funil inválidos.");
             }
-            return data; // Should be an array with one item
+
+            console.log(`FunnelPage: Fetching funnel details for clinic ${clinicId}, funnel ${funnelIdForQuery} from Supabase...`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_crm_funil')
+                .select('id, nome_funil')
+                .eq('id', funnelIdForQuery) // Filter by the determined funnel ID
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .single(); // Expecting a single result
+
+            console.log("FunnelPage: Supabase funnel details fetch result - data:", data, "error:", error);
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+                console.error("FunnelPage: Supabase funnel details fetch error:", error);
+                throw new Error(`Erro ao buscar detalhes do funil: ${error.message}`);
+            }
+
+            // If no rows found or data is null, return null
+            if (!data) {
+                 console.warn("FunnelPage: No funnel details found for ID:", funnelIdForQuery);
+                 return null;
+            }
+
+            return data as FunnelDetails; // Return the single object
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
+        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForQuery exist, and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 
-    // Fetch Leads
-    const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<FunnelLead[]>({
-        queryKey: ['funnelLeads', clinicId, funnelIdForWebhook], // Use funnelIdForWebhook here
+    // Fetch Leads directly from Supabase
+    const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: FunnelLead[], totalCount: number } | null>({
+        queryKey: ['funnelLeads', clinicId, funnelIdForQuery, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], // Add stagesData dependency
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForWebhook)) throw new Error("Dados da clínica ou ID do funil inválidos.");
-            const response = await fetch(LEADS_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ funnel_id: funnelIdForWebhook, clinic_id: clinicId }) // Use funnelIdForWebhook in the body
-            });
-            if (!response.ok) throw new Error(`Erro ao buscar leads: ${response.status}`);
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.warn("Resposta de leads inválida: não é um array. Recebeu:", data);
-                 return []; // Return empty array if not an array
+            if (!clinicId || isNaN(funnelIdForQuery)) {
+                 console.warn("FunnelPage: Skipping leads fetch due to missing clinicId or invalid funnelIdForQuery.");
+                 throw new Error("Dados da clínica ou ID do funil inválidos.");
             }
-            return data;
+            if (!stagesData || stagesData.length === 0) {
+                 console.warn("FunnelPage: Skipping leads fetch because stages data is not available or empty.");
+                 // This is not an error, just means there are no stages for this funnel, so no leads either.
+                 return { leads: [], totalCount: 0 };
+            }
+
+            const stageIds = stagesData.map(stage => stage.id);
+            if (stageIds.length === 0) {
+                 console.warn("FunnelPage: Skipping leads fetch because no stage IDs found for the funnel.");
+                 return { leads: [], totalCount: 0 };
+            }
+
+            console.log(`FunnelPage: Fetching leads for clinic ${clinicId}, funnel ${funnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase...`);
+
+            let query = supabase
+                .from('north_clinic_leads_API')
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
+
+            // Apply filtering if searchTerm is not empty
+            if (searchTerm) {
+                const searchTermLower = searchTerm.toLowerCase();
+                // Note: 'telefone::text' is the correct way to cast to text for ilike in Supabase/Postgres
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+            }
+
+            // Apply sorting
+            let orderByColumn = 'created_at';
+            let ascending = false; // Default to recent (descending created_at)
+
+            switch (sortValue) {
+                case 'created_at_desc':
+                    orderByColumn = 'created_at';
+                    ascending = false;
+                    break;
+                case 'created_at_asc':
+                    orderByColumn = 'created_at';
+                    ascending = true;
+                    break;
+                case 'name_asc': // Assuming 'name_asc' corresponds to 'nome_lead'
+                    orderByColumn = 'nome_lead';
+                    ascending = true;
+                    break;
+                case 'name_desc': // Assuming 'name_desc' corresponds to 'nome_lead'
+                    orderByColumn = 'nome_lead';
+                    ascending = false;
+                    break;
+                default:
+                    // Default sort is already set
+                    break;
+            }
+
+            query = query.order(orderByColumn, { ascending: ascending });
+            console.log(`FunnelPage: Applying sort: order by ${orderByColumn} ${ascending ? 'ASC' : 'DESC'}`);
+
+
+            // Apply pagination
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE - 1;
+            query = query.range(startIndex, endIndex);
+            console.log(`FunnelPage: Applying pagination: range from ${startIndex} to ${endIndex}`);
+
+
+            const { data, error, count } = await query;
+
+            console.log('FunnelPage: Supabase leads fetch result:', { data, error, count });
+
+            if (error) {
+                console.error("FunnelPage: Supabase leads fetch error:", error);
+                throw new Error(`Erro ao buscar leads: ${error.message}`);
+            }
+
+            if (count === null) {
+                 console.warn("FunnelPage: Supabase count is null.");
+                 // Decide how to handle null count - maybe assume data.length if count is not critical for this view?
+                 // For now, let's return 0 for count if null, to allow rendering with available data.
+            }
+
+            return { leads: data || [], totalCount: count ?? 0 }; // Return data and count
+
         },
-        enabled: !!clinicId && !isNaN(funnelIdForWebhook) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForWebhook exist, and not invalid overall
+        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData, // Enable only if clinicId, valid funnelIdForQuery, stagesData exist, and not invalid overall
         staleTime: 60 * 1000, // 1 minute for leads
+        refetchOnWindowFocus: false,
     });
+
 
     // Combine loading states and errors
     const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads;
     const fetchError = stagesError || funnelDetailsError || leadsError;
 
-    // Filter and Sort Leads
-    const filteredAndSortedLeads = useMemo(() => {
-        if (!leadsData) return [];
+    // Data for rendering is now directly from paginatedLeadsData
+    const leadsToDisplay = paginatedLeadsData?.leads || [];
+    const totalItems = paginatedLeadsData?.totalCount ?? 0;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-        let filtered = leadsData.filter(lead => {
-            const searchTermLower = searchTerm.toLowerCase();
-            const nameMatch = lead.nome_lead?.toLowerCase().includes(searchTermLower) || false;
-            const phoneMatch = String(lead.telefone || '').includes(searchTerm) || false;
-            return nameMatch || phoneMatch;
-        });
-
-        filtered.sort((a, b) => {
-            switch (sortValue) {
-                case 'recent':
-                    const dateA = a.data_entrada ? new Date(a.data_entrada).getTime() : -Infinity;
-                    const dateB = b.data_entrada ? new Date(b.data_entrada).getTime() : -Infinity;
-                    return dateB - dateA; // Newest first
-                case 'oldest':
-                    const dateA_ = a.data_entrada ? new Date(a.data_entrada).getTime() : Infinity;
-                    const dateB_ = b.data_entrada ? new Date(b.data_entrada).getTime() : Infinity;
-                    return dateA_ - dateB_; // Oldest first
-                case 'name_asc':
-                    return (a.nome_lead || '').localeCompare(b.nome_lead || '');
-                case 'name_desc':
-                    return (b.nome_lead || '').localeCompare(a.nome_lead || '');
-                default:
-                    return 0;
-            }
-        });
-
-        return filtered;
-    }, [leadsData, searchTerm, sortValue]);
-
-    // Pagination for List View
-    const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
-    const paginatedLeads = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        const end = start + ITEMS_PER_PAGE;
-        return filteredAndSortedLeads.slice(start, end);
-    }, [filteredAndSortedLeads, currentPage]);
 
     // Update current page if filtering/sorting reduces total pages
     useEffect(() => {
-        const newTotalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
-        if (currentPage > newTotalPages && newTotalPages > 0) {
-            setCurrentPage(newTotalPages);
-        } else if (filteredAndSortedLeads.length > 0 && currentPage === 0) {
+        // Only adjust if totalItems is loaded and greater than 0
+        if (totalItems > 0) {
+            const newTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            if (currentPage > newTotalPages) {
+                setCurrentPage(newTotalPages);
+            }
+        } else if (totalItems === 0 && currentPage !== 1) {
+             // If no items match filter, reset to page 1
              setCurrentPage(1);
-        } else if (filteredAndSortedLeads.length === 0) {
-             setCurrentPage(1); // Reset page if no leads
         }
-    }, [filteredAndSortedLeads.length, currentPage]);
+         // No need to reset page if totalItems is 0 and currentPage is already 1
+    }, [totalItems, currentPage]);
 
 
-    // Get Stage Name Helper
+    // Handle pagination clicks
+    const handlePageChange = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+
+    // Get Stage Name Helper (uses the fetched stagesData)
     const getStageName = (idEtapa: number | null): string => {
         if (idEtapa === null) return 'Etapa Desconhecida';
         const stage = stagesData?.find(s => s.id === idEtapa);
         return stage ? stage.nome_etapa : 'Etapa Desconhecida';
     };
 
-    // Group leads by stage for Kanban
+    // Group leads by stage for Kanban (uses the fetched leadsToDisplay and stagesData)
     const leadsByStage = useMemo(() => {
         const grouped: { [stageId: number]: FunnelLead[] } = {};
         stagesData?.forEach(stage => {
             grouped[stage.id] = [];
         });
-        filteredAndSortedLeads.forEach(lead => {
+        leadsToDisplay.forEach(lead => {
             if (lead.id_etapa !== null && grouped[lead.id_etapa]) {
                 grouped[lead.id_etapa].push(lead);
             } else {
@@ -302,10 +380,10 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
         });
         return grouped;
-    }, [filteredAndSortedLeads, stagesData]);
+    }, [leadsToDisplay, stagesData]);
 
 
-    const funnelName = funnelDetailsData?.[0]?.nome_funil || `Funil ID ${funnelIdForWebhook}`; // Use funnelIdForWebhook for default name display
+    const funnelName = funnelDetailsData?.nome_funil || `Funil ID ${funnelIdForQuery}`; // Use funnelIdForQuery for default name display
 
     // Display UnderConstructionPage if the funnel is invalid
     if (isInvalidFunnel) {
@@ -313,7 +391,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             clinicData: clinicData,
             menuId: menuId,
             isNaN_menuId: isNaN(menuId),
-            funnelIdForWebhook: funnelIdForWebhook // Log the determined funnelIdForWebhook
+            funnelIdForQuery: funnelIdForQuery // Log the determined funnelIdForQuery
         });
         return <UnderConstructionPage />;
     }
@@ -337,7 +415,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                          />
                     </div>
                     <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoading ? 'Carregando...' : `${filteredAndSortedLeads.length} leads`}
+                        {isLoading ? 'Carregando...' : `${totalItems} leads`}
                     </span>
                     {currentView === 'list' && (
                         <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
@@ -345,8 +423,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                 <SelectValue placeholder="Ordenar por..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="recent">Cadastro Recente</SelectItem>
-                                <SelectItem value="oldest">Cadastro Antigo</SelectItem>
+                                <SelectItem value="created_at_desc">Cadastro Recente</SelectItem>
+                                <SelectItem value="created_at_asc">Cadastro Antigo</SelectItem>
                                 <SelectItem value="name_asc">Nome A-Z</SelectItem>
                                 <SelectItem value="name_desc">Nome Z-A</SelectItem>
                             </SelectContent>
@@ -387,10 +465,15 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                         <Info className="h-12 w-12 mb-4" />
                         <span className="text-lg text-center">Nenhuma etapa configurada para este funil ou nenhum dado retornado.</span>
                     </div>
-                ) : filteredAndSortedLeads.length === 0 && searchTerm !== '' ? (
+                ) : totalItems === 0 && searchTerm !== '' ? (
                      <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
                         <Info className="h-12 w-12 mb-4" />
                         <span className="text-lg text-center">Nenhum lead encontrado com o filtro "{searchTerm}".</span>
+                    </div>
+                ) : totalItems === 0 ? (
+                     <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
+                        <Info className="h-12 w-12 mb-4" />
+                        <span className="text-lg text-center">Nenhum lead encontrado neste funil.</span>
                     </div>
                 ) : (
                     <>
@@ -420,11 +503,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 >
                                                     <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
                                                     <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
-                                                    {lead.interesses && (
-                                                        <div className="lead-tags flex flex-wrap gap-1 mb-2">
-                                                            {renderInterests(lead.interesses)}
-                                                        </div>
-                                                    )}
+                                                    {/* Removed rendering of interests */}
                                                     {lead.lead_score !== null && (
                                                         <div className="lead-score flex items-center gap-1 mb-2">
                                                             {renderStars(lead.lead_score)}
@@ -446,7 +525,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                         {currentView === 'list' && (
                             <Card className="leads-list-container h-full flex flex-col">
                                 <CardContent className="p-0 flex-grow overflow-y-auto">
-                                    {paginatedLeads.map(lead => (
+                                    {leadsToDisplay.map(lead => (
                                         <div
                                             key={lead.id}
                                             className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -456,23 +535,21 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                             <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                                 <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                                 <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                                {lead.interesses && (
-                                                    <div className="lead-tags flex flex-wrap gap-1 mt-1">
-                                                        {renderInterests(lead.interesses)}
-                                                    </div>
-                                                )}
+                                                {/* Removed rendering of interests */}
                                             </div>
                                             <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                                 {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
-                                                <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.data_entrada)}</div>
+                                                {lead.sourceUrl && <div className="lead-source truncate">Anúncio: <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Ver link</a></div>}
+                                                <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.created_at)}</div>
                                             </div>
                                             <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
-                                                <span className="funnel px-2 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-800">{funnelName}</span>
-                                                <span className="stage px-2 py-1 rounded-md bg-green-100 text-green-800 border border-green-800 mt-1">{getStageName(lead.id_etapa)}</span>
+                                                {/* Funnel name is not directly available per lead in this query */}
+                                                {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
+                                                <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{getStageName(lead.id_etapa)}</span> {/* Display stage name */}
                                             </div>
                                             {lead.lead_score !== null && (
                                                 <div className="lead-score flex items-center ml-4">
-                                                    <div className="stars flex gap-0.5">
+                                                    <div className="stars flex gap-0.5" title={`Lead Score: ${lead.lead_score}`}>
                                                         {renderStars(lead.lead_score)}
                                                     </div>
                                                 </div>
@@ -480,17 +557,17 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                         </div>
                                     ))}
                                 </CardContent>
-                                {filteredAndSortedLeads.length > 0 && (
+                                {totalItems > 0 && (
                                     <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
                                         <div className="pagination-info text-sm text-gray-600">
                                             Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                                            {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedLeads.length)} de {filteredAndSortedLeads.length} leads
+                                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} leads
                                         </div>
                                         <Pagination>
                                             <PaginationContent>
                                                 <PaginationItem>
                                                     <PaginationPrevious
-                                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                        onClick={() => handlePageChange(currentPage - 1)}
                                                         disabled={currentPage <= 1}
                                                     />
                                                 </PaginationItem>
@@ -500,7 +577,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 </PaginationItem>
                                                 <PaginationItem>
                                                     <PaginationNext
-                                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                        onClick={() => handlePageChange(currentPage + 1)}
                                                         disabled={currentPage >= totalPages}
                                                     />
                                                 </PaginationItem>
