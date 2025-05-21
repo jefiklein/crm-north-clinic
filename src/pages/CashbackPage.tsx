@@ -23,7 +23,7 @@ interface SaleData {
     id_north: number;
     data_venda: string; // Assuming ISO date string
     codigo_cliente_north: number | null;
-    nome_cliente_north: string | null; // Assuming this field exists based on request
+    nome_north: string | null; // Corrected field name for client name
     cod_funcionario_north: number | null;
     nome_funcionario_north: string | null; // Assuming this field exists based on request
     valor_venda: number | null;
@@ -244,7 +244,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         return (
                                             <TableRow key={saleId}>
                                                 <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{sale.nome_cliente_north || 'N/D'}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{sale.nome_north || 'N/D'}</TableCell> {/* Use nome_north here */}
                                                 <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
                                                 <TableCell className="text-right whitespace-nowrap">
                                                     {sale.valor_venda !== null && sale.valor_venda !== undefined ?
