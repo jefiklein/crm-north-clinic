@@ -42,7 +42,7 @@ interface SupabaseLead {
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
-    interesses: string | null; // Assuming interests is a comma-separated string
+    // interesses: string | null; // Removed interests property
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
     // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
@@ -79,6 +79,7 @@ function renderStars(score: number | null): JSX.Element[] {
     return stars;
 }
 
+// This function is no longer used with data from the main leads query
 function renderInterests(interests: string | null): JSX.Element[] {
     if (!interests) return [];
     const arr = interests.split(',').map(i => i.trim()).filter(i => i);
@@ -242,7 +243,8 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, interesses, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                // Removed 'interesses' from the select list
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
                 .eq('id_clinica', clinicId); // Filter by clinic ID
 
             // Apply filtering if searchTerm is not empty
@@ -418,11 +420,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                         <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                        {lead.interesses && (
-                                            <div className="lead-tags flex flex-wrap gap-1 mt-1">
-                                                {renderInterests(lead.interesses)}
-                                            </div>
-                                        )}
+                                        {/* Removed rendering of interests */}
                                     </div>
                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
