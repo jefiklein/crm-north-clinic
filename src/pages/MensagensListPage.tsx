@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, Whatsapp } from 'lucide-react'; // Using Lucide icons
+import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils'; // Utility for class names
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
@@ -358,7 +358,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                             </TableCell>
                                             <TableCell>
                                                 <span className={cn("instance-info inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded", instanceClass)}>
-                                                    <Whatsapp className="h-3 w-3" /> {instanceName}
+                                                    <MessagesSquare className="h-3 w-3" /> {instanceName}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-center">
