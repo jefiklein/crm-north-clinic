@@ -151,22 +151,22 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     // Check if the menuIdParam corresponds to a valid funnel ID
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
-    // Fetch Stages directly from Supabase
+    // Fetch Stages directly from Supabase - REMOVED id_clinica filter
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['funnelStages', clinicId, funnelIdForQuery], // Use funnelIdForQuery here
+        queryKey: ['funnelStages', funnelIdForQuery], // Removed clinicId from key as it's not filtered by it
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForQuery)) {
-                 console.warn("FunnelPage: Skipping stages fetch due to missing clinicId or invalid funnelIdForQuery.");
-                 throw new Error("Dados da clínica ou ID do funil inválidos.");
+            if (isNaN(funnelIdForQuery)) { // Only check for valid funnelIdForQuery
+                 console.warn("FunnelPage: Skipping stages fetch due to invalid funnelIdForQuery.");
+                 throw new Error("ID do funil inválido.");
             }
 
-            console.log(`FunnelPage: Fetching stages for clinic ${clinicId}, funnel ${funnelIdForQuery} from Supabase...`);
+            console.log(`FunnelPage: Fetching stages for funnel ${funnelIdForQuery} from Supabase...`);
 
             const { data, error } = await supabase
                 .from('north_clinic_crm_etapa')
                 .select('id, nome_etapa, ordem, id_funil')
                 .eq('id_funil', funnelIdForQuery) // Filter by the determined funnel ID
-                .eq('id_clinica', clinicId) // Filter by clinic ID
+                // REMOVED: .eq('id_clinica', clinicId)
                 .order('ordem', { ascending: true }); // Order by 'ordem'
 
             console.log("FunnelPage: Supabase stages fetch result - data:", data, "error:", error);
@@ -183,27 +183,27 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             return data as FunnelStage[];
         },
-        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForQuery exist, and not invalid overall
+        enabled: !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if valid funnelIdForQuery exists and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Funnel Details directly from Supabase
+    // Fetch Funnel Details directly from Supabase - REMOVED id_clinica filter
     const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails | null>({
-        queryKey: ['funnelDetails', clinicId, funnelIdForQuery], // Use funnelIdForQuery here
+        queryKey: ['funnelDetails', funnelIdForQuery], // Removed clinicId from key
         queryFn: async () => {
-            if (!clinicId || isNaN(funnelIdForQuery)) {
-                 console.warn("FunnelPage: Skipping funnel details fetch due to missing clinicId or invalid funnelIdForQuery.");
-                 throw new Error("Dados da clínica ou ID do funil inválidos.");
+            if (isNaN(funnelIdForQuery)) { // Only check for valid funnelIdForQuery
+                 console.warn("FunnelPage: Skipping funnel details fetch due to invalid funnelIdForQuery.");
+                 throw new Error("ID do funil inválido.");
             }
 
-            console.log(`FunnelPage: Fetching funnel details for clinic ${clinicId}, funnel ${funnelIdForQuery} from Supabase...`);
+            console.log(`FunnelPage: Fetching funnel details for funnel ${funnelIdForQuery} from Supabase...`);
 
             const { data, error } = await supabase
                 .from('north_clinic_crm_funil')
                 .select('id, nome_funil')
                 .eq('id', funnelIdForQuery) // Filter by the determined funnel ID
-                .eq('id_clinica', clinicId) // Filter by clinic ID
+                // REMOVED: .eq('id_clinica', clinicId)
                 .single(); // Expecting a single result
 
             console.log("FunnelPage: Supabase funnel details fetch result - data:", data, "error:", error);
@@ -221,12 +221,12 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             return data as FunnelDetails; // Return the single object
         },
-        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if clinicId, valid funnelIdForQuery exist, and not invalid overall
+        enabled: !isNaN(funnelIdForQuery) && !isInvalidFunnel, // Enable only if valid funnelIdForQuery exists and not invalid overall
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Leads directly from Supabase
+    // Fetch Leads directly from Supabase - Keep id_clinica filter
     const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: FunnelLead[], totalCount: number } | null>({
         queryKey: ['funnelLeads', clinicId, funnelIdForQuery, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], // Add stagesData dependency
         queryFn: async () => {
@@ -251,7 +251,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             let query = supabase
                 .from('north_clinic_leads_API')
                 .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
-                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .eq('id_clinica', clinicId) // Filter by clinic ID - KEEP THIS
                 .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
 
             // Apply filtering if searchTerm is not empty

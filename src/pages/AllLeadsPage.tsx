@@ -112,21 +112,17 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
     const clinicId = clinicData?.id;
 
-    // Fetch All Stages directly from Supabase (for displaying stage names)
+    // Fetch All Stages directly from Supabase (for displaying stage names) - REMOVED id_clinica filter
     const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['allStages', clinicId],
+        queryKey: ['allStages'], // Removed clinicId from key
         queryFn: async () => {
-            if (!clinicId) {
-                 console.warn("AllLeadsPage: Skipping stages fetch due to missing clinicId.");
-                 throw new Error("ID da clínica não disponível para buscar etapas.");
-            }
-
-            console.log(`AllLeadsPage: Fetching all stages for clinic ${clinicId} from Supabase...`);
+            // No clinicId filter needed here based on schema
+            console.log(`AllLeadsPage: Fetching all stages from Supabase...`);
 
             const { data, error } = await supabase
                 .from('north_clinic_crm_etapa')
                 .select('id, nome_etapa, ordem, id_funil') // Select necessary fields
-                .eq('id_clinica', clinicId) // Filter by clinic ID
+                // REMOVED: .eq('id_clinica', clinicId)
                 .order('ordem', { ascending: true }); // Order by 'ordem'
 
             console.log("AllLeadsPage: Supabase all stages fetch result - data:", data, "error:", error);
@@ -143,26 +139,22 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             return data as FunnelStage[];
         },
-        enabled: !!clinicId, // Only fetch if clinicId is available
+        enabled: true, // Always enabled as no clinicId filter is needed
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
     });
 
-    // Fetch All Funnels directly from Supabase (for displaying funnel names)
+    // Fetch All Funnels directly from Supabase (for displaying funnel names) - REMOVED id_clinica filter
     const { data: allFunnelDetails, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
-        queryKey: ['allFunnels', clinicId],
+        queryKey: ['allFunnels'], // Removed clinicId from key
         queryFn: async () => {
-            if (!clinicId) {
-                 console.warn("AllLeadsPage: Skipping funnels fetch due to missing clinicId.");
-                 throw new Error("ID da clínica não disponível para buscar funis.");
-            }
-
-            console.log(`AllLeadsPage: Fetching all funnels for clinic ${clinicId} from Supabase...`);
+            // No clinicId filter needed here based on schema
+            console.log(`AllLeadsPage: Fetching all funnels from Supabase...`);
 
             const { data, error } = await supabase
                 .from('north_clinic_crm_funil')
                 .select('id, nome_funil') // Select necessary fields
-                .eq('id_clinica', clinicId) // Filter by clinic ID
+                // REMOVED: .eq('id_clinica', clinicId)
                 .order('nome_funil', { ascending: true }); // Order by name
 
             console.log("AllLeadsPage: Supabase all funnels fetch result - data:", data, "error:", error);
@@ -179,7 +171,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             return data as FunnelDetails[];
         },
-        enabled: !!clinicId, // Only fetch if clinicId is available
+        enabled: true, // Always enabled as no clinicId filter is needed
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -223,7 +215,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                  if (funnelLower.includes('vendas')) { stageInfo.funnelClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
                  else if (funnelLower.includes('recuperação')) { stageInfo.funnelClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
                  else if (funnelLower.includes('compareceram')) { stageInfo.funnelClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
-                 else { stageInfo.funnelClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
+                 else { stageInfo.funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
             }
         }
         return stageInfo;
@@ -251,7 +243,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                 .from('north_clinic_leads_API')
                 // Removed 'interesses' from the select list
                 .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
-                .eq('id_clinica', clinicId); // Filter by clinic ID
+                .eq('id_clinica', clinicId); // Filter by clinic ID - KEEP THIS
 
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
