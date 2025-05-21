@@ -37,6 +37,41 @@ interface CashbackPageProps {
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 const SALES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0ddb4be8-65ee-486b-8b29-86a9a2eafb92`;
 
+// Helper function to clean salesperson name (remove leading numbers and hyphen)
+function cleanSalespersonName(name: string | null): string {
+    if (!name) return 'N/D';
+    // Remove leading digits, hyphen, and space (e.g., "1 - Nome" -> "Nome")
+    const cleaned = name.replace(/^\d+\s*-\s*/, '').trim();
+    return cleaned || 'N/D'; // Return 'N/D' if name becomes empty after cleaning
+}
+
+
+// Helper to format date string
+const formatDate = (dateString: string | null): string => {
+    if (!dateString) return 'N/D';
+    try {
+        // Attempt to parse ISO string or other common formats
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+             // Fallback for potential different formats, e.g., 'YYYY-MM-DD'
+             const parts = dateString.split('-');
+             if (parts.length === 3) {
+                 const [year, month, day] = parts;
+                 const fallbackDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+                  if (!isNaN(fallbackDate.getTime())) {
+                      return format(fallbackDate, 'dd/MM/yyyy');
+                  }
+             }
+             return 'Data inválida';
+        }
+        return format(date, 'dd/MM/yyyy');
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return 'Erro';
+    }
+};
+
+
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
@@ -91,12 +126,22 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                      console.warn("API Vendas não retornou array:", data);
                      // Depending on webhook behavior, might need to check data[0] if it returns [{ json: [...] }]
                      if (data && typeof data === 'object' && Array.isArray(data.json)) {
-                         return data.json as SaleData[];
+                         // Sort by data_venda before returning
+                         return (data.json as SaleData[]).sort((a, b) => {
+                             const dateA = new Date(a.data_venda).getTime();
+                             const dateB = new Date(b.data_venda).getTime();
+                             return dateA - dateB; // Ascending order
+                         });
                      }
                      throw new Error("Resposta inesperada API Vendas.");
                 }
 
-                return data as SaleData[];
+                // Sort by data_venda before returning
+                return (data as SaleData[]).sort((a, b) => {
+                    const dateA = new Date(a.data_venda).getTime();
+                    const dateB = new Date(b.data_venda).getTime();
+                    return dateA - dateB; // Ascending order
+                });
 
             } catch (err: any) {
                 console.error('Erro ao buscar dados de vendas:', err);
@@ -136,31 +181,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                 [field]: value
             }
         }));
-    };
-
-    // Helper to format date string
-    const formatDate = (dateString: string | null): string => {
-        if (!dateString) return 'N/D';
-        try {
-            // Attempt to parse ISO string or other common formats
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) {
-                 // Fallback for potential different formats, e.g., 'YYYY-MM-DD'
-                 const parts = dateString.split('-');
-                 if (parts.length === 3) {
-                     const [year, month, day] = parts;
-                     const fallbackDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-                      if (!isNaN(fallbackDate.getTime())) {
-                          return format(fallbackDate, 'dd/MM/yyyy');
-                      }
-                 }
-                 return 'Data inválida';
-            }
-            return format(date, 'dd/MM/yyyy');
-        } catch (e) {
-            console.error("Error formatting date:", dateString, e);
-            return 'Erro';
-        }
     };
 
 
@@ -225,7 +245,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                             <TableRow key={saleId}>
                                                 <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
                                                 <TableCell className="whitespace-nowrap">{sale.nome_cliente_north || 'N/D'}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{sale.nome_funcionario_north || 'N/D'}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
                                                 <TableCell className="text-right whitespace-nowrap">
                                                     {sale.valor_venda !== null && sale.valor_venda !== undefined ?
                                                         `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :

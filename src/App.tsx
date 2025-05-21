@@ -98,13 +98,13 @@ const App = () => {
               {/* Route for the All Leads page - Using menu item ID 3 */}
               <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
 
-              {/* Route for the Cashback page - Using menu item ID 9 (placeholder) */}
-              <Route path="9" element={<CashbackPage clinicData={clinicData} />} />
+              {/* Route for the Cashback page - Using menu item ID 14 */}
+              <Route path="14" element={<CashbackPage clinicData={clinicData} />} />
 
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/3, /dashboard/12, /dashboard/9 */}
+              {/* This route should come AFTER specific routes like /dashboard/3, /dashboard/12, /dashboard/14 */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
 
