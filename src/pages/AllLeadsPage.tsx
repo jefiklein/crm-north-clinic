@@ -79,7 +79,6 @@ function renderStars(score: number | null): JSX.Element[] {
     return stars;
 }
 
-// This function is no longer used with data from the main leads query
 function renderInterests(interests: string | null): JSX.Element[] {
     if (!interests) return [];
     const arr = interests.split(',').map(i => i.trim()).filter(i => i);
@@ -237,9 +236,18 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
         queryKey: ['paginatedLeads', clinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue],
         queryFn: async () => {
-            if (!clinicId) throw new Error("ID da clínica não disponível para buscar leads.");
+            if (!clinicId) {
+                console.error("ID da clínica não disponível para buscar leads.");
+                throw new Error("ID da clínica não disponível para buscar leads.");
+            }
 
-            console.log(`Fetching leads from Supabase for clinic ${clinicId}, page ${currentPage}, search "${searchTerm}", sort "${sortValue}"`);
+            console.log(`[AllLeadsPage] Fetching leads from Supabase with parameters:`, {
+                clinicId,
+                currentPage,
+                ITEMS_PER_PAGE,
+                searchTerm,
+                sortValue
+            });
 
             let query = supabase
                 .from('north_clinic_leads_API')
@@ -250,7 +258,9 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
                 const searchTermLower = searchTerm.toLowerCase();
+                // Note: 'telefone::text' is the correct way to cast to text for ilike in Supabase/Postgres
                 query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             // Apply sorting
@@ -280,26 +290,29 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
             }
 
             query = query.order(orderByColumn, { ascending: ascending });
+            console.log(`[AllLeadsPage] Applying sort: order by ${orderByColumn} ${ascending ? 'ASC' : 'DESC'}`);
+
 
             // Apply pagination
             const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
             const endIndex = startIndex + ITEMS_PER_PAGE - 1;
             query = query.range(startIndex, endIndex);
+            console.log(`[AllLeadsPage] Applying pagination: range from ${startIndex} to ${endIndex}`);
+
 
             const { data, error, count } = await query;
 
-            console.log('Supabase fetch result:', { data, error, count });
+            console.log('[AllLeadsPage] Supabase fetch result:', { data, error, count });
 
             if (error) {
-                console.error("Supabase fetch error:", error);
+                console.error("[AllLeadsPage] Supabase fetch error:", error);
                 throw new Error(`Erro ao buscar leads: ${error.message}`);
             }
 
             if (count === null) {
-                 console.warn("Supabase count is null.");
+                 console.warn("[AllLeadsPage] Supabase count is null.");
                  // Decide how to handle null count - maybe assume data.length if count is not critical for this view?
-                 // For now, let's throw an error or return 0 if count is null, depending on desired strictness.
-                 // Let's return 0 for count if null, to allow rendering with available data.
+                 // For now, let's return 0 for count if null, to allow rendering with available data.
             }
 
 
