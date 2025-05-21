@@ -7,6 +7,7 @@ import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, Tria
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils'; // Utility for class names
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -63,7 +64,7 @@ const MESSAGES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/17fc5ed8-b363-4786-ab
 const INSTANCES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
 const MESSAGE_TOGGLE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`; // Webhook para ativar/desativar
 const MESSAGE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/4632ce57-e78a-4c62-9578-5a33b576ad73`; // Webhook para excluir
-const MESSAGE_EDIT_PAGE_URL = `${N8N_BASE_URL}/webhook/detalhe-mensagem`; // URL da página de edição (externa)
+// const MESSAGE_EDIT_PAGE_URL = `${N8N_BASE_URL}/webhook/detalhe-mensagem`; // URL da página de edição (externa) - REMOVED
 
 // Placeholder data for message simulation
 const placeholderData = {
@@ -102,6 +103,7 @@ function simulateMessage(template: string | null, placeholders: { [key: string]:
 
 const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient();
+    const navigate = useNavigate(); // Get the navigate function
     const [expandedPreviews, setExpandedPreviews] = useState<Set<number>>(new Set()); // State to track expanded previews
 
     const clinicCode = clinicData?.code;
@@ -228,24 +230,24 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
 
     // Handle click on "Configurar Nova Mensagem" button
     const handleAddMessage = () => {
-        console.log("[MensagensListPage] Redirecting to add message page...");
+        console.log("[MensagensListPage] Navigating to add new message page...");
         if (!clinicCode) {
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Redirect to the external N8N page for adding/editing
-        window.location.href = `${MESSAGE_EDIT_PAGE_URL}?clinic_code=${encodeURIComponent(clinicCode)}`;
+        // Use navigate to go to the internal config page, passing clinic code and optionally category
+        navigate(`/config-mensagem?clinic_code=${encodeURIComponent(clinicCode)}`);
     };
 
     // Handle click on "Editar" button
-    const handleEditMessage = (messageId: number, category: string) => {
-        console.log(`[MensagensListPage] Redirecting to edit message ID: ${messageId}, Category: ${category}`);
+    const handleEditMessage = (messageId: number) => { // Removed category param as it's fetched on config page
+        console.log(`[MensagensListPage] Navigating to edit message ID: ${messageId}`);
          if (!clinicCode) {
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Redirect to the external N8N page for adding/editing, passing message ID
-        window.location.href = `${MESSAGE_EDIT_PAGE_URL}?clinic_code=${encodeURIComponent(clinicCode)}&id=${messageId}`;
+        // Use navigate to go to the internal config page, passing message ID and clinic code
+        navigate(`/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicCode)}`);
     };
 
     // Handle click on "Ativar/Desativar" button
@@ -391,7 +393,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    onClick={() => handleEditMessage(message.id, message.categoria)}
+                                                                    onClick={() => handleEditMessage(message.id)} // Pass message.id
                                                                     className="edit-message-btn"
                                                                 >
                                                                     <Edit className="h-4 w-4 mr-1" /> Editar
