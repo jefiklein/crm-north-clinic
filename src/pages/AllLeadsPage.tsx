@@ -8,6 +8,7 @@ import { Search, List, Star, User, Info, TriangleAlert, Loader2 } from "lucide-r
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils'; // Utility for class names
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -33,8 +34,8 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
-// Define the structure for Leads
-interface Lead {
+// Define the structure for Leads fetched from Supabase
+interface SupabaseLead {
     id: number;
     nome_lead: string | null;
     telefone: number | null;
@@ -44,7 +45,7 @@ interface Lead {
     interesses: string | null; // Assuming interests is a comma-separated string
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
-    id_funil?: number | null; // Assuming lead data might include funnel ID
+    // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
 }
 
 
@@ -53,7 +54,7 @@ interface AllLeadsPageProps {
 }
 
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const ALL_LEADS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2382f80f-240e-4aaf-9194-5d91e710c774`;
+// Removed ALL_LEADS_WEBHOOK_URL
 const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
 const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
 const LEAD_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/9c8216dd-f489-464e-8ce4-45c227857707`;
@@ -112,60 +113,12 @@ function openLeadDetails(phone: number | string | null) {
 
 const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortValue, setSortValue] = useState('recent');
+    const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
 
     const ITEMS_PER_PAGE = 15;
 
     const clinicId = clinicData?.id;
-
-    // Fetch All Leads
-    const { data: allLeads, isLoading: isLoadingLeads, error: leadsError } = useQuery<Lead[]>({
-        queryKey: ['allLeads', clinicId],
-        queryFn: async () => {
-            if (!clinicId) throw new Error("ID da clínica não disponível para buscar leads.");
-
-            console.log(`Fetching all leads for clinic ${clinicId}`);
-            const response = await fetch(ALL_LEADS_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ action: "get_all_leads", clinic_id: clinicId })
-            });
-
-            console.log('All Leads webhook response:', { status: response.status, statusText: response.statusText });
-
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 console.error("All Leads webhook error response:", errorText);
-                 throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('Data received from all leads webhook:', data);
-
-            // Handle potential nested data structure from n8n
-            let leadsArray: any[] = [];
-            if (Array.isArray(data)) {
-                leadsArray = data;
-            } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
-                leadsArray = data.data;
-            } else if (data && typeof data === 'object' && Array.isArray(data.json)) {
-                 leadsArray = data.json;
-            } else {
-                console.warn("Unexpected data format for all leads:", data);
-                leadsArray = [];
-            }
-
-            // Ensure leads have a 'created_at' for sorting, default if missing
-            return leadsArray.map(lead => ({
-                ...lead,
-                created_at: lead.created_at || new Date(0).toISOString() // Default to epoch if missing
-            })) as Lead[];
-        },
-        enabled: !!clinicId, // Only fetch if clinicId is available
-        staleTime: 60 * 1000, // 1 minute
-        refetchOnWindowFocus: false,
-    });
 
     // Fetch All Stages (for displaying stage names)
     const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
@@ -234,10 +187,6 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     });
 
 
-    // Combine loading states and errors
-    const isLoading = isLoadingLeads || isLoadingStages || isLoadingFunnels;
-    const fetchError = leadsError || stagesError || funnelsError;
-
     // Map stages and funnels for quick lookup
     const stageMap = useMemo(() => {
         const map = new Map<number, FunnelStage>();
@@ -283,66 +232,105 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     };
 
 
-    // Filter and Sort Leads
-    const filteredAndSortedLeads = useMemo(() => {
-        if (!allLeads) return [];
+    // Fetch Paginated, Filtered, and Sorted Leads from Supabase
+    const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
+        queryKey: ['paginatedLeads', clinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue],
+        queryFn: async () => {
+            if (!clinicId) throw new Error("ID da clínica não disponível para buscar leads.");
 
-        let filtered = allLeads.filter(lead => {
-            const searchTermLower = searchTerm.toLowerCase();
-            const nameMatch = lead.nome_lead?.toLowerCase().includes(searchTermLower) || false;
-            const phoneMatch = String(lead.telefone || '').includes(searchTerm) || false;
-            const originMatch = lead.origem?.toLowerCase().includes(searchTermLower) || false;
-            const interestsMatch = lead.interesses?.toLowerCase().includes(searchTermLower) || false;
-            const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
-            const funnelMatch = stageInfo.funil.toLowerCase().includes(searchTermLower) || false;
-            const stageMatch = stageInfo.etapa.toLowerCase().includes(searchTermLower) || false;
+            console.log(`Fetching leads from Supabase for clinic ${clinicId}, page ${currentPage}, search "${searchTerm}", sort "${sortValue}"`);
 
-            return nameMatch || phoneMatch || originMatch || interestsMatch || funnelMatch || stageMatch;
-        });
+            let query = supabase
+                .from('north_clinic_leads_API')
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, interesses, created_at, sourceUrl', { count: 'exact' }); // Request exact count
 
-        filtered.sort((a, b) => {
-            switch (sortValue) {
-                case 'recent':
-                    // Use created_at for sorting
-                    const dateA = new Date(a.created_at).getTime();
-                    const dateB = new Date(b.created_at).getTime();
-                    return dateB - dateA; // Newest first
-                case 'oldest':
-                    const dateA_ = new Date(a.created_at).getTime();
-                    const dateB_ = new Date(b.created_at).getTime();
-                    return dateA_ - dateB_; // Oldest first
-                case 'name_asc':
-                    return (a.nome_lead || '').localeCompare(b.nome_lead || '');
-                case 'name_desc':
-                    return (b.nome_lead || '').localeCompare(a.nome_lead || '');
-                default:
-                    return 0;
+            // Apply filtering if searchTerm is not empty
+            if (searchTerm) {
+                const searchTermLower = searchTerm.toLowerCase();
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
             }
-        });
 
-        return filtered;
-    }, [allLeads, searchTerm, sortValue, stageMap, funnelMap]); // Depend on maps too
+            // Apply sorting
+            let orderByColumn = 'created_at';
+            let ascending = false; // Default to recent (descending created_at)
 
-    // Pagination for List View
-    const totalItems = filteredAndSortedLeads.length;
+            switch (sortValue) {
+                case 'created_at_desc':
+                    orderByColumn = 'created_at';
+                    ascending = false;
+                    break;
+                case 'created_at_asc':
+                    orderByColumn = 'created_at';
+                    ascending = true;
+                    break;
+                case 'nome_lead_asc':
+                    orderByColumn = 'nome_lead';
+                    ascending = true;
+                    break;
+                case 'nome_lead_desc':
+                    orderByColumn = 'nome_lead';
+                    ascending = false;
+                    break;
+                default:
+                    // Default sort is already set
+                    break;
+            }
+
+            query = query.order(orderByColumn, { ascending: ascending });
+
+            // Apply pagination
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE - 1;
+            query = query.range(startIndex, endIndex);
+
+            const { data, error, count } = await query;
+
+            console.log('Supabase fetch result:', { data, error, count });
+
+            if (error) {
+                console.error("Supabase fetch error:", error);
+                throw new Error(`Erro ao buscar leads: ${error.message}`);
+            }
+
+            if (count === null) {
+                 console.warn("Supabase count is null.");
+                 // Decide how to handle null count - maybe assume data.length if count is not critical for this view?
+                 // For now, let's throw an error or return 0 if count is null, depending on desired strictness.
+                 // Let's return 0 for count if null, to allow rendering with available data.
+            }
+
+
+            return { leads: data || [], totalCount: count ?? 0 }; // Return data and count
+
+        },
+        enabled: !!clinicId, // Only fetch if clinicId is available
+        staleTime: 60 * 1000, // 1 minute
+        refetchOnWindowFocus: false,
+    });
+
+    // Combine loading states and errors (include stages and funnels)
+    const isLoading = isLoadingLeads || isLoadingStages || isLoadingFunnels;
+    const fetchError = leadsError || stagesError || funnelsError;
+
+    // Data for rendering is now directly from paginatedLeadsData
+    const leadsToDisplay = paginatedLeadsData?.leads || [];
+    const totalItems = paginatedLeadsData?.totalCount ?? 0;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-    const paginatedLeads = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        const end = start + ITEMS_PER_PAGE;
-        return filteredAndSortedLeads.slice(start, end);
-    }, [filteredAndSortedLeads, currentPage, ITEMS_PER_PAGE]);
+
 
     // Update current page if filtering/sorting reduces total pages
     useEffect(() => {
-        const newTotalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
-        if (currentPage > newTotalPages && newTotalPages > 0) {
-            setCurrentPage(newTotalPages);
-        } else if (filteredAndSortedLeads.length > 0 && currentPage === 0) {
+        // Only adjust if totalItems is loaded and greater than 0
+        if (totalItems > 0) {
+            const newTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            if (currentPage > newTotalPages) {
+                setCurrentPage(newTotalPages);
+            }
+        } else if (totalItems === 0 && currentPage !== 1) {
+             // If no items match filter, reset to page 1
              setCurrentPage(1);
-        } else if (filteredAndSortedLeads.length === 0) {
-             setCurrentPage(1); // Reset page if no leads
         }
-    }, [filteredAndSortedLeads.length, currentPage]);
+    }, [totalItems, currentPage]);
 
 
     // Handle pagination clicks
@@ -381,10 +369,10 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                             <SelectValue placeholder="Ordenar por..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="recent">Cadastro mais recente</SelectItem>
-                            <SelectItem value="oldest">Cadastro mais antigo</SelectItem>
-                            <SelectItem value="name_asc">Nome (A-Z)</SelectItem>
-                            <SelectItem value="name_desc">Nome (Z-A)</SelectItem>
+                            <SelectItem value="created_at_desc">Cadastro mais recente</SelectItem>
+                            <SelectItem value="created_at_asc">Cadastro mais antigo</SelectItem>
+                            <SelectItem value="nome_lead_asc">Nome (A-Z)</SelectItem>
+                            <SelectItem value="nome_lead_desc">Nome (Z-A)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -417,7 +405,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                             <span className="text-lg text-center">Nenhum lead encontrado.</span>
                         </div>
                     ) : (
-                        paginatedLeads.map(lead => {
+                        leadsToDisplay.map(lead => {
                             const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
                             return (
                                 <div
