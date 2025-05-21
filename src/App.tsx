@@ -15,6 +15,7 @@ import CashbackPage from "./pages/CashbackPage"; // Import the new CashbackPage
 import ConversasPage from "./pages/ConversasPage"; // Import the correct ConversasPage
 import WhatsappInstancesPage from "./pages/WhatsappInstancesPage"; // Import the new WhatsappInstancesPage
 import MensagensListPage from "./pages/MensagensListPage"; // Import the new MensagensListPage
+import MensagensConfigPage from "./pages/MensagensConfigPage"; // Import the new MensagensConfigPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -124,6 +125,11 @@ const App = () => {
               {/* This must be the LAST route defined within the /dashboard group */}
               <Route path="*" element={<UnderConstructionPage />} />
             </Route>
+
+            {/* Route for the Message Config/Edit page (outside of dashboard layout for now) */}
+            {/* This route expects 'id' or 'category' search params */}
+            <Route path="/config-mensagem" element={<ProtectedRoute><MensagensConfigPage clinicData={clinicData} /></ProtectedRoute>} />
+
 
             {/* Catch-all route for 404 outside of /dashboard */}
             <Route path="*" element={<NotFound />} />
