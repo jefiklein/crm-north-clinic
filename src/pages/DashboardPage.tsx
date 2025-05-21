@@ -417,8 +417,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                     {/* Use sum_total_realizados */}
                                     {appointmentsData?.sum_total_realizados !== undefined && appointmentsData.sum_total_realizados !== null ? appointmentsData.sum_total_realizados : 'N/A'}
                                 </div>
-                            )}
-                        </CardContent>
+                            </CardContent>
                     </Card>
                 </div>
             </div>
@@ -439,24 +438,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                      </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Adjusted grid for 3 columns */}
-                        {/* Card: Número de Vendas Totais */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <ShoppingCart className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Vendas Totais (Qtd)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {salesData?.total?.count_id_north !== undefined && salesData.total.count_id_north !== null ? salesData.total.count_id_north : 'N/A'}
-                                </div>
-                            </CardContent>
-                        </Card>
 
                         {/* Card: Total de Vendas (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Vendas Totais (Valor)</CardTitle>
+                                <CardTitle className="text-md font-medium">Vendas Totais</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -484,24 +471,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                        {/* Card: Número de Novas Vendas */}
+                        {/* Placeholder to align the next row if needed, or let grid handle it */}
+                        <div></div>
+
+
+                        {/* Card: Novas Vendas (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <TagIcon className="mx-auto h-8 w-8 text-primary" /> {/* Using TagIcon for new sales */}
-                                <CardTitle className="text-md font-medium">Novas Vendas (Qtd)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {salesData?.new?.num_nova_compra !== undefined && salesData.new.num_nova_compra !== null ? salesData.new.num_nova_compra : 'N/A'}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                         {/* Card: Valor de Novas Vendas */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Novas Vendas (Valor)</CardTitle>
+                                <CardTitle className="text-md font-medium">Novas Vendas</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -529,24 +507,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardContent>
                         </Card>
 
-                        {/* Card: Número de Recompras */}
+                         {/* Placeholder to align the next row if needed, or let grid handle it */}
+                        <div></div>
+
+
+                        {/* Card: Recompras (Valor) */}
                         <Card className="text-center">
                             <CardHeader className="pb-2">
                                 <Repeat className="mx-auto h-8 w-8 text-primary" /> {/* Using Repeat icon for rebuy */}
-                                <CardTitle className="text-md font-medium">Recompras (Qtd)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-primary">
-                                    {salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra !== null ? salesData.rebuy.num_recompra : 'N/A'}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Card: Valor de Recompras */}
-                        <Card className="text-center">
-                            <CardHeader className="pb-2">
-                                <BadgeDollarSign className="mx-auto h-8 w-8 text-primary" />
-                                <CardTitle className="text-md font-medium">Recompras (Valor)</CardTitle>
+                                <CardTitle className="text-md font-medium">Recompras</CardTitle> {/* Removed (Valor) */}
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
@@ -573,6 +542,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 </div>
                             </CardContent>
                         </Card>
+
+                         {/* Placeholder to align the next row if needed, or let grid handle it */}
+                        <div></div>
+
                     </div>
                 )}
             </div>
