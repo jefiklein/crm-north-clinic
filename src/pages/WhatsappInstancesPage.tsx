@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Using shadcn Dialog
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Whatsapp, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons
+import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils'; // Utility for class names
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
@@ -327,7 +327,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}_${Date.now().toString().slice(-8)}`; // Added timestamp slice
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
-            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`;
+            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf91202e7`; // Corrected webhook URL based on previous turn
             const evolutionResponse = await fetch(evolutionWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -497,7 +497,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                              setTimeout(() => { itemEl.classList.remove('bg-green-100'); }, 2000);
                          }
                     }
-                    refetchInstances(); // Refetch the list to ensure data is fresh
+                    refetchInstances(); // Refetch the list to get updated status if needed
                 } else {
                     console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} not connected yet. State: ${status?.instance?.state}`);
                 }
@@ -659,7 +659,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         key={instanceDbId || instanceIdentifier} // Use DB ID if available, fallback to tech name
                                         className="whatsapp-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-4 flex-wrap"
                                     >
-                                        <Whatsapp className="h-8 w-8 text-green-600 flex-shrink-0" /> {/* WhatsApp icon */}
+                                        <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0" /> {/* WhatsApp icon */}
                                         <div className="whatsapp-info flex flex-col flex-grow min-w-[150px]">
                                             <span className="display-name text-base font-semibold">{instance.nome_exibição || 'Sem nome'}</span>
                                             <span className="instance-phone text-sm text-gray-600">{formatPhone(instance.telefone)}</span>
