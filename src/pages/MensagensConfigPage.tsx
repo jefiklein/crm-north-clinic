@@ -73,7 +73,7 @@ interface GroupInfo {
     nome_grupo: string;
 }
 
-// Define the structure for Linked Service (from webhook)
+// Define the structure for Linked Service (from Supabase)
 interface LinkedService {
     id_servico: number;
 }
@@ -91,9 +91,9 @@ interface MensagensConfigPageProps {
 // Webhook URLs
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // REMOVED: const GET_INSTANCES_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
-const GET_SERVICES_URL = `${N8N_BASE_URL}/webhook/fd13f63f-8fae-4e1b-996e-c42c1ba9d7ae`;
-const GET_GROUPS_URL = `${N8N_BASE_URL}/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`;
-const GET_LINKED_SERVICES_URL = `${N8N_BASE_URL}/webhook/1e9c1d33-c815-4afb-8317-40195863ab3a`;
+// REMOVED: const GET_SERVICES_URL = `${N8N_BASE_URL}/webhook/fd13f63f-8fae-4e1b-996e-42c1ba9d7ae`;
+const GET_GROUPS_URL = `${N8N_BASE_URL}/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`; // KEEPING THIS WEBHOOK FOR NOW
+// REMOVED: const GET_LINKED_SERVICES_URL = `${N8N_BASE_URL}/webhook/1e9c1d33-c815-4afb-8317-40195863ab3a`;
 const SAVE_MESSAGE_URL_CREATE = `${N8N_BASE_URL}/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d`;
 const SAVE_MESSAGE_URL_UPDATE = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`;
 const GET_MESSAGE_DETAILS_URL = `${N8N_BASE_URL}/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`;
@@ -299,63 +299,91 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Services List
+    // Fetch Services List - NOW FROM SUPABASE
     const { data: servicesList, isLoading: isLoadingServices, error: servicesError } = useQuery<ServiceInfo[]>({
-        queryKey: ['servicesListConfigPage', clinicCode],
+        queryKey: ['servicesListConfigPage', clinicId], // Use clinicId for Supabase fetch
         queryFn: async () => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
-            console.log("[MensagensConfigPage] Fetching services list...");
-            const response = await fetch(GET_SERVICES_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ codigo_clinica: clinicCode })
-            });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar serviços: ${errorText.substring(0, 100)}...`);
+            if (!clinicId) {
+                console.warn("[MensagensConfigPage] Skipping services fetch: clinicId missing.");
+                throw new Error("ID da clínica não disponível.");
             }
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.error("[MensagensConfigPage] Invalid services list response format:", data);
-                 throw new Error("Formato de resposta inválido para lista de serviços.");
+            console.log(`[MensagensConfigPage] Fetching services list from Supabase (Clinic ID: ${clinicId})...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_servicos')
+                    .select('id, nome') // Select necessary fields
+                    .eq('id_clinica', clinicId) // Filter by clinic ID
+                    .order('nome', { ascending: true }); // Order by name
+
+                console.log("[MensagensConfigPage] Supabase services fetch result:", { data, error });
+
+                if (error) {
+                    console.error("[MensagensConfigPage] Supabase services fetch error:", error);
+                    throw new Error(`Erro ao buscar serviços: ${error.message}`);
+                }
+
+                if (!data) {
+                    console.warn("[MensagensConfigPage] Supabase services fetch returned null data.");
+                    return []; // Return empty array if data is null
+                }
+
+                console.log("[MensagensConfigPage] Services list loaded:", data.length, "items");
+                return data as ServiceInfo[]; // Cast to the defined interface
+
+            } catch (err: any) {
+                console.error("[MensagensConfigPage] Error fetching services from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
             }
-            console.log("[MensagensConfigPage] Services list loaded:", data.length, "items");
-            return data.sort((a, b) => (a.nome || '').localeCompare(b.nome || '')) as ServiceInfo[];
         },
-        enabled: !!clinicCode, // Only fetch if clinicCode is available
+        enabled: !!clinicId, // Only fetch if clinicId is available
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Linked Services (if editing)
+    // Fetch Linked Services (if editing) - NOW FROM SUPABASE
     const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
-        queryKey: ['linkedServicesConfigPage', messageId],
+        queryKey: ['linkedServicesConfigPage', messageId], // Use messageId in key
         queryFn: async () => {
-            if (!messageId) return [];
-            console.log(`[MensagensConfigPage] Fetching linked services for message ID: ${messageId}`);
-            const response = await fetch(GET_LINKED_SERVICES_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ id_mensagem: messageId })
-            });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar serviços vinculados: ${errorText.substring(0, 100)}...`);
+            if (!messageId) {
+                 console.warn("[MensagensConfigPage] Skipping linked services fetch: messageId missing.");
+                 return []; // Return empty if not editing or messageId is missing
             }
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.error("[MensagensConfigPage] Invalid linked services response format:", data);
-                 throw new Error("Formato de resposta inválido para serviços vinculados.");
+            console.log(`[MensagensConfigPage] Fetching linked services for message ID ${messageId} from Supabase...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_mensagens_servicos')
+                    .select('id_servico') // Select only the service ID
+                    .eq('id_mensagem', parseInt(messageId, 10)); // Filter by message ID (ensure it's a number)
+
+                console.log("[MensagensConfigPage] Supabase linked services fetch result:", { data, error });
+
+                if (error) {
+                    console.error("[MensagensConfigPage] Supabase linked services fetch error:", error);
+                    throw new Error(`Erro ao buscar serviços vinculados: ${error.message}`);
+                }
+
+                if (!data) {
+                    console.warn("[MensagensConfigPage] Supabase linked services fetch returned null data.");
+                    return []; // Return empty array if data is null
+                }
+
+                console.log("[MensagensConfigPage] Linked services loaded:", data.length, "items");
+                return data as LinkedService[]; // Cast to the defined interface
+
+            } catch (err: any) {
+                console.error("[MensagensConfigPage] Error fetching linked services from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
             }
-            console.log("[MensagensConfigPage] Linked services loaded:", data.length, "items");
-            return data as LinkedService[];
         },
         enabled: isEditing && !!messageId, // Only fetch if editing and messageId is available
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Groups for selected Instance (Conditional Fetch)
+
+    // Fetch Groups for selected Instance (Conditional Fetch) - STILL USING WEBHOOK
     const { data: groupsList, isLoading: isLoadingGroups, error: groupsError, refetch: refetchGroups } = useQuery<GroupInfo[]>({
         queryKey: ['groupsListConfigPage', formData.id_instancia],
         queryFn: async () => {
