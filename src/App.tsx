@@ -12,6 +12,7 @@ import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the
 import FunnelPage from "./pages/FunnelPage"; // Import the new FunnelPage component
 import AllLeadsPage from "./pages/AllLeadsPage"; // Import the new AllLeadsPage
 import CashbackPage from "./pages/CashbackPage"; // Import the new CashbackPage
+import ConfiguracoesMensagensPage from "./pages/ConfiguracoesMensagensPage"; // Import the new ConfiguracoesMensagensPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -101,10 +102,13 @@ const App = () => {
               {/* Route for the Cashback page - Using menu item ID 14 */}
               <Route path="14" element={<CashbackPage clinicData={clinicData} />} />
 
+              {/* Route for the Configurações de Mensagens page - Using menu item ID 2 */}
+              <Route path="2" element={<ConfiguracoesMensagensPage clinicData={clinicData} />} />
+
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/3, /dashboard/12, /dashboard/14 */}
+              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/12, /dashboard/14 */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
 
