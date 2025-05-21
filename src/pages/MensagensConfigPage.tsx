@@ -48,7 +48,7 @@ interface MessageDetails {
     para_grupo: boolean;
     para_cliente: boolean;
     url_arquivo: string | null; // Redundant? Assuming midia_mensagem is the key
-    prioridade: number; // Added priority field
+    prioridade: number;
     created_at: string;
     updated_at: string;
 }
@@ -90,13 +90,13 @@ interface MensagensConfigPageProps {
 
 // Webhook URLs
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const GET_INSTANCES_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`;
+// REMOVED: const GET_INSTANCES_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
 const GET_SERVICES_URL = `${N8N_BASE_URL}/webhook/fd13f63f-8fae-4e1b-996e-c42c1ba9d7ae`;
 const GET_GROUPS_URL = `${N8N_BASE_URL}/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`;
 const GET_LINKED_SERVICES_URL = `${N8N_BASE_URL}/webhook/1e9c1d33-c815-4afb-8317-40195863ab3a`;
 const SAVE_MESSAGE_URL_CREATE = `${N8N_BASE_URL}/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d`;
 const SAVE_MESSAGE_URL_UPDATE = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`;
-// REMOVED: const GET_MESSAGE_DETAILS_URL = `${N8N_BASE_URL}/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`;
+const GET_MESSAGE_DETAILS_URL = `${N8N_BASE_URL}/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`;
 const GENERATE_PREVIEW_URL = `${N8N_BASE_URL}/webhook/ajustar-mensagem-modelo`;
 const AI_VARIATION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/225ecff5-6081-466f-a0d7-9cfe3ea2ce84`;
 const UPLOAD_SUPABASE_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase';
@@ -258,30 +258,43 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         refetchOnWindowFocus: false,
     });
 
-    // Fetch Instances List
+    // Fetch Instances List - NOW FROM SUPABASE
     const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
-        queryKey: ['instancesListConfigPage', clinicCode],
+        queryKey: ['instancesListConfigPage', clinicId], // Use clinicId for Supabase fetch
         queryFn: async () => {
-            if (!clinicCode) throw new Error("Código da clínica não disponível.");
-            console.log("[MensagensConfigPage] Fetching instances list...");
-            const response = await fetch(GET_INSTANCES_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ codigo_clinica: clinicCode })
-            });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar instâncias: ${errorText.substring(0, 100)}...`);
+            if (!clinicId) {
+                console.warn("[MensagensConfigPage] Skipping instances fetch: clinicId missing.");
+                throw new Error("ID da clínica não disponível.");
             }
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                 console.error("[MensagensConfigPage] Invalid instances list response format:", data);
-                 throw new Error("Formato inesperado da lista de instâncias.");
+            console.log(`[MensagensConfigPage] Fetching instances list from Supabase (Clinic ID: ${clinicId})...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from('north_clinic_config_instancias')
+                    .select('id, nome_exibição, telefone, nome_instancia_evolution') // Select necessary fields
+                    .eq('id_clinica', clinicId); // Filter by clinic ID
+
+                console.log("[MensagensConfigPage] Supabase instances fetch result:", { data, error });
+
+                if (error) {
+                    console.error("[MensagensConfigPage] Supabase instances fetch error:", error);
+                    throw new Error(`Erro ao buscar instâncias: ${error.message}`);
+                }
+
+                if (!data) {
+                    console.warn("[MensagensConfigPage] Supabase instances fetch returned null data.");
+                    return []; // Return empty array if data is null
+                }
+
+                console.log("[MensagensConfigPage] Instances list loaded:", data.length, "items");
+                return data as InstanceInfo[]; // Cast to the defined interface
+
+            } catch (err: any) {
+                console.error("[MensagensConfigPage] Error fetching instances from Supabase:", err);
+                throw err; // Re-throw to be caught by react-query
             }
-            console.log("[MensagensConfigPage] Instances list loaded:", data.length, "items");
-            return data as InstanceInfo[];
         },
-        enabled: !!clinicCode, // Only fetch if clinicCode is available
+        enabled: !!clinicId, // Only fetch if clinicId is available
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
