@@ -238,6 +238,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
+  // Find the selected conversation summary to display name in detail header
+  const selectedConversationSummary = useMemo(() => {
+    if (!conversationSummaries || !selectedConversationId) return null;
+    return conversationSummaries.find(conv => conv.remoteJid === selectedConversationId) || null;
+  }, [conversationSummaries, selectedConversationId]);
+
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
     if (scrollSentinelRef.current) {
