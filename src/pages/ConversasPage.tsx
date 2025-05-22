@@ -113,8 +113,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
   const hasPermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
-  // Ref for the inner scrollable div inside ScrollArea
-  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  // Ref for the ScrollArea wrapper
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  // Ref for the sentinel div at the end of messages
+  const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch Instances from Supabase
   const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
@@ -222,10 +224,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
   }, [conversationSummaries, selectedConversationId]);
 
-  // Scroll to bottom of messages when messages load or change
+  // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    if (endOfMessagesRef.current) {
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
@@ -344,23 +346,23 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           )}
         </div>
         <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
-          <div ref={messagesContainerRef} className="flex flex-col gap-2">
-            {!selectedConversationId ? (
-              <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
-            ) : isLoadingMessages ? (
-              <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
-                <Loader2 className="h-8 w-8 animate-spin mb-4" />
-                <span>Carregando mensagens...</span>
-              </div>
-            ) : messagesError ? (
-              <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-100 rounded-md">
-                <TriangleAlert className="h-8 w-8 mb-4" />
-                <span>Erro ao carregar mensagens: {messagesError.message}</span>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
-            ) : (
-              messages.map(msg => (
+          {!selectedConversationId ? (
+            <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
+          ) : isLoadingMessages ? (
+            <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
+              <Loader2 className="h-8 w-8 animate-spin mb-4" />
+              <span>Carregando mensagens...</span>
+            </div>
+          ) : messagesError ? (
+            <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-100 rounded-md">
+              <TriangleAlert className="h-8 w-8 mb-4" />
+              <span>Erro ao carregar mensagens: {messagesError.message}</span>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
+          ) : (
+            <>
+              {messages.map(msg => (
                 <div key={msg.id} className={cn(
                   "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
                   msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
@@ -368,9 +370,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
                   <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+              <div ref={endOfMessagesRef} />
+            </>
+          )}
         </ScrollArea>
         <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100">
           <Input type="text" placeholder="Digite sua mensagem aqui..." disabled={!selectedConversationId} />
