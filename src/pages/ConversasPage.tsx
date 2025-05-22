@@ -233,6 +233,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     }
   }, [selectedConversationId, filteredAndSortedSummaries]);
 
+  // Define selectedConversationSummary to show contact name in detail header
+  const selectedConversationSummary = useMemo(() => {
+    return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
+  }, [conversationSummaries, selectedConversationId]);
+
   // --- Permission Check ---
   if (!clinicData) {
     return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
