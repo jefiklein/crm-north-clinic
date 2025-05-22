@@ -308,7 +308,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   return (
     <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
       {/* Conversations List Panel */}
-      <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
+      <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden px-4"> {/* Added horizontal padding */}
         <div className="list-header p-4 border-b border-gray-200 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -353,22 +353,22 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <div
                   key={conversationId}
                   className={cn(
-                    "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
+                    "conversation-list-item flex flex-col py-3 border-b border-gray-100 cursor-pointer transition-colors",
                     selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
                   )}
                   onClick={() => setSelectedConversationId(conversationId)}
                   style={{ overflow: 'visible' }} // Allow overflow visible to prevent clipping
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-2"> {/* Added horizontal padding */}
                     <div className="flex items-center gap-2 flex-grow min-w-0">
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis flex-grow min-w-0">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0 mr-4">{lastMessageTimestamp || 'Sem data'}</span> {/* Added mr-4 */}
                   </div>
-                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
+                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1 px-2">{lastMessagePreview}</div> {/* Added horizontal padding */}
                 </div>
               );
             })
