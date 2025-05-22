@@ -356,7 +356,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}_${Date.now().toString().slice(-8)}`; // Added timestamp slice
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
-            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Corrected webhook URL based on previous turn
+            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook URL
             const evolutionResponse = await fetch(evolutionWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -381,17 +381,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     nome_instancia_evolution: uniqueIdentifier, // Save the unique identifier
                     telefone: instanceData.telefone,
                     tipo: instanceData.tipo,
-                    trackeamento: false, // Default values
-                    historico: false, // Default values
-                    confirmar_agendamento: false, // Default values
-                    id_server_evolution: null, // Assuming this is set later or not needed here
+                    trackeamento: false,
+                    historico: false,
+                    confirmar_agendamento: false,
+                    id_server_evolution: null,
                 })
             });
 
             if (!dbResponse.ok) {
                 let dbErrorMsg = `Erro ${dbResponse.status} ao salvar no DB`;
                 try { const dbErrorData = await dbResponse.json(); dbErrorMsg = dbErrorData.message || JSON.stringify(dbErrorData) || dbErrorMsg; } catch(e) { dbErrorMsg = `${dbErrorMsg}: ${await dbResponse.text()}`; }
-                // Consider adding a step here to DELETE the instance from Evolution if DB save fails
                 throw new Error(`Instância criada na API Evolution, mas falhou ao salvar no banco de dados: ${dbErrorMsg}`);
             }
 
@@ -420,7 +419,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                  }
             } else {
                  console.warn("[WhatsappInstancesPage] Failed to get QR code immediately after creation:", qrResponse.status);
-                 // Don't throw error here, creation was successful, QR can be generated later
             }
 
 
@@ -430,18 +428,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             showSuccess(data.message || 'Instância criada com sucesso!');
             setIsAddInstanceModalOpen(false);
             setAddInstanceFormData({ nome_exibição: '', telefone: '', tipo: '' });
-            queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] }); // Refetch list
+            queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
 
             if (data.qrCodeUrl && data.instanceIdentifier) {
-                 // Find the newly created instance in the list (might need a small delay if refetch is slow)
-                 // Or pass the necessary data directly
                  const newInstanceInfo: InstanceInfo = {
-                     id: data.data?.id || null, // Assuming DB response includes ID
+                     id: data.data?.id || null,
                      nome_exibição: addInstanceFormData.nome_exibição,
                      telefone: Number(addInstanceFormData.telefone),
                      tipo: addInstanceFormData.tipo,
                      nome_instancia_evolution: data.instanceIdentifier,
-                     nome_instancia: null, // Or the correct field if different
+                     nome_instancia: null,
                      trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false
                  };
                  setCurrentInstanceForQr(newInstanceInfo);
@@ -477,11 +473,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     if (currentInstanceForQr) {
                         const instanceIdentifier = currentInstanceForQr.nome_instancia_evolution || currentInstanceForQr.nome_instancia;
                         if (instanceIdentifier) {
-                            qrCodeMutation.mutate(instanceIdentifier); // Request new QR
+                            qrCodeMutation.mutate(instanceIdentifier);
                         } else {
                             showError("Não foi possível renovar o QR Code: Identificador da instância ausente.");
-                            setQrCodeUrl(null); // Clear QR
-                            setIsQrModalOpen(false); // Close modal
+                            setQrCodeUrl(null);
+                            setIsQrModalOpen(false);
                         }
                     }
                     return 0;
@@ -500,51 +496,41 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             clearTimeout(connectionCheckTimeoutRef.current);
             connectionCheckTimeoutRef.current = null;
         }
-        console.log("[WhatsappInstancesPage] Stopped connection polling.");
     };
 
     const startConnectionPolling = (instanceIdentifier: string) => {
-        console.log(`[WhatsappInstancesPage] Starting connection polling for ${instanceIdentifier}`);
-        stopConnectionPolling(); // Ensure no previous polling is running
+        stopConnectionPolling();
 
         connectionCheckIntervalRef.current = setInterval(async () => {
             try {
                 const status = await checkStatusMutation.mutateAsync(instanceIdentifier);
                 if (status?.instance?.state === "open") {
-                    console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} connected via polling!`);
                     stopConnectionPolling();
                     stopQrTimer();
-                    setIsQrModalOpen(false); // Close QR modal on success
+                    setIsQrModalOpen(false);
                     showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
-                    // Update status in the list item directly for immediate feedback
-                    refetchInstances(); // Refetch the list to get updated status if needed
-                } else {
-                    console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} not connected yet. State: ${status?.instance?.state}`);
+                    refetchInstances();
                 }
             } catch (error) {
-                console.error(`[WhatsappInstancesPage] Error during status polling for ${instanceIdentifier}:`, error);
-                // Continue polling on error unless timeout
+                // Continue polling on error
             }
         }, POLLING_INTERVAL_MS);
 
         connectionCheckTimeoutRef.current = setTimeout(() => {
-            console.warn(`[WhatsappInstancesPage] Polling timeout reached for ${instanceIdentifier}. Stopping connection check.`);
             stopConnectionPolling();
             showError(`Tempo limite para conectar a instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" excedido. Tente reconectar manualmente.`);
         }, POLLING_TIMEOUT_MS);
     };
 
-    // Cleanup intervals and timeouts on component unmount
     useEffect(() => {
         return () => {
             stopQrTimer();
             stopConnectionPolling();
-             // Revoke object URL if one was created
-             if (qrCodeUrl && qrCodeUrl.startsWith('blob:')) {
-                 URL.revokeObjectURL(qrCodeUrl);
-             }
+            if (qrCodeUrl && qrCodeUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(qrCodeUrl);
+            }
         };
-    }, [qrCodeUrl]); // Add qrCodeUrl to dependency array for cleanup
+    }, [qrCodeUrl]);
 
 
     // --- Handlers ---
@@ -571,7 +557,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     }
 
     if (!hasPermission) {
-         console.warn(`[WhatsappInstancesPage] Access denied for clinic ID ${clinicData.id}. User permission level: ${userPermissionLevel}, Required: ${REQUIRED_PERMISSION_LEVEL}`);
          return (
              <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
                  <Card className="w-full max-w-md text-center">
@@ -691,10 +676,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         <div className="whatsapp-info flex flex-col flex-grow min-w-[150px]">
                                             <span className="display-name text-base font-semibold">{instance.nome_exibição || 'Sem nome'}</span>
                                             <span className="instance-phone text-sm text-gray-600">{formatPhone(instance.telefone)}</span>
-                                            <span className="instance-type text-xs text-gray-500">
-                                                Tipo: {instance.tipo || 'N/D'} | ID: {instanceDbId || 'N/A'}
-                                                {instanceIdentifier && ` | Tech: ${instanceIdentifier}`} {/* Show tech name */}
-                                            </span>
+                                            {instance.tipo && (
+                                                <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 select-none">
+                                                    Tipo: {instance.tipo}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 ml-auto">
                                             {statusContent}
@@ -776,7 +762,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     </DialogHeader>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        setAddInstanceAlert(null); // Clear previous alerts
+                        setAddInstanceAlert(null);
 
                         const { nome_exibição, telefone, tipo } = addInstanceFormData;
 
