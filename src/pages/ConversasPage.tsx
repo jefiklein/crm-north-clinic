@@ -113,8 +113,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
   const hasPermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
-  // Ref for the scrollable content inside ScrollArea
-  const scrollAreaContentRef = useRef<HTMLDivElement | null>(null);
+  // Ref for the ScrollArea wrapper
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch Instances from Supabase
   const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
@@ -224,8 +224,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or change
   useEffect(() => {
-    if (scrollAreaContentRef.current) {
-      scrollAreaContentRef.current.scrollTop = scrollAreaContentRef.current.scrollHeight;
+    if (scrollAreaRef.current) {
+      // The scrollable container is a child with data-scroll-area attribute
+      const scrollable = scrollAreaRef.current.querySelector('[data-scroll-area]') as HTMLElement | null;
+      if (scrollable) {
+        scrollable.scrollTop = scrollable.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -343,7 +347,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             </Button>
           )}
         </div>
-        <ScrollArea ref={scrollAreaContentRef} className="messages-area flex-grow p-4 flex flex-col">
+        <ScrollArea ref={scrollAreaRef} className="messages-area flex-grow p-4 flex flex-col">
           {!selectedConversationId ? (
             <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
           ) : isLoadingMessages ? (
