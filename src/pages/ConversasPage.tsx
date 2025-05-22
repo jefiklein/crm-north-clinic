@@ -78,7 +78,8 @@ function formatTimestampSimple(unixTimestampInSeconds: number | null): string {
     }
     const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return `${dateStr} ${timeStr}`;
-  } catch {
+  } catch (e) {
+    console.error("Error formatting timestamp:", unixTimestampInSeconds, e);
     return 'Sem data';
   }
 }
@@ -272,6 +273,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       </div>
     );
   }
+
+  // Debug log for lastTimestamp and formatted date
+  useEffect(() => {
+    if (filteredAndSortedSummaries.length > 0) {
+      filteredAndSortedSummaries.forEach(item => {
+        console.log(`Conversation ${item.remoteJid} lastTimestamp:`, item.lastTimestamp, 'formatted:', formatTimestampSimple(item.lastTimestamp));
+      });
+    }
+  }, [filteredAndSortedSummaries]);
 
   return (
     <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
