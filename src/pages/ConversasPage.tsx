@@ -357,6 +357,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
                   )}
                   onClick={() => setSelectedConversationId(conversationId)}
+                  style={{ overflow: 'visible' }} // Allow overflow visible to prevent clipping
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 flex-grow min-w-0">
