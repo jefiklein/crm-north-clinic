@@ -54,8 +54,15 @@ interface ConversasPageProps {
   clinicData: ClinicData | null;
 }
 
-// Helper functions
-function formatTimestampForList(unixTimestampInSeconds: number | null): string {
+// Helper to format total messages in compact form (e.g., 1200 -> 1.2k)
+function formatTotalMessages(count: number): string {
+  if (count < 1000) return count.toString();
+  if (count < 1000000) return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+}
+
+// Helper to format timestamp in short form for list (dd/MM or hh:mm if today)
+function formatTimestampShort(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
     const timestampNum = parseInt(String(unixTimestampInSeconds), 10);
@@ -68,26 +75,14 @@ function formatTimestampForList(unixTimestampInSeconds: number | null): string {
     messageDate.setHours(0,0,0,0);
 
     if (messageDate.getTime() === today.getTime()) {
-      return `Hoje ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      // Return only time hh:mm
+      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     } else {
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      // Return only date dd/MM
+      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     }
   } catch (e) {
     console.error("Error formatting timestamp for list:", unixTimestampInSeconds, e);
-    return '';
-  }
-}
-
-function formatTimestampForBubble(unixTimestampInSeconds: number | null): string {
-  if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
-  try {
-    const timestampNum = parseInt(String(unixTimestampInSeconds), 10);
-    if (isNaN(timestampNum)) { return ''; }
-    const timestampMs = timestampNum * 1000;
-    const date = new Date(timestampMs);
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch (e) {
-    console.error("Error formatting timestamp for bubble:", unixTimestampInSeconds, e);
     return '';
   }
 }
@@ -368,7 +363,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
-              const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
+              const lastMessageTimestamp = formatTimestampShort(conv.lastTimestamp);
               const totalMessages = messageCountsData?.[conversationId] ?? 0;
 
               let lastMessagePreview = '';
@@ -405,7 +400,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         className="text-xs text-gray-400 whitespace-nowrap truncate"
                         title={`Total de mensagens: ${totalMessages}`}
                       >
-                        Total: {totalMessages}
+                        Total: {formatTotalMessages(totalMessages)}
                       </span>
                     </div>
                   </div>
