@@ -61,29 +61,25 @@ function formatTotalMessages(count: number): string {
   return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
 }
 
-// Helper to format timestamp in short form for list (dd/MM or hh:mm if today)
-function formatTimestampShort(unixTimestampInSeconds: number | null): string {
-  if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
+// Simplified helper to format timestamp as dd/MM hh:mm or 'Hoje hh:mm'
+function formatTimestampSimple(unixTimestampInSeconds: number | null): string {
+  if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return 'Sem data';
   try {
-    const timestampNum = parseInt(String(unixTimestampInSeconds), 10);
-    if (isNaN(timestampNum)) { return ''; }
-    const timestampMs = timestampNum * 1000;
-    const date = new Date(timestampMs);
+    const timestampNum = Number(unixTimestampInSeconds);
+    if (isNaN(timestampNum)) return 'Sem data';
+    const date = new Date(timestampNum * 1000);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const messageDate = new Date(date);
-    messageDate.setHours(0,0,0,0);
-
-    if (messageDate.getTime() === today.getTime()) {
-      // Return only time hh:mm
-      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      // Return only date dd/MM
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    today.setHours(0,0,0,0);
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0,0,0,0);
+    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (dateOnly.getTime() === today.getTime()) {
+      return `Hoje ${timeStr}`;
     }
-  } catch (e) {
-    console.error("Error formatting timestamp for list:", unixTimestampInSeconds, e);
-    return '';
+    const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return `${dateStr} ${timeStr}`;
+  } catch {
+    return 'Sem data';
   }
 }
 
@@ -148,17 +144,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) return [];
 
-      // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
         .in('id_instancia', instanceIds)
-        .order('message_timestamp', { ascending: false }); // Decrescente
+        .order('message_timestamp', { ascending: false });
 
       if (error) throw new Error(error.message);
       if (!data) return [];
 
-      // Group by remoteJid to get last message and timestamp per conversation
       const groupedMap = new Map<string, ConversationSummary>();
       for (const msg of data) {
         const existing = groupedMap.get(msg.remoteJid);
@@ -244,61 +238,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Group messages by sequential instance ID for rendering
-  const groupedMessages = useMemo(() => {
-    if (!messages) return [];
-
-    const sortedMessages = [...messages].sort((a, b) =>
-      (a.message_timestamp || 0) - (b.message_timestamp || 0)
-    );
-
-    const groups: { instanceId: number | null; messages: Message[]; instanceName: string; cssClassIndex: number }[] = [];
-    let currentInstanceId: number | null = null;
-    let currentGroupIndex = -1;
-    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {};
-
-    sortedMessages.forEach(msg => {
-      const instanceId = msg.id_instancia;
-
-      if (instanceId !== currentInstanceId) {
-        currentGroupIndex++;
-        currentInstanceId = instanceId;
-
-        let instanceName = 'Instância Desconhecida/Indefinida';
-        if (instanceId !== null && instanceMap.has(instanceId)) {
-          instanceName = instanceMap.get(instanceId)?.nome_exibição || `ID ${instanceId}`;
-        } else if (instanceId !== null) {
-          instanceName = `ID ${instanceId}`;
-        } else {
-          instanceName = 'Indefinida';
-        }
-
-        if (instanceId !== null && typeof instanceIdToGroupIndexMap[instanceId] === 'undefined') {
-          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length;
-        } else if (instanceId === null && typeof instanceIdToGroupIndexMap['null'] === 'undefined') {
-          instanceIdToGroupIndexMap['null'] = Object.keys(instanceIdToGroupIndexMap).length;
-        }
-        const cssClassIndex = (instanceId !== null ? instanceIdToGroupIndexMap[instanceId] : instanceIdToGroupIndexMap['null']) % 4;
-
-        groups.push({
-          instanceId: instanceId,
-          messages: [msg],
-          instanceName: instanceName,
-          cssClassIndex: cssClassIndex,
-        });
-      } else {
-        groups[groups.length - 1].messages.push(msg);
-      }
-    });
-
-    return groups;
-  }, [messages, instanceMap]);
-
-  // Find the selected conversation summary to display name in detail header
-  const selectedConversationSummary = useMemo(() => {
-    return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
-  }, [conversationSummaries, selectedConversationId]);
-
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
     if (scrollSentinelRef.current) {
@@ -363,7 +302,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
-              const lastMessageTimestamp = formatTimestampShort(conv.lastTimestamp);
+              const lastMessageTimestamp = formatTimestampSimple(conv.lastTimestamp);
               const totalMessages = messageCountsData?.[conversationId] ?? 0;
 
               let lastMessagePreview = '';
@@ -389,15 +328,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <div className="flex flex-col items-end flex-shrink-0 ml-2 max-w-[140px]">
+                    <div className="flex flex-col items-end flex-shrink-0 ml-2" style={{ minWidth: '110px' }}>
                       <span
-                        className="text-xs text-gray-500 whitespace-nowrap truncate"
+                        className="text-xs text-gray-500 whitespace-nowrap"
                         title={lastMessageTimestamp || 'Sem data'}
                       >
                         {lastMessageTimestamp || 'Sem data'}
                       </span>
                       <span
-                        className="text-xs text-gray-400 whitespace-nowrap truncate"
+                        className="text-xs text-gray-400 whitespace-nowrap"
                         title={`Total de mensagens: ${totalMessages}`}
                       >
                         Total: {formatTotalMessages(totalMessages)}
@@ -463,7 +402,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
                 )}>
                   <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
-                  <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
+                  <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampSimple(msg.message_timestamp)}</span>
                 </div>
               ))}
               <div ref={scrollSentinelRef} />
