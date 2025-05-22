@@ -308,11 +308,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      <span className="contact-name font-semibold text-sm">{contactName}</span>
+                      <span className="contact-name font-semibold text-sm truncate max-w-[150px] whitespace-nowrap">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2">{lastMessageTimestamp}</span>
+                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
                   </div>
-                  <div className="last-message-preview text-xs text-gray-600 mt-1">{lastMessagePreview}</div>
+                  <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
                 </div>
               );
             })
