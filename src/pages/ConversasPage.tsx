@@ -164,9 +164,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
-        .in('id_instancia', instanceIds)
-        .eq('id_clinica', clinicId)
-        .order('message_timestamp', { ascending: false });
+        .in('id_instancia', instanceIds);
+        // Removed .eq('id_clinica', clinicId) because column does not exist
+        // .eq('id_clinica', clinicId)
+        // .order('message_timestamp', { ascending: false });
 
       if (error) throw new Error(error.message);
       if (!data) return [];
@@ -210,17 +211,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: messages, isLoading: isLoadingMessages, error: messagesError } = useQuery<Message[]>({
     queryKey: ['conversationMessages', selectedConversationId, clinicId],
     queryFn: async () => {
-      if (!selectedConversationId || !clinicId) throw new Error("Conversa ou ID da clínica não selecionados.");
+      if (!selectedConversationId) throw new Error("Conversa não selecionada.");
+      // Removed .eq('id_clinica', clinicId) because column does not exist
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('*')
         .eq('remoteJid', selectedConversationId)
-        .eq('id_clinica', clinicId)
         .order('message_timestamp', { ascending: true });
       if (error) throw new Error(error.message);
       return data || [];
     },
-    enabled: hasPermission && !!selectedConversationId && !!clinicId,
+    enabled: hasPermission && !!selectedConversationId,
     staleTime: 10 * 1000,
     refetchOnWindowFocus: true,
   });
