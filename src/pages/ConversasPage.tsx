@@ -103,13 +103,6 @@ function getInitials(name: string | null): string {
   return '??';
 }
 
-// Helper to truncate text to max length with ellipsis
-function truncateText(text: string | null | undefined, maxLength: number): string {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
-}
-
 const REQUIRED_PERMISSION_LEVEL = 2;
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -290,9 +283,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = truncateText(conv.nome || '', 10); // Limitar a 10 caracteres
+              const contactName = conv.nome || '';
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
-              const lastMessagePreview = truncateText(conv.lastMessage || '', 10); // Limitar a 10 caracteres
+              const lastMessagePreview = conv.lastMessage || '';
 
               return (
                 <div
