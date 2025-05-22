@@ -159,7 +159,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                 const { data, error } = await supabase
                     .from('north_clinic_config_instancias')
                     .select('id, nome_exibição, telefone, nome_instancia_evolution') // Select necessary fields
-                    // .eq('id_clinica', clinicId) // REMOVED filter for debug
+                    .eq('id_clinica', clinicId) // Filter by clinic ID
                     .order('nome_exibição', { ascending: true });
 
                 console.log("[MensagensListPage] Supabase instances fetch result:", { data, error });
@@ -373,15 +373,15 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                             <TableCell className="font-medium text-gray-900 px-6 py-4">{message.categoria || 'N/A'}</TableCell>
                                             <TableCell className="text-center">
                                                 <span className={cn(
-                                                    "inline-flex items-center justify-center px-4 py-1 rounded-full text-sm font-semibold transition-colors",
+                                                    "inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold transition-colors",
                                                     message.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                 )}>
                                                     {message.ativo ? 'Ativo' : 'Inativo'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-gray-700 px-6 py-4">
-                                                <span className={cn("inline-flex items-center gap-2 text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded select-none", instanceClass)}>
-                                                    <MessagesSquare className="h-5 w-5" /> {instanceName}
+                                                <span className={cn("inline-flex items-center gap-2 text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded select-none", instanceClass)}>
+                                                    <MessagesSquare className="h-4 w-4" /> {instanceName}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-center text-gray-900 font-semibold px-6 py-4">{message.prioridade ?? 'N/D'}</TableCell>
@@ -391,7 +391,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                 }
                                             </TableCell>
                                             <TableCell className="text-right px-6 py-4">
-                                                <div className="message-item-actions flex gap-3 justify-end">
+                                                <div className="message-item-actions flex gap-2 justify-end">
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
@@ -399,10 +399,9 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={() => handlePreviewToggle(message.id)}
-                                                                    className="preview-toggle-btn"
+                                                                    className="preview-toggle-btn p-1"
                                                                 >
-                                                                    {isExpanded ? <EyeOff className="h-5 w-5 mr-1" /> : <Eye className="h-5 w-5 mr-1" />}
-                                                                    <span className="hidden sm:inline">{isExpanded ? 'Ocultar' : 'Preview'}</span>
+                                                                    {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -415,10 +414,9 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={() => handleEditMessage(message.id)} // Pass message.id
-                                                                    className="edit-message-btn"
+                                                                    className="edit-message-btn p-1"
                                                                 >
-                                                                    <Edit className="h-5 w-5 mr-1" />
-                                                                    <span className="hidden sm:inline">Editar</span>
+                                                                    <Edit className="h-4 w-4" />
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -431,17 +429,16 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     variant={message.ativo ? 'secondary' : 'default'} // Use default for primary look when activating
                                                                     size="sm"
                                                                     onClick={() => handleToggleMessage(message)}
-                                                                    className="toggle-message-btn"
+                                                                    className="toggle-message-btn p-1"
                                                                     disabled={toggleMessageMutation.isLoading}
                                                                 >
                                                                     {toggleMessageMutation.isLoading ? (
-                                                                         <Loader2 className="h-5 w-5 animate-spin" />
+                                                                         <Loader2 className="h-4 w-4 animate-spin" />
                                                                     ) : message.ativo ? (
-                                                                        <ToggleLeft className="h-5 w-5 mr-1" />
+                                                                        <ToggleLeft className="h-4 w-4" />
                                                                     ) : (
-                                                                        <ToggleRight className="h-5 w-5 mr-1" />
+                                                                        <ToggleRight className="h-4 w-4" />
                                                                     )}
-                                                                    <span className="hidden sm:inline">{toggleMessageMutation.isLoading ? 'Carregando...' : (message.ativo ? 'Desat.' : 'Ativar')}</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -454,15 +451,14 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     variant="destructive"
                                                                     size="sm"
                                                                     onClick={() => handleDeleteMessage(message.id)}
-                                                                    className="delete-message-btn"
+                                                                    className="delete-message-btn p-1"
                                                                     disabled={deleteMessageMutation.isLoading}
                                                                 >
                                                                     {deleteMessageMutation.isLoading ? (
-                                                                         <Loader2 className="h-5 w-5 animate-spin" />
+                                                                         <Loader2 className="h-4 w-4 animate-spin" />
                                                                     ) : (
-                                                                         <Trash2 className="h-5 w-5 mr-1" />
+                                                                         <Trash2 className="h-4 w-4" />
                                                                     )}
-                                                                    <span className="hidden sm:inline">Excluir</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
