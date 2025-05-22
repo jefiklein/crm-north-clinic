@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, TriangleAlert, Smile, Tags, Save } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { showSuccess, showError, showToast } from '@/utils/toast';
+import { Loader2, TriangleAlert } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
-// Define interfaces and constants as before (omitted here for brevity)...
+interface MensagensConfigPageProps {
+  clinicData: {
+    id: number | string | null;
+    code?: string;
+    nome?: string;
+    acesso_crm?: boolean;
+    acesso_config_msg?: boolean;
+    id_permissao?: number;
+  } | null;
+}
+
+const defaultTemplates: Record<string, string> = {
+  "Confirmar Agendamento": "Olá, {primeiro_nome_cliente}! Gostaríamos de confirmar seu agendamento para {data_agendamento} às {hora_agendamento}.",
+  "Aniversário": "Feliz aniversário, {primeiro_nome_cliente}! Que seu dia seja maravilhoso!",
+  "Outros": "",
+};
 
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
   const queryClient = useQueryClient();
@@ -23,6 +36,33 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
   const messageId = searchParams.get('id');
   const initialCategoryFromUrl = searchParams.get('category');
   const isEditing = !!messageId;
+
+  // State for form data (without services)
+  const [formData, setFormData] = useState({
+    categoria: initialCategoryFromUrl || '',
+    id_instancia: '',
+    modelo_mensagem: '',
+    ativo: true,
+    hora_envio: '',
+    grupo: '',
+    para_funcionario: false,
+    para_grupo: true,
+    para_cliente: false,
+    variacao_1: '',
+    variacao_2: '',
+    variacao_3: '',
+    variacao_4: '',
+    variacao_5: '',
+    prioridade: 1,
+  });
+
+  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [existingMediaKey, setExistingMediaKey] = useState<string | null>(null);
+
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  const messageTextRef = useRef<HTMLTextAreaElement>(null);
 
   // Fetch message details from Supabase by messageId
   const { data: messageDetails, isLoading: isLoadingMessageDetails, error: messageDetailsError } = useQuery({
@@ -78,38 +118,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  // State for form data (without services)
-  const [formData, setFormData] = useState({
-    categoria: initialCategoryFromUrl || '',
-    id_instancia: '',
-    modelo_mensagem: '',
-    ativo: true,
-    hora_envio: '',
-    grupo: '',
-    para_funcionario: false,
-    para_grupo: true,
-    para_cliente: false,
-    variacao_1: '',
-    variacao_2: '',
-    variacao_3: '',
-    variacao_4: '',
-    variacao_5: '',
-    prioridade: 1,
-  });
-
-  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
-  const [existingMediaKey, setExistingMediaKey] = useState<string | null>(null);
-
-  const [isLoadingPage, setIsLoadingPage] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [aiLoadingSlot, setAiLoadingSlot] = useState<number | null>(null);
-  const [mediaViewLoading, setMediaViewLoading] = useState(false);
-
-  const messageTextRef = useRef<HTMLTextAreaElement>(null);
-  const emojiPickerRef = useRef<any>(null);
-
-  // --- Effects ---
-
   // Effect to populate form data when message details load (Edit mode)
   useEffect(() => {
     if (isEditing && messageDetails) {
@@ -143,15 +151,12 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
   // Effect to handle category-specific field visibility and group fetching
   useEffect(() => {
-    // Example: if categoria is 'Aniversário', show grupo select, else hide
     if (formData.categoria === 'Aniversário') {
       // Show grupo select
     } else {
       setFormData(prev => ({ ...prev, grupo: '' }));
     }
   }, [formData.categoria]);
-
-  // Effect to handle media preview (unchanged)
 
   // Effect to handle overall page loading state and errors
   useEffect(() => {
@@ -167,10 +172,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     }
   }, [isLoadingMessageDetails, isLoadingInstances, isLoadingGroups, messageDetailsError, instancesError, groupsError]);
 
-  // Effect to initialize emoji picker (unchanged)
-
-  // --- Handlers ---
-
+  // Handlers
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -193,8 +195,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         para_cliente: false,
         grupo: ''
       }));
-    } else if (id === 'targetTypeSelect') {
-      handleTargetTypeChange(value);
     }
   };
 
@@ -203,38 +203,14 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     setSelectedMediaFile(file);
   };
 
-  const handleTargetTypeChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      para_grupo: value === 'Grupo',
-      para_cliente: value === 'Cliente',
-      para_funcionario: value === 'Funcionário',
-    }));
-  };
-
-  const handleTokenClick = (e: React.MouseEvent<HTMLSpanElement>) => {
-    const token = e.currentTarget.dataset.token;
-    const textarea = messageTextRef.current;
-    if (token && textarea) {
-      const { selectionStart, selectionEnd, value } = textarea;
-      textarea.value = value.substring(0, selectionStart) + token + value.substring(selectionEnd);
-      const newPos = selectionStart + token.length;
-      textarea.selectionStart = newPos;
-      textarea.selectionEnd = newPos;
-      textarea.focus();
-    }
-  };
-
   const handleSave = async () => {
-    // Implement save logic excluding services
-    // Keep debug logs as needed
+    // Implement save logic here (excluding services)
+    showToast("Salvar funcionalidade ainda não implementada.", "info");
   };
 
   const handleCancel = () => {
     navigate(`/dashboard/11?clinic_code=${encodeURIComponent(clinicData?.code || '')}`, { replace: true });
   };
-
-  // --- Render ---
 
   if (isLoadingPage) {
     return (
@@ -253,7 +229,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     );
   }
 
-  // Permission check
   if (!clinicData) {
     return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
   }
@@ -274,7 +249,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Add category options here */}
                     <SelectItem value="Confirmar Agendamento">Confirmar Agendamento</SelectItem>
                     <SelectItem value="Aniversário">Aniversário</SelectItem>
                     <SelectItem value="Outros">Outros</SelectItem>
@@ -331,8 +305,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                   rows={6}
                 />
               </div>
-
-              {/* Add other form fields as needed */}
 
               <div className="md:col-span-2 flex justify-end gap-4 mt-4">
                 <Button type="button" variant="secondary" onClick={handleCancel}>Cancelar</Button>
