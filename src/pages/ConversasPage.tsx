@@ -263,7 +263,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   return (
     <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
       {/* Conversations List Panel */}
-      <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden px-4">
+      <div className="conversations-list-panel w-[350px] flex flex-col flex-shrink-0 overflow-hidden px-4"> {/* Removed border-r here */}
         <div className="list-header p-4 border-b border-gray-200 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -385,7 +385,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               {messages.map(msg => (
                 <div key={msg.id} className={cn(
                   "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md' // Removed border here
+                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md' // Sem borda
                 )}>
                   <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
                   <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
