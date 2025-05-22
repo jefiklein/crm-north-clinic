@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MultiSelect } from '@/components/MultiSelect';
+import { Loader2, Save } from "lucide-react"; // Added missing imports
 
 interface ClinicData {
   code: string;
