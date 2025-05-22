@@ -114,22 +114,18 @@ const App = () => {
               {/* Route for the Mensagens List page - Using menu item ID 11 */}
               <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
 
+              {/* Route for the Message Config/Edit page (moved inside layout) */}
+              <Route path="config-mensagem" element={<MensagensConfigPage clinicData={clinicData} />} />
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
               {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14 */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
-
               {/* Catch-all for any other path under /dashboard */}
               {/* This must be the LAST route defined within the /dashboard group */}
               <Route path="*" element={<UnderConstructionPage />} />
             </Route>
-
-            {/* Route for the Message Config/Edit page (outside of dashboard layout for now) */}
-            {/* This route expects 'id' or 'category' search params */}
-            <Route path="/config-mensagem" element={<ProtectedRoute><MensagensConfigPage clinicData={clinicData} /></ProtectedRoute>} />
-
 
             {/* Catch-all route for 404 outside of /dashboard */}
             <Route path="*" element={<NotFound />} />
