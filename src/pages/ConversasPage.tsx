@@ -358,13 +358,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   onClick={() => setSelectedConversationId(conversationId)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{lastMessageTimestamp}</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp}</span>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
