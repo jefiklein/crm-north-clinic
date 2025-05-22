@@ -22,4 +22,14 @@ import { supabase } from '@/integrations/supabase/client'; // Import Supabase cl
 // Ensure the emoji picker element is defined
 import 'emoji-picker-element';
 
-// ... rest of the code remains unchanged ...
+// ... rest of the component code remains unchanged ...
+
+const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
+  // ... component implementation ...
+  return (
+    // ... JSX ...
+    <div> {/* ... */} </div>
+  );
+};
+
+export default MensagensConfigPage;
