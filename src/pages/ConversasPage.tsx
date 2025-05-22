@@ -103,6 +103,13 @@ function getInitials(name: string | null): string {
   return '??';
 }
 
+// Helper to truncate text to max length with ellipsis
+function truncateText(text: string | null | undefined, maxLength: number): string {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + '...';
+}
+
 const REQUIRED_PERMISSION_LEVEL = 2;
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -214,61 +221,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Group messages by sequential instance ID for rendering
-  const groupedMessages = useMemo(() => {
-    if (!messages) return [];
-
-    // Sort messages chronologically first
-    const sortedMessages = [...messages].sort((a, b) =>
-      (a.message_timestamp || 0) - (b.message_timestamp || 0)
-    );
-
-    const groups: { instanceId: number | null; messages: Message[]; instanceName: string; cssClassIndex: number }[] = [];
-    let currentInstanceId: number | null = null;
-    let currentGroupIndex = -1;
-    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {}; // Map instance ID to a sequential group index
-
-    sortedMessages.forEach(msg => {
-      const instanceId = msg.id_instancia;
-
-      if (instanceId !== currentInstanceId) {
-        // New instance group
-        currentGroupIndex++;
-        currentInstanceId = instanceId;
-
-        // Determine instance name
-        let instanceName = 'Instância Desconhecida/Indefinida';
-        if (instanceId !== null && instanceMap.has(instanceId)) {
-          instanceName = instanceMap.get(instanceId)?.nome_exibição || `ID ${instanceId}`;
-        } else if (instanceId !== null) {
-          instanceName = `ID ${instanceId}`; // Fallback if ID exists but not in map
-        } else {
-          instanceName = 'Indefinida'; // For null instanceId
-        }
-
-        // Map instance ID to a cycling CSS class index (0-3)
-        if (instanceId !== null && typeof instanceIdToGroupIndexMap[instanceId] === 'undefined') {
-          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length; // Assign a new sequential index
-        } else if (instanceId === null && typeof instanceIdToGroupIndexMap['null'] === 'undefined') {
-          instanceIdToGroupIndexMap['null'] = Object.keys(instanceIdToGroupIndexMap).length;
-        }
-        const cssClassIndex = (instanceId !== null ? instanceIdToGroupIndexMap[instanceId] : instanceIdToGroupIndexMap['null']) % 4;
-
-        groups.push({
-          instanceId: instanceId,
-          messages: [msg],
-          instanceName: instanceName,
-          cssClassIndex: cssClassIndex,
-        });
-      } else {
-        // Add message to the current group
-        groups[groups.length - 1].messages.push(msg);
-      }
-    });
-
-    return groups;
-  }, [messages, instanceMap]);
-
   // Find the selected conversation summary to display name in detail header
   const selectedConversationSummary = useMemo(() => {
     return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
@@ -338,14 +290,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = conv.nome || ''; // Show nome_lead or empty string
+              const contactName = truncateText(conv.nome || '', 10); // Limitar a 10 caracteres
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
-              let lastMessagePreview = '';
-              if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
-                lastMessagePreview = conv.lastMessage.trim().substring(0, 50) + (conv.lastMessage.trim().length > 50 ? '...' : '');
-              } else {
-                lastMessagePreview = '...';
-              }
+              const lastMessagePreview = truncateText(conv.lastMessage || '', 10); // Limitar a 10 caracteres
 
               return (
                 <div
@@ -361,11 +308,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
+                      <span className="contact-name font-semibold text-sm">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{lastMessageTimestamp}</span>
+                    <span className="text-xs text-gray-500 ml-2">{lastMessageTimestamp}</span>
                   </div>
-                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
+                  <div className="last-message-preview text-xs text-gray-600 mt-1">{lastMessagePreview}</div>
                 </div>
               );
             })
