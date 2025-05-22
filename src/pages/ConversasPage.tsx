@@ -140,6 +140,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: false,
   });
 
+  // Extract instance IDs for filtering messages
+  const instanceIds = useMemo(() => {
+    if (!instancesList) return [];
+    return instancesList.map(inst => inst.id);
+  }, [instancesList]);
+
   // Map instance IDs to names for quick lookup
   const instanceMap = useMemo(() => {
     const map = new Map<number, InstanceInfo>();
@@ -147,17 +153,21 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     return map;
   }, [instancesList]);
 
-  // Fetch conversation summaries by grouping messages by remoteJid
+  // Fetch conversation summaries by grouping messages by remoteJid, filtered by instance IDs
   const { data: conversationSummaries, isLoading: isLoadingSummaries, error: summariesError } = useQuery<ConversationSummary[]>({
-    queryKey: ['conversationSummaries', clinicId],
+    queryKey: ['conversationSummaries', clinicId, instanceIds],
     queryFn: async () => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
-      // Select distinct remoteJid with last message and timestamp
+      if (!instanceIds || instanceIds.length === 0) return [];
+
+      // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
+        .in('id_instancia', instanceIds)
         .eq('id_clinica', clinicId)
         .order('message_timestamp', { ascending: false });
+
       if (error) throw new Error(error.message);
       if (!data) return [];
 
@@ -176,7 +186,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
       return Array.from(groupedMap.values());
     },
-    enabled: hasPermission && !!clinicId,
+    enabled: hasPermission && !!clinicId && instanceIds.length > 0,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
