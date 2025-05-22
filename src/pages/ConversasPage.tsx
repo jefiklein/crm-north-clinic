@@ -190,11 +190,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) return {};
 
-      // Supabase does not support group by with count directly in JS client,
-      // so we use RPC or raw SQL via function or do multiple queries.
-      // Here, we do a single query with select remoteJid and count, grouped by remoteJid.
-
-      // Using Supabase's RPC or PostgREST syntax for group by:
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, count:remoteJid', { count: 'exact' })
@@ -208,7 +203,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
       if (!data) return {};
 
-      // Transform array to map remoteJid => count
       const countsMap: Record<string, number> = {};
       data.forEach((item: any) => {
         if (item.remoteJid && typeof item.count === 'number') {
@@ -233,7 +227,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const preview = conv.lastMessage?.toLowerCase() || '';
       return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || preview.includes(lowerSearchTerm);
     });
-    // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
     return filtered;
   }, [conversationSummaries, searchTerm]);
@@ -260,7 +253,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const groupedMessages = useMemo(() => {
     if (!messages) return [];
 
-    // Sort messages chronologically first
     const sortedMessages = [...messages].sort((a, b) =>
       (a.message_timestamp || 0) - (b.message_timestamp || 0)
     );
@@ -268,29 +260,26 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     const groups: { instanceId: number | null; messages: Message[]; instanceName: string; cssClassIndex: number }[] = [];
     let currentInstanceId: number | null = null;
     let currentGroupIndex = -1;
-    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {}; // Map instance ID to a sequential group index
+    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {};
 
     sortedMessages.forEach(msg => {
       const instanceId = msg.id_instancia;
 
       if (instanceId !== currentInstanceId) {
-        // New instance group
         currentGroupIndex++;
         currentInstanceId = instanceId;
 
-        // Determine instance name
         let instanceName = 'Instância Desconhecida/Indefinida';
         if (instanceId !== null && instanceMap.has(instanceId)) {
           instanceName = instanceMap.get(instanceId)?.nome_exibição || `ID ${instanceId}`;
         } else if (instanceId !== null) {
-          instanceName = `ID ${instanceId}`; // Fallback if ID exists but not in map
+          instanceName = `ID ${instanceId}`;
         } else {
-          instanceName = 'Indefinida'; // For null instanceId
+          instanceName = 'Indefinida';
         }
 
-        // Map instance ID to a cycling CSS class index (0-3)
         if (instanceId !== null && typeof instanceIdToGroupIndexMap[instanceId] === 'undefined') {
-          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length; // Assign a new sequential index
+          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length;
         } else if (instanceId === null && typeof instanceIdToGroupIndexMap['null'] === 'undefined') {
           instanceIdToGroupIndexMap['null'] = Object.keys(instanceIdToGroupIndexMap).length;
         }
@@ -303,7 +292,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           cssClassIndex: cssClassIndex,
         });
       } else {
-        // Add message to the current group
         groups[groups.length - 1].messages.push(msg);
       }
     });
@@ -406,9 +394,19 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <div className="flex flex-col items-end flex-shrink-0 ml-2 max-w-[90px]">
-                      <span className="text-xs text-gray-500 whitespace-nowrap truncate">{lastMessageTimestamp || 'Sem data'}</span>
-                      <span className="text-xs text-gray-400 whitespace-nowrap truncate">Total: {totalMessages}</span>
+                    <div className="flex flex-col items-end flex-shrink-0 ml-2 max-w-[140px]">
+                      <span
+                        className="text-xs text-gray-500 whitespace-nowrap truncate"
+                        title={lastMessageTimestamp || 'Sem data'}
+                      >
+                        {lastMessageTimestamp || 'Sem data'}
+                      </span>
+                      <span
+                        className="text-xs text-gray-400 whitespace-nowrap truncate"
+                        title={`Total de mensagens: ${totalMessages}`}
+                      >
+                        Total: {totalMessages}
+                      </span>
                     </div>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
