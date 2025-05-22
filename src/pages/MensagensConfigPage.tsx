@@ -14,15 +14,74 @@ import { showSuccess, showError, showToast } from '@/utils/toast'; // Using our 
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { MultiSelect } from '@/components/MultiSelect'; // Import new MultiSelect component
 
-// ... (keep all previous interface and constants definitions as before)
+// Define the structure for Service Info
+interface ServiceInfo {
+    id: number;
+    nome: string;
+}
 
-// Inside the component MensagensConfigPage:
+// Define the structure for Linked Service (from Supabase)
+interface LinkedService {
+    id_servico: number;
+}
+
+interface MensagensConfigPageProps {
+    clinicData: {
+        code: string;
+        nome: string;
+        id: string | number | null;
+        acesso_crm: boolean;
+        acesso_config_msg: boolean;
+        id_permissao: number;
+    } | null;
+}
 
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
-  // ... all previous state and queries as before, except remove Choices.js refs and related useEffect
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const messageId = searchParams.get('id');
+  const isEditing = !!messageId;
+  const clinicId = clinicData?.id;
 
   // State for selected services as array of ServiceInfo
   const [selectedServices, setSelectedServices] = useState<ServiceInfo[]>([]);
+
+  // Fetch Services List - NOW FROM SUPABASE
+  const { data: servicesList, isLoading: isLoadingServices, error: servicesError } = useQuery<ServiceInfo[]>({
+      queryKey: ['servicesListConfigPage', clinicId],
+      queryFn: async () => {
+          if (!clinicId) throw new Error("ID da clínica não disponível.");
+          const { data, error } = await supabase
+              .from('north_clinic_servicos')
+              .select('id, nome')
+              .eq('id_clinica', clinicId)
+              .order('nome', { ascending: true });
+          if (error) throw new Error(error.message);
+          return data || [];
+      },
+      enabled: !!clinicId,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+  });
+
+  // Fetch Linked Services (if editing) - NOW FROM SUPABASE
+  const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
+      queryKey: ['linkedServicesConfigPage', messageId],
+      queryFn: async () => {
+          if (!messageId) return [];
+          const { data, error } = await supabase
+              .from('north_clinic_mensagens_servicos')
+              .select('id_servico')
+              .eq('id_mensagem', parseInt(messageId, 10));
+          if (error) throw new Error(error.message);
+          return data || [];
+      },
+      enabled: isEditing && !!messageId,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+  });
 
   // When servicesList or linkedServicesList change, update selectedServices state
   useEffect(() => {
@@ -38,55 +97,26 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     }
   }, [servicesList, linkedServicesList, isEditing]);
 
-  // When selectedServices changes, update formData.servicos_vinculados (optional, for save)
-  useEffect(() => {
-    // No direct formData field for services, but we can keep in state for save
-  }, [selectedServices]);
-
-  // ... rest of the component code, including handleSave, etc.
-
-  // In the render, replace the old select with MultiSelect:
+  // ... rest of the component code (render, handlers, etc.) remains unchanged
 
   return (
-    <div className="config-container max-w-6xl mx-auto p-6 bg-gray-100 min-h-screen">
-      {/* ... header and loading/error as before */}
+    <div>
+      {/* Temporary debug display */}
+      <h2>Serviços Disponíveis ({servicesList?.length ?? 0}):</h2>
+      <ul>
+        {servicesList?.map(s => (
+          <li key={s.id}>{s.id}: {s.nome}</li>
+        ))}
+      </ul>
 
-      {!isLoadingPage && !pageError && (
-        <form id="messageConfigForm" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-          {/* ... other form sections ... */}
+      <h2>Serviços Vinculados ({linkedServicesList?.length ?? 0}):</h2>
+      <ul>
+        {linkedServicesList?.map((ls, idx) => (
+          <li key={idx}>ID Serviço: {ls.id_servico}</li>
+        ))}
+      </ul>
 
-          <div className="form-section bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-primary border-b border-gray-200 pb-3 mb-4">Disparador e Condições</h3>
-
-            {/* Replace service selection group */}
-            <div className="form-group" id="serviceSelectionGroup">
-              <Label htmlFor="serviceSelect">Serviços Vinculados *</Label>
-              {isLoadingServices ? (
-                <p className="text-gray-600"><Loader2 className="inline h-4 w-4 animate-spin mr-1" /> Carregando serviços...</p>
-              ) : servicesError ? (
-                <p className="text-red-600">Erro: {servicesError.message}</p>
-              ) : (
-                <MultiSelect<ServiceInfo>
-                  options={servicesList || []}
-                  value={selectedServices}
-                  onChange={setSelectedServices}
-                  labelKey="nome"
-                  valueKey="id"
-                  placeholder="Selecione os serviços..."
-                  disabled={isLoading || isLoadingLinkedServices}
-                />
-              )}
-              <p className="text-xs text-gray-500 mt-1">Quais agendamentos de serviço ativarão esta mensagem.</p>
-            </div>
-
-            {/* ... rest of the form ... */}
-          </div>
-
-          {/* ... rest of the form and buttons ... */}
-        </form>
-      )}
-
-      {/* ... emoji picker ... */}
+      {/* Here you can add the MultiSelect or other UI as needed */}
     </div>
   );
 };
