@@ -26,7 +26,7 @@ interface MessageItem {
     categoria: string;
     modelo_mensagem: string | null;
     midia_mensagem: string | null;
-    id_instancia: number | null;
+    id_instancia: number | null | string;
     grupo: string | null; // Group ID
     ativo: boolean;
     hora_envio: string | null; // HH:mm format
@@ -48,7 +48,7 @@ interface MessageItem {
 
 // Define the structure for Instance Info from Supabase
 interface InstanceInfo {
-    id: number;
+    id: number | string;
     nome_exibição: string;
     telefone: number | null;
     nome_instancia_evolution: string | null; // Technical name for Evolution API
@@ -186,10 +186,13 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         refetchOnWindowFocus: false,
     });
 
-    // Map instance IDs to names for quick lookup
+    // Map instance IDs to names for quick lookup, using string keys
     const instanceMap = useMemo(() => {
-        const map = new Map<number, InstanceInfo>();
-        instancesList?.forEach(instance => map.set(instance.id, instance));
+        const map = new Map<string, InstanceInfo>();
+        instancesList?.forEach(instance => {
+            const key = String(instance.id);
+            map.set(key, instance);
+        });
         return map;
     }, [instancesList]);
 
@@ -357,9 +360,9 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                         <TableBody id="messageTableBody" className="divide-y divide-gray-200">
                             {messagesList?.map(message => {
                                 const isExpanded = expandedPreviews.has(message.id);
-                                // Convert id_instancia to number for map lookup, handle null/undefined
-                                const instanceIdNum = message.id_instancia !== null && message.id_instancia !== undefined ? Number(message.id_instancia) : -1;
-                                const instance = instanceMap.get(instanceIdNum);
+                                // Convert id_instancia to string for map lookup, handle null/undefined
+                                const instanceIdStr = message.id_instancia !== null && message.id_instancia !== undefined ? String(message.id_instancia) : '';
+                                const instance = instanceMap.get(instanceIdStr);
                                 const instanceName = instance ? (instance.nome_exibição || `ID ${instance.id}`) : "Não definida";
                                 const instanceClass = instance ? '' : 'not-set';
 
