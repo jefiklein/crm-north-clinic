@@ -385,7 +385,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               {messages.map(msg => (
                 <div key={msg.id} className={cn(
                   "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
+                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md' // Removed border here
                 )}>
                   <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
                   <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
