@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Using shadcn Dialog
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Using shadcn Dialog
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
@@ -634,22 +634,17 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
                                 if (status) {
                                     const state = status.instance?.state || 'unknown';
+                                    // Treat 'close' and 'connecting' as 'Desconectado'
                                     if (state === 'open') {
                                         statusContent = (
                                             <span className="flex items-center gap-1 text-green-600 font-semibold">
                                                 <CheckCircle2 className="h-4 w-4" /> Conectado
                                             </span>
                                         );
-                                    } else if (state === 'close') {
+                                    } else if (state === 'close' || state === 'connecting') {
                                         statusContent = (
                                             <span className="flex items-center gap-1 text-red-600 font-semibold">
                                                 <XCircle className="h-4 w-4" /> Desconectado
-                                            </span>
-                                        );
-                                    } else if (state === 'connecting') {
-                                        statusContent = (
-                                            <span className="flex items-center gap-1 text-yellow-600 font-semibold">
-                                                <Loader2 className="h-4 w-4 animate-spin" /> Conectando
                                             </span>
                                         );
                                     } else if (state === 'not_found') {
@@ -666,6 +661,9 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         );
                                     }
                                 }
+
+                                // Show Reconnect button if status is 'close' or 'connecting' (Desconectado)
+                                const showReconnectButton = status && (status.instance?.state === 'close' || status.instance?.state === 'connecting');
 
                                 return (
                                     <div
@@ -685,6 +683,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 ml-auto">
                                             {statusContent}
                                         </div>
+                                        {showReconnectButton && instanceIdentifier && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleReconnectClick(instanceIdentifier)}
+                                                className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
+                                            >
+                                                Reconectar
+                                            </Button>
+                                        )}
                                         {instanceDbId ? (
                                             <Button
                                                 variant="destructive"
