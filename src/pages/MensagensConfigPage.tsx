@@ -683,16 +683,27 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 break;
             case 'Chegou':
             case 'Liberado':
-                if (targetTypeGroupEl) targetTypeGroupEl.style.display = 'block';
-                // Logic for showing group select is now inside handleTargetTypeChange or triggered by it
+                // Target type group is now conditionally rendered in JSX
+                // We still need to trigger group select visibility logic here
+                const currentTargetType = formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'));
+                handleTargetTypeChange(currentTargetType); // This will handle showing/hiding group select and fetching
                 break;
         }
 
-        // Trigger group select visibility logic based on category and target type
-        // This will also trigger group fetching if needed
-        // Pass current target type based on formData
-        const currentTargetType = formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'));
-        handleTargetTypeChange(currentTargetType);
+        // If category changes to something that doesn't show target type or group,
+        // ensure para_grupo, para_cliente, para_funcionario are reset to defaults
+        if (category !== 'Chegou' && category !== 'Liberado') {
+             setFormData(prev => ({
+                 ...prev,
+                 para_funcionario: false,
+                 para_grupo: true, // Default back to group if not Chegou/Liberado
+                 para_cliente: false,
+                 grupo: '' // Clear group selection
+             }));
+             // Also ensure group select is hidden
+             const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
+             if (groupSelectionGroupEl) groupSelectionGroupEl.style.display = 'none';
+        }
 
 
     }, [formData.categoria, formData.id_instancia, formData.para_grupo, formData.para_cliente, formData.para_funcionario, instancesList]); // Re-run if category, instance, target type, or instances list changes
@@ -982,7 +993,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
         // Add conditional fields (Hora, Grupo, Target Type)
         if (currentFormData.hora_envio) dataToSave.append('hora_envio', currentFormData.hora_envio);
-        // Only append grupo if target is group AND category is Chegou/Liberado
+        // Only append grupo if category is Chegou/Liberado AND target is Grupo
         if ((currentFormData.categoria === 'Chegou' || currentFormData.categoria === 'Liberado') && currentFormData.para_grupo && currentFormData.grupo) {
              dataToSave.append('grupo', currentFormData.grupo); // Group ID
         } else {
@@ -1736,25 +1747,28 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                         </div>
 
                         {/* Target Type Group (Visible only for Chegou/Liberado) */}
-                        <div className="form-group" id="targetTypeGroup">
-                             <Label htmlFor="targetTypeSelect">Enviar Para * <span className="text-xs text-gray-500">(Apenas Chegou/Liberado)</span></Label>
-                             <Select
-                                 id="targetTypeSelect"
-                                 value={formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'))}
-                                 onValueChange={handleTargetTypeChange}
-                                 disabled={isLoading}
-                             >
-                                 <SelectTrigger>
-                                     <SelectValue placeholder="Selecione..." />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                     <SelectItem value="Grupo">Grupo do WhatsApp</SelectItem>
-                                     <SelectItem value="Cliente">Cliente (Mensagem Direta)</SelectItem>
-                                     <SelectItem value="Funcionário">Funcionário (Mensagem Direta)</SelectItem>
-                                 </SelectContent>
-                             </Select>
-                             <p className="text-xs text-gray-500 mt-1">Escolha se a mensagem vai para um grupo específico, direto para o cliente ou para o funcionário do agendamento.</p>
-                         </div>
+                        {(formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && (
+                            <div className="form-group" id="targetTypeGroup">
+                                 <Label htmlFor="targetTypeSelect">Enviar Para * <span className="text-xs text-gray-500">(Apenas Chegou/Liberado)</span></Label>
+                                 <Select
+                                     id="targetTypeSelect"
+                                     value={formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'))}
+                                     onValueChange={handleTargetTypeChange}
+                                     disabled={isLoading}
+                                 >
+                                     <SelectTrigger>
+                                         <SelectValue placeholder="Selecione..." />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                         <SelectItem value="Grupo">Grupo do WhatsApp</SelectItem>
+                                         <SelectItem value="Cliente">Cliente (Mensagem Direta)</SelectItem>
+                                         <SelectItem value="Funcionário">Funcionário (Mensagem Direta)</SelectItem>
+                                     </SelectContent>
+                                 </Select>
+                                 <p className="text-xs text-gray-500 mt-1">Escolha se a mensagem vai para um grupo específico, direto para o cliente ou para o funcionário do agendamento.</p>
+                             </div>
+                        )}
+
 
                         {/* Group Selection Group (Visible only if Target Type is Grupo for Chegou/Liberado) */}
                         {/* Conditional rendering based on category AND target type */}
