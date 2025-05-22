@@ -90,7 +90,7 @@ interface MensagensConfigPageProps {
 
 // Webhook URLs
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-// REMOVED: const GET_INSTANCES_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b559984183b`; // Webhook para lista de instâncias
+// REMOVED: const GET_INSTANCES_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
 // REMOVED: const GET_SERVICES_URL = `${N8N_BASE_URL}/webhook/fd13f63f-8fae-4e1b-996e-42c1ba9d7ae`;
 const GET_GROUPS_URL = `${N8N_BASE_URL}/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`; // KEEPING THIS WEBHOOK FOR NOW
 // REMOVED: const GET_LINKED_SERVICES_URL = `${N8N_BASE_URL}/webhook/1e9c1d33-c815-4afb-8317-40195863ab3a`;
@@ -544,9 +544,30 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
     // --- Effects ---
 
-    // Effect to initialize Choices.js
+    // Effect 1: Initialize Choices.js when the select element is available
     useEffect(() => {
         const selectElement = serviceSelectRef.current;
+
+        // Initialize Choices.js only if the select element exists AND Choices.js hasn't been initialized yet
+        if (selectElement && !choicesServicesRef.current) {
+            console.log("[useEffect init] Initializing Choices.js...");
+            try {
+                choicesServicesRef.current = new Choices(selectElement, {
+                    removeItemButton: true,
+                    searchPlaceholderValue: "Buscar serviço...",
+                    noResultsText: 'Nenhum serviço encontrado',
+                    noChoicesText: 'Sem opções disponíveis ou erro no carregamento',
+                    itemSelectText: 'Pressione Enter para selecionar',
+                    allowHTML: false
+                });
+                console.log("[useEffect init] Choices.js initialized.");
+                // Initially disable until data is loaded
+                choicesServicesRef.current.disable();
+            } catch (e) {
+                console.error("[useEffect init] Failed Choices.js initialization:", e);
+                setPageError("Erro ao carregar seletor de serviços.");
+            }
+        }
 
         // Cleanup function to destroy Choices.js instance
         return () => {
@@ -556,92 +577,72 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 console.log("[useEffect cleanup] Choices.js destroyed.");
             }
         };
-    }, []); // Empty dependency array for cleanup on unmount
+    }, []); // Empty dependency array: runs once on mount and cleanup on unmount
 
-    // Effect to populate Choices.js when data changes
+    // Effect 2: Populate/Update Choices.js when services or linked services data changes
     useEffect(() => {
-        const selectElement = serviceSelectRef.current;
+        // Ensure Choices.js is initialized AND servicesList is available AND not loading
+        if (choicesServicesRef.current && servicesList && !isLoadingServices) {
+            console.log("[useEffect populate] Data loaded. Populating Choices.js...");
 
-        // Ensure select element is available
-        if (!selectElement) {
-            console.log("[useEffect populate] Select element not available yet.");
-            return;
-        }
-
-        // Ensure servicesList is available and not loading
-        if (!servicesList || isLoadingServices) {
-            console.log("[useEffect populate] Waiting for servicesList...");
-            // Optionally disable Choices.js while waiting
-            if (choicesServicesRef.current) {
+            // In edit mode, wait until linkedServicesList is also available (not undefined)
+            if (isEditing && linkedServicesList === undefined) {
+                 console.log("[useEffect populate] Edit mode: Waiting for linkedServicesList...");
+                 // Keep disabled and clear choices while waiting
                  choicesServicesRef.current.disable();
-                 choicesServicesRef.current.clearChoices(); // Clear options while waiting
+                 choicesServicesRef.current.clearChoices();
+                 return; // Wait until linkedServicesList is fetched
             }
-            return;
-        }
 
-        // In edit mode, wait until linkedServicesList is also available (not undefined)
-        if (isEditing && linkedServicesList === undefined) {
-             console.log("[useEffect populate] Edit mode: Waiting for linkedServicesList...");
-             if (choicesServicesRef.current) {
-                  choicesServicesRef.current.disable();
-                  choicesServicesRef.current.clearChoices(); // Clear options while waiting
-             }
-             return; // Wait until linkedServicesList is fetched
-        }
+            console.log("[useEffect populate] Services List:", servicesList);
+            console.log("[useEffect populate] Linked Services List:", linkedServicesList);
 
-        console.log("[useEffect populate] Populating Choices.js with services...");
-        console.log("[useEffect populate] Services List:", servicesList);
-        console.log("[useEffect populate] Linked Services List:", linkedServicesList);
+            // Build the set of linked service IDs (handle undefined for create mode)
+            const linkedServiceIdSet = new Set(linkedServicesList?.map(item => String(item.id_servico)) || []);
+            console.log("[useEffect populate] Linked Service ID Set:", linkedServiceIdSet);
 
-        // Build the set of linked service IDs (handle undefined for create mode)
-        const linkedServiceIdSet = new Set(linkedServicesList?.map(item => String(item.id_servico)) || []);
-        console.log("[useEffect populate] Linked Service ID Set:", linkedServiceIdSet);
+            const serviceChoices = servicesList.map(service => ({
+                value: String(service.id),
+                label: service.nome || `Serviço ID ${service.id}`,
+                // Select if in edit mode AND the service ID is in the linkedServiceIdSet
+                selected: isEditing && linkedServiceIdSet.has(String(service.id))
+            }));
+            console.log("[useEffect populate] Service Choices generated:", serviceChoices);
 
-        const serviceChoices = servicesList.map(service => ({
-            value: String(service.id),
-            label: service.nome || `Serviço ID ${service.id}`,
-            // Select if in edit mode AND the service ID is in the linkedServiceIdSet
-            selected: isEditing && linkedServiceIdSet.has(String(service.id))
-        }));
-        console.log("[useEffect populate] Service Choices generated:", serviceChoices);
+            try {
+                // Clear existing choices and set new ones
+                choicesServicesRef.current.clearChoices();
+                choicesServicesRef.current.setChoices(serviceChoices, 'value', 'label', true);
+                console.log("[useEffect populate] Choices.js populated/selection set.");
 
-        // Destroy existing instance before creating a new one
-        if (choicesServicesRef.current) {
-            choicesServicesRef.current.destroy();
-            choicesServicesRef.current = null;
-            console.log("[useEffect populate] Destroyed existing Choices.js instance.");
-        }
+                // Enable the instance if data is available
+                choicesServicesRef.current.enable();
+                console.log("[useEffect populate] Choices.js enabled.");
 
-        try {
-            // Create a new Choices.js instance
-            choicesServicesRef.current = new Choices(selectElement, {
-                removeItemButton: true,
-                searchPlaceholderValue: "Buscar serviço...",
-                noResultsText: 'Nenhum serviço encontrado',
-                noChoicesText: 'Sem opções disponíveis ou erro no carregamento',
-                itemSelectText: 'Pressione Enter para selecionar',
-                allowHTML: false
-            });
-            console.log("[useEffect populate] New Choices.js instance created.");
-
-            // Set the choices
-            choicesServicesRef.current.setChoices(serviceChoices, 'value', 'label', true);
-            console.log("[useEffect populate] Choices.js populated/selection set.");
-
-            // Enable the instance
-            choicesServicesRef.current.enable();
-            console.log("[useEffect populate] Choices.js enabled.");
-
-        } catch (e) {
-            console.error("[useEffect populate] Failed Choices.js init/populate:", e);
-            setPageError("Erro ao carregar seletor de serviços.");
-            // Ensure it's disabled on error
-            if (choicesServicesRef.current) {
-                 choicesServicesRef.current.disable();
+            } catch (e) {
+                console.error("[useEffect populate] Failed to populate Choices.js:", e);
+                setPageError("Erro ao carregar opções de serviços.");
+                // Ensure it's disabled on error
+                if (choicesServicesRef.current) {
+                     choicesServicesRef.current.disable();
+                }
             }
+
+        } else if (choicesServicesRef.current && servicesError) {
+             console.error("[useEffect populate] Error populating Choices.js due to servicesError:", servicesError);
+             choicesServicesRef.current.clearChoices();
+             choicesServicesRef.current.setChoices([{ value: '', label: 'Erro ao carregar serviços', disabled: true }], 'value', 'label', true);
+             choicesServicesRef.current.disable();
+        } else if (choicesServicesRef.current && !servicesList && !isLoadingServices && !servicesError) {
+             console.log("[useEffect populate] Services list is null/empty after loading, or not loading but no data/error.");
+             // Handle case where fetch finished but returned no data
+             choicesServicesRef.current.clearChoices();
+             choicesServicesRef.current.setChoices([{ value: '', label: 'Nenhum serviço disponível', disabled: true }], 'value', 'label', true);
+             choicesServicesRef.current.disable();
         }
 
-    }, [servicesList, linkedServicesList, isLoadingServices, isEditing, servicesError]); // Re-run if services, linked services, loading state, edit mode, or service error change
+
+    }, [servicesList, linkedServicesList, isLoadingServices, isEditing, servicesError]); // Depend on data and loading states
 
 
     // Effect to populate form data when message details load (Edit mode)
@@ -690,9 +691,9 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         const serviceSelectionGroupEl = document.getElementById('serviceSelectionGroup');
 
         // Service selection is visible by default unless category is 'Aniversário'
-        if (serviceSelectionGroupEl) {
-             serviceSelectionGroupEl.style.display = (category === 'Aniversário') ? 'none' : 'block';
-        }
+        // This is now handled by conditional rendering in JSX, but we keep this effect
+        // to trigger group fetching logic when category changes to Chegou/Liberado
+        // and to reset target type/group state when category changes away from Chegou/Liberado.
 
 
         // Trigger group select visibility logic based on category and target type
