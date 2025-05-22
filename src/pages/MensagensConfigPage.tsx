@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import MultiSelectServices from '@/components/MultiSelectServices';
 
 // Defina a interface para os dados da clínica
 interface ClinicData {
@@ -19,16 +18,6 @@ interface MensagensConfigPageProps {
 }
 
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
-  // Estado local para serviços selecionados (teste)
-  const [selectedServices, setSelectedServices] = useState<number[]>([]);
-
-  // Opções fixas para teste
-  const serviceOptions = [
-    { id: 1, nome: 'Consulta' },
-    { id: 2, nome: 'Exame' },
-    { id: 3, nome: 'Retorno' },
-  ];
-
   if (!clinicData) {
     return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
   }
@@ -43,19 +32,11 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
           {/* Exemplo simples de input */}
           <Input placeholder="Nome da Mensagem" className="mb-4" />
 
-          {/* Aqui está o componente MultiSelectServices para teste */}
-          <MultiSelectServices
-            options={serviceOptions}
-            selectedIds={selectedServices}
-            onChange={(selected) => {
-              console.log('Serviços selecionados:', selected);
-              setSelectedServices(selected);
-            }}
-          />
+          {/* Aqui você pode continuar com o conteúdo original do formulário */}
 
           {/* Botão para simular envio */}
-          <Button className="mt-6" onClick={() => alert(`Serviços selecionados: ${selectedServices.join(', ')}`)}>
-            Testar Seleção
+          <Button className="mt-6" onClick={() => alert('Funcionalidade ainda não implementada.')}>
+            Testar
           </Button>
         </CardContent>
       </Card>
