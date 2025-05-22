@@ -406,9 +406,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">{lastMessageTimestamp || 'Sem data'}</span>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">Total: {totalMessages}</span>
+                    <div className="flex flex-col items-end flex-shrink-0 ml-2 max-w-[90px]">
+                      <span className="text-xs text-gray-500 whitespace-nowrap truncate">{lastMessageTimestamp || 'Sem data'}</span>
+                      <span className="text-xs text-gray-400 whitespace-nowrap truncate">Total: {totalMessages}</span>
                     </div>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
