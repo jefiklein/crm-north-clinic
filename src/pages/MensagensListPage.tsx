@@ -117,8 +117,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                     .from('north_clinic_config_mensagens')
                     .select('*') // Select all fields
                     .eq('id_clinica', clinicId) // Filter by clinic ID
-                    .order('prioridade', { ascending: true }) // Order by priority
-                    .order('categoria', { ascending: true }); // Then order by category
+                    .order('categoria', { ascending: true }) // Order by category first
+                    .order('prioridade', { ascending: true }); // Then order by priority
 
                 console.log("[MensagensListPage] Supabase messages fetch result:", { data, error });
 
@@ -306,50 +306,52 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
 
 
     return (
-        <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                <h1 className="config-title text-2xl font-bold text-primary whitespace-nowrap">
+                <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
                     {clinicData?.nome} | Mensagens Automáticas
                 </h1>
-                <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0">
+                <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
                     <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem
                 </Button>
             </div>
 
             {/* Error Display */}
             {fetchError && (
-                <div className="error-message flex items-center gap-2 p-3 mb-4 bg-red-100 text-red-700 border border-red-200 rounded-md">
-                    <TriangleAlert className="h-5 w-5 flex-shrink-0" />
-                    <span>Erro ao carregar dados: {fetchError.message}</span>
-                    <Button variant="outline" size="sm" onClick={() => { refetchMessages(); instancesList?.length === 0 && isLoadingInstances && instancesError && queryClient.invalidateQueries({ queryKey: ['instancesListMessagesPage', clinicId] }); }} className="ml-auto">Tentar Novamente</Button>
+                <div className="error-message flex items-center gap-2 p-4 mb-6 bg-red-100 text-red-700 border border-red-300 rounded-md shadow-sm">
+                    <TriangleAlert className="h-6 w-6 flex-shrink-0" />
+                    <span className="text-lg font-semibold">Erro ao carregar dados: {fetchError.message}</span>
+                    <Button variant="outline" size="sm" onClick={() => { refetchMessages(); instancesList?.length === 0 && isLoadingInstances && instancesError && queryClient.invalidateQueries({ queryKey: ['instancesListMessagesPage', clinicId] }); }} className="ml-auto">
+                        Tentar Novamente
+                    </Button>
                 </div>
             )}
 
             {/* Loading Indicator */}
             {isLoading && !fetchError && (
-                <div className="loading-indicator flex flex-col items-center justify-center p-8 text-primary">
-                    <Loader2 className="h-12 w-12 animate-spin mb-4" />
-                    <span className="text-lg">Carregando configurações...</span>
+                <div className="loading-indicator flex flex-col items-center justify-center p-12 text-primary">
+                    <Loader2 className="h-16 w-16 animate-spin mb-6" />
+                    <span className="text-xl font-medium">Carregando configurações...</span>
                 </div>
             )}
 
             {/* Message List Table */}
             {!isLoading && !fetchError && (messagesList?.length ?? 0) === 0 ? (
-                 <div id="noMessagesFound" className="text-center text-gray-600 p-8 bg-gray-50 rounded-md border border-gray-200">
-                    <Info className="h-12 w-12 mb-4 mx-auto" />
-                    <p className="text-lg">Nenhuma mensagem automática configurada encontrada.</p>
+                 <div id="noMessagesFound" className="text-center text-gray-600 p-12 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+                    <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
+                    <p className="text-2xl font-semibold">Nenhuma mensagem automática configurada encontrada.</p>
                 </div>
             ) : (
-                <div id="messageListContainer" className="overflow-x-auto rounded-md border border-gray-200 shadow-sm">
+                <div id="messageListContainer" className="overflow-x-auto rounded-lg border border-gray-300 shadow-md">
                     <Table className="message-table min-w-full">
-                        <TableHeader className="bg-gray-50">
+                        <TableHeader className="bg-gray-100 border-b border-gray-300">
                             <TableRow>
-                                <TableHead className="text-left">Categoria</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
-                                <TableHead className="text-left">Instância</TableHead>
-                                <TableHead className="text-center">Prioridade</TableHead>
-                                <TableHead className="text-center">Horário Prog.</TableHead>
-                                <TableHead className="text-right">Ações</TableHead>
+                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Categoria</TableHead>
+                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
+                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Instância</TableHead>
+                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Prioridade</TableHead>
+                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Horário Prog.</TableHead>
+                                <TableHead className="text-right text-lg font-semibold text-gray-700 px-6 py-3">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody id="messageTableBody" className="divide-y divide-gray-200">
@@ -362,28 +364,28 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                 return (
                                     <React.Fragment key={message.id}>
                                         <TableRow data-message-id={message.id} data-category={message.categoria} className="hover:bg-gray-50 cursor-pointer transition-colors">
-                                            <TableCell className="font-medium text-gray-800">{message.categoria || 'N/A'}</TableCell>
+                                            <TableCell className="font-medium text-gray-900 px-6 py-4">{message.categoria || 'N/A'}</TableCell>
                                             <TableCell className="text-center">
                                                 <span className={cn(
-                                                    "inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold",
+                                                    "inline-flex items-center justify-center px-4 py-1 rounded-full text-sm font-semibold transition-colors",
                                                     message.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                 )}>
                                                     {message.ativo ? 'Ativo' : 'Inativo'}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-gray-700">
-                                                <span className={cn("inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded select-none", instanceClass)}>
-                                                    <MessagesSquare className="h-4 w-4" /> {instanceName}
+                                            <TableCell className="text-gray-700 px-6 py-4">
+                                                <span className={cn("inline-flex items-center gap-2 text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded select-none", instanceClass)}>
+                                                    <MessagesSquare className="h-5 w-5" /> {instanceName}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-center text-gray-700 font-semibold">{message.prioridade ?? 'N/D'}</TableCell>
-                                            <TableCell className="text-center text-gray-700">
+                                            <TableCell className="text-center text-gray-900 font-semibold px-6 py-4">{message.prioridade ?? 'N/D'}</TableCell>
+                                            <TableCell className="text-center text-gray-700 px-6 py-4">
                                                 {(message.categoria === 'Confirmar Agendamento' || message.categoria === 'Aniversário') && message.hora_envio ?
                                                     message.hora_envio : '-'
                                                 }
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="message-item-actions flex gap-2 justify-end">
+                                            <TableCell className="text-right px-6 py-4">
+                                                <div className="message-item-actions flex gap-3 justify-end">
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
@@ -393,8 +395,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     onClick={() => handlePreviewToggle(message.id)}
                                                                     className="preview-toggle-btn"
                                                                 >
-                                                                    {isExpanded ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                                                                    {isExpanded ? 'Ocultar' : 'Preview'}
+                                                                    {isExpanded ? <EyeOff className="h-5 w-5 mr-1" /> : <Eye className="h-5 w-5 mr-1" />}
+                                                                    <span className="hidden sm:inline">{isExpanded ? 'Ocultar' : 'Preview'}</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -409,7 +411,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     onClick={() => handleEditMessage(message.id)} // Pass message.id
                                                                     className="edit-message-btn"
                                                                 >
-                                                                    <Edit className="h-4 w-4 mr-1" /> Editar
+                                                                    <Edit className="h-5 w-5 mr-1" />
+                                                                    <span className="hidden sm:inline">Editar</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -426,13 +429,13 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     disabled={toggleMessageMutation.isLoading}
                                                                 >
                                                                     {toggleMessageMutation.isLoading ? (
-                                                                         <Loader2 className="h-4 w-4 animate-spin" />
+                                                                         <Loader2 className="h-5 w-5 animate-spin" />
                                                                     ) : message.ativo ? (
-                                                                        <ToggleLeft className="h-4 w-4 mr-1" />
+                                                                        <ToggleLeft className="h-5 w-5 mr-1" />
                                                                     ) : (
-                                                                        <ToggleRight className="h-4 w-4 mr-1" />
+                                                                        <ToggleRight className="h-5 w-5 mr-1" />
                                                                     )}
-                                                                    {toggleMessageMutation.isLoading ? 'Carregando...' : (message.ativo ? 'Desat.' : 'Ativar')}
+                                                                    <span className="hidden sm:inline">{toggleMessageMutation.isLoading ? 'Carregando...' : (message.ativo ? 'Desat.' : 'Ativar')}</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -449,11 +452,11 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     disabled={deleteMessageMutation.isLoading}
                                                                 >
                                                                     {deleteMessageMutation.isLoading ? (
-                                                                         <Loader2 className="h-4 w-4 animate-spin" />
+                                                                         <Loader2 className="h-5 w-5 animate-spin" />
                                                                     ) : (
-                                                                         <Trash2 className="h-4 w-4 mr-1" />
+                                                                         <Trash2 className="h-5 w-5 mr-1" />
                                                                     )}
-                                                                    Excluir
+                                                                    <span className="hidden sm:inline">Excluir</span>
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -465,10 +468,10 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                             </TableCell>
                                         </TableRow>
                                         {/* Preview Row */}
-                                        <TableRow className={cn("preview-row bg-gray-50 text-gray-800 text-sm border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-4">
+                                        <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
+                                            <TableCell colSpan={6} className="p-6">
                                                 <div
-                                                    className="preview-content whitespace-pre-wrap"
+                                                    className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
                                                 ></div>
                                             </TableCell>
