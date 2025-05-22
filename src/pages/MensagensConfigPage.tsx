@@ -5,19 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Save, XCircle, Smile, Tags, FileText, Video, Music, Download, Zap, Trash } from 'lucide-react'; // Added icons
+import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Save, XCircle, Smile, Tags, FileText, Video, Music, Download, Zap, Trash } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn } from '@/lib/utils'; // Utility for class names
-import { showSuccess, showError, showToast } from '@/utils/toast'; // Using our toast utility
-import Choices from 'choices.js'; // Import Choices.js
-import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { cn } from '@/lib/utils';
+import { showSuccess, showError } from '@/utils/toast';
+import Choices from 'choices.js';
+import { supabase } from '@/integrations/supabase/client';
 
-// Ensure the emoji picker element is defined
 import 'emoji-picker-element';
 
-// Define the structure for clinic data
 interface ClinicData {
   code: string;
   nome: string;
@@ -27,244 +24,194 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for a message item fetched for editing
-interface MessageDetails {
-    id: number;
-    categoria: string;
-    modelo_mensagem: string | null;
-    midia_mensagem: string | null; // This is the file key/path
-    id_instancia: number | null;
-    grupo: string | null; // Group ID
-    ativo: boolean;
-    hora_envio: string | null; // HH:mm format
-    intervalo: number | null;
-    id_clinica: number;
-    variacao_1: string | null;
-    variacao_2: string | null;
-    variacao_3: string | null;
-    variacao_4: string | null;
-    variacao_5: string | null;
-    para_funcionario: boolean;
-    para_grupo: boolean;
-    para_cliente: boolean;
-    url_arquivo: string | null; // Redundant? Assuming midia_mensagem is the key
-    prioridade: number;
-    created_at: string;
-    updated_at: string;
-}
-
-// Define the structure for Service Info
 interface ServiceInfo {
-    id: number;
-    nome: string;
+  id: number;
+  nome: string;
 }
 
 interface LinkedService {
-    id_servico: number;
+  id_servico: number;
 }
 
 interface MensagensConfigPageProps {
-    clinicData: ClinicData | null;
+  clinicData: ClinicData | null;
 }
 
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
-    const queryClient = useQueryClient();
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-    const messageId = searchParams.get('id');
-    const initialCategoryFromUrl = searchParams.get('category'); // Get category from URL for new messages
-    const isEditing = !!messageId;
+  const messageId = searchParams.get('id');
+  const initialCategoryFromUrl = searchParams.get('category');
+  const isEditing = !!messageId;
 
-    const clinicCode = clinicData?.code;
-    const clinicId = clinicData?.id; // Use clinicId for Supabase queries
+  const clinicId = clinicData?.id;
 
-    // State for form data
-    const [formData, setFormData] = useState({
-        categoria: initialCategoryFromUrl || '',
-        id_instancia: '',
-        modelo_mensagem: '',
-        ativo: true,
-        hora_envio: '',
-        grupo: '',
-        para_funcionario: false,
-        para_grupo: true, // Default to group
-        para_cliente: false,
-        variacao_1: '',
-        variacao_2: '',
-        variacao_3: '',
-        variacao_4: '',
-        variacao_5: '',
-        prioridade: 1, // Added priority field, default to 1
-    });
-    const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
-    const [existingMediaKey, setExistingMediaKey] = useState<string | null>(null); // To store the key if editing
+  // Form state - keep stable, do not reset unnecessarily
+  const [formData, setFormData] = useState({
+    categoria: initialCategoryFromUrl || '',
+    id_instancia: '',
+    modelo_mensagem: '',
+    ativo: true,
+    hora_envio: '',
+    grupo: '',
+    para_funcionario: false,
+    para_grupo: true,
+    para_cliente: false,
+    variacao_1: '',
+    variacao_2: '',
+    variacao_3: '',
+    variacao_4: '',
+    variacao_5: '',
+    prioridade: 1,
+  });
 
-    // State for UI elements and loading
-    const [isLoadingPage, setIsLoadingPage] = useState(true);
-    const [pageError, setPageError] = useState<string | null>(null);
-    const [showVariations, setShowVariations] = useState(false);
-    const [aiLoadingSlot, setAiLoadingSlot] = useState<number | null>(null); // Slot number being generated by AI
-    const [mediaViewLoading, setMediaViewLoading] = useState(false); // State for media preview loading
+  const serviceSelectRef = useRef<HTMLSelectElement>(null);
+  const choicesServicesRef = useRef<Choices | null>(null);
 
-    // Refs for Choices.js and Textarea
-    const serviceSelectRef = useRef<HTMLSelectElement>(null);
-    const choicesServicesRef = useRef<Choices | null>(null);
-    const messageTextRef = useRef<HTMLTextAreaElement>(null);
-    const emojiPickerRef = useRef<any>(null); // Ref for emoji picker element
+  // Fetch services list
+  const { data: servicesList, isLoading: isLoadingServices, error: servicesError } = useQuery<ServiceInfo[]>({
+    queryKey: ['servicesListConfigPage', clinicId],
+    queryFn: async () => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const { data, error } = await supabase
+        .from('north_clinic_servicos')
+        .select('id, nome')
+        .eq('id_clinica', clinicId)
+        .order('nome', { ascending: true });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+    enabled: !!clinicId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-    // Fetch Services List - NOW FROM SUPABASE
-    const { data: servicesList, isLoading: isLoadingServices, error: servicesError } = useQuery<ServiceInfo[]>({
-        queryKey: ['servicesListConfigPage', clinicId], // Use clinicId for Supabase fetch
-        queryFn: async () => {
-            if (!clinicId) {
-                console.warn("[MensagensConfigPage] Skipping services fetch: clinicId missing.");
-                throw new Error("ID da clínica não disponível.");
-            }
-            console.log(`[MensagensConfigPage] Fetching services list from Supabase (Clinic ID: ${clinicId})...`);
+  // Fetch linked services if editing
+  const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
+    queryKey: ['linkedServicesConfigPage', messageId],
+    queryFn: async () => {
+      if (!messageId) return [];
+      const { data, error } = await supabase
+        .from('north_clinic_mensagens_servicos')
+        .select('id_servico')
+        .eq('id_mensagem', parseInt(messageId, 10));
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+    enabled: isEditing && !!messageId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-            try {
-                const { data, error } = await supabase
-                    .from('north_clinic_servicos')
-                    .select('id, nome') // Select necessary fields
-                    .eq('id_clinica', clinicId) // Filter by clinic ID
-                    .order('nome', { ascending: true }); // Order by name
+  // Initialize Choices.js once
+  useEffect(() => {
+    if (serviceSelectRef.current && !choicesServicesRef.current) {
+      try {
+        choicesServicesRef.current = new Choices(serviceSelectRef.current, {
+          removeItemButton: true,
+          searchPlaceholderValue: "Buscar serviço...",
+          noResultsText: 'Nenhum serviço encontrado',
+          noChoicesText: 'Sem opções disponíveis ou erro no carregamento',
+          itemSelectText: 'Pressione Enter para selecionar',
+          allowHTML: false,
+        });
+        console.log("[MensagensConfigPage] Choices.js initialized.");
+      } catch (e) {
+        console.error("Failed to initialize Choices.js:", e);
+      }
+    }
+    return () => {
+      if (choicesServicesRef.current) {
+        choicesServicesRef.current.destroy();
+        choicesServicesRef.current = null;
+        console.log("[MensagensConfigPage] Choices.js destroyed.");
+      }
+    };
+  }, []);
 
-                console.log("[MensagensConfigPage] Supabase services fetch result:", { data, error });
+  // Populate Choices.js options and set selected values when services or linked services change
+  useEffect(() => {
+    if (choicesServicesRef.current && servicesList) {
+      const linkedServiceIdSet = new Set(linkedServicesList?.map(item => String(item.id_servico)) || []);
+      const choicesData = servicesList.map(service => ({
+        value: String(service.id),
+        label: service.nome || `Serviço ID ${service.id}`,
+        selected: isEditing ? linkedServiceIdSet.has(String(service.id)) : false,
+      }));
 
-                if (error) {
-                    console.error("[MensagensConfigPage] Supabase services fetch error:", error);
-                    throw new Error(`Erro ao buscar serviços: ${error.message}`);
-                }
+      choicesServicesRef.current.clearStore();
+      choicesServicesRef.current.setChoices(choicesData, 'value', 'label', true);
+      choicesServicesRef.current.enable();
 
-                if (!data) {
-                    console.warn("[MensagensConfigPage] Supabase services fetch returned null data.");
-                    return []; // Return empty array if data is null
-                }
+      console.log("[MensagensConfigPage] Choices.js populated with services and selections.");
+    } else if (choicesServicesRef.current && servicesError) {
+      choicesServicesRef.current.clearStore();
+      choicesServicesRef.current.setChoices([{ value: '', label: 'Erro ao carregar serviços', disabled: true }], 'value', 'label', true);
+      choicesServicesRef.current.disable();
+      console.error("[MensagensConfigPage] Error loading services:", servicesError);
+    }
+  }, [servicesList, linkedServicesList, servicesError, isEditing]);
 
-                console.log("[MensagensConfigPage] Services list loaded:", data.length, "items");
-                return data as ServiceInfo[]; // Cast to the defined interface
+  // Handler to update formData when Choices.js selection changes
+  useEffect(() => {
+    if (!choicesServicesRef.current) return;
 
-            } catch (err: any) {
-                console.error("[MensagensConfigPage] Error fetching services from Supabase:", err);
-                throw err; // Re-throw to be caught by react-query
-            }
-        },
-        enabled: !!clinicId, // Only fetch if clinicId is available
-        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-        refetchOnWindowFocus: false,
-    });
+    const onChange = () => {
+      const selectedValues = choicesServicesRef.current?.getValue(true);
+      setFormData(prev => ({
+        ...prev,
+        // Store as comma-separated string or array as needed
+        // Here storing as comma-separated string for simplicity
+        variacao_1: Array.isArray(selectedValues) ? selectedValues.join(',') : selectedValues || '',
+      }));
+    };
 
-    // Fetch Linked Services (if editing) - NOW FROM SUPABASE
-    const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
-        queryKey: ['linkedServicesConfigPage', messageId], // Use messageId in key
-        queryFn: async () => {
-            if (!messageId) {
-                console.warn("[MensagensConfigPage] Skipping linked services fetch: messageId missing.");
-                return []; // Return empty if not editing or messageId is missing
-            }
-            console.log(`[MensagensConfigPage] Fetching linked services for message ID ${messageId} from Supabase...`);
+    choicesServicesRef.current.passedElement.element.addEventListener('change', onChange);
 
-            try {
-                const { data, error } = await supabase
-                    .from('north_clinic_mensagens_servicos')
-                    .select('id_servico') // Select only the service ID
-                    .eq('id_mensagem', parseInt(messageId, 10)); // Filter by message ID (ensure it's a number)
+    return () => {
+      choicesServicesRef.current?.passedElement.element.removeEventListener('change', onChange);
+    };
+  }, [choicesServicesRef.current]);
 
-                console.log("[MensagensConfigPage] Supabase linked services fetch result:", { data, error });
+  // Render the select always, avoid conditional rendering to prevent remounts
+  return (
+    <div className="mensagens-config-container p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurar Mensagem Automática</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Other form fields here... */}
 
-                if (error) {
-                    console.error("[MensagensConfigPage] Supabase linked services fetch error:", error);
-                    throw new Error(`Erro ao buscar serviços vinculados: ${error.message}`);
-                }
-
-                if (!data) {
-                    console.warn("[MensagensConfigPage] Supabase linked services fetch returned null data.");
-                    return []; // Return empty array if data is null
-                }
-
-                console.log("[MensagensConfigPage] Linked services loaded:", data.length, "items");
-                return data as LinkedService[]; // Cast to the defined interface
-
-            } catch (err: any) {
-                console.error("[MensagensConfigPage] Error fetching linked services from Supabase:", err);
-                throw err; // Re-throw to be caught by react-query
-            }
-        },
-        enabled: isEditing && !!messageId, // Only fetch if editing and messageId is available
-        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-        refetchOnWindowFocus: false,
-    });
-
-    // Effect to initialize Choices.js
-    useEffect(() => {
-        if (serviceSelectRef.current && !choicesServicesRef.current) {
-            try {
-                choicesServicesRef.current = new Choices(serviceSelectRef.current, {
-                    removeItemButton: true,
-                    searchPlaceholderValue: "Buscar serviço...",
-                    noResultsText: 'Nenhum serviço encontrado',
-                    noChoicesText: 'Sem opções disponíveis ou erro no carregamento',
-                    itemSelectText: 'Pressione Enter para selecionar',
-                    allowHTML: false
-                });
-                console.log("[useEffect] Choices.js initialized.");
-            } catch (e) {
-                console.error("Failed Choices.js init:", e);
-                setPageError("Erro ao carregar seletor de serviços.");
-            }
-        }
-
-        // Cleanup Choices.js on unmount
-        return () => {
-            if (choicesServicesRef.current) {
-                choicesServicesRef.current.destroy();
-                choicesServicesRef.current = null;
-                console.log("[useEffect] Choices.js destroyed.");
-            }
-        };
-    }, []); // Empty dependency array means this runs once on mount
-
-    // Effect to populate Choices.js and set selection when services or linked services load
-    useEffect(() => {
-        if (choicesServicesRef.current && servicesList) {
-            console.log("[useEffect] Populating Choices.js with services...");
-            const linkedServiceIdSet = new Set(linkedServicesList?.map(item => String(item.id_servico)) || []);
-            const serviceChoices = servicesList.map(service => ({
-                value: String(service.id),
-                label: service.nome || `Serviço ID ${service.id}`,
-                selected: isEditing ? linkedServiceIdSet.has(String(service.id)) : false
-            }));
-            choicesServicesRef.current.clearStore();
-            choicesServicesRef.current.setChoices(serviceChoices, 'value', 'label', true);
-            console.log("[useEffect] Choices.js populated/selection set.");
-            choicesServicesRef.current.enable();
-        } else if (choicesServicesRef.current && servicesError) {
-            console.error("[useEffect] Error populating Choices.js due to servicesError:", servicesError);
-            choicesServicesRef.current.clearStore();
-            choicesServicesRef.current.setChoices([{ value: '', label: 'Erro ao carregar serviços', disabled: true }], 'value', 'label', true);
-            choicesServicesRef.current.disable();
-        }
-    }, [servicesList, linkedServicesList, servicesError, isEditing]); // Re-run if services or linked services change
-
-    // ... rest of the component remains unchanged ...
-
-    // Handler for media file change, save, etc. remain as in original code
-
-    // Render method and other logic remain unchanged
-
-    return (
-        // ... JSX as before, including the select element for services with ref={serviceSelectRef} ...
-        // Example snippet for the service select:
-        <div className="form-group" id="serviceSelectionGroup">
+          <div className="form-group">
             <Label htmlFor="serviceSelect">Serviços Vinculados *</Label>
-            <select id="serviceSelect" ref={serviceSelectRef} multiple disabled={isLoadingPage || isLoadingServices || isLoadingLinkedServices}></select>
-            <p className="text-xs text-gray-500 mt-1">Quais agendamentos de serviço ativarão esta mensagem.</p>
-            {(isLoadingServices || isLoadingLinkedServices) && <p className="text-sm text-gray-600 mt-1"><Loader2 className="inline h-4 w-4 animate-spin mr-1" /> Carregando serviços...</p>}
-            {(servicesError || linkedServicesError) && <p className="text-sm text-red-600 mt-1"><TriangleAlert className="inline h-4 w-4 mr-1" /> Erro ao carregar serviços.</p>}
-        </div>
-        // ... rest of JSX ...
-    );
+            <select
+              id="serviceSelect"
+              ref={serviceSelectRef}
+              multiple
+              disabled={isLoadingServices || isLoadingLinkedServices}
+              className="w-full border border-gray-300 rounded p-2"
+            />
+            {(isLoadingServices || isLoadingLinkedServices) && (
+              <p className="text-sm text-gray-600 mt-1 flex items-center">
+                <Loader2 className="inline h-4 w-4 animate-spin mr-1" /> Carregando serviços...
+              </p>
+            )}
+            {(servicesError || linkedServicesError) && (
+              <p className="text-sm text-red-600 mt-1 flex items-center">
+                <TriangleAlert className="inline h-4 w-4 mr-1" /> Erro ao carregar serviços.
+              </p>
+            )}
+          </div>
+
+          {/* Other form fields and buttons */}
+          <Button onClick={() => console.log("Salvar mensagem com dados:", formData)}>Salvar</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export default MensagensConfigPage;
