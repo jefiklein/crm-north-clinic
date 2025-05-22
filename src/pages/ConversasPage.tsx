@@ -108,7 +108,6 @@ const REQUIRED_PERMISSION_LEVEL = 2;
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -154,15 +153,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) return [];
 
+      // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
         .in('id_instancia', instanceIds)
-        .order('message_timestamp', { ascending: false });
+        .order('message_timestamp', { ascending: false }); // Decrescente
 
       if (error) throw new Error(error.message);
       if (!data) return [];
 
+      // Group by remoteJid to get last message and timestamp per conversation
       const groupedMap = new Map<string, ConversationSummary>();
       for (const msg of data) {
         const existing = groupedMap.get(msg.remoteJid);
@@ -192,6 +193,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const preview = conv.lastMessage?.toLowerCase() || '';
       return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || preview.includes(lowerSearchTerm);
     });
+    // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
     return filtered;
   }, [conversationSummaries, searchTerm]);
@@ -214,29 +216,72 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Scroll to bottom of messages when messages load or when conversation changes
-  useEffect(() => {
-    if (scrollSentinelRef.current && selectedConversationId && messages && initialLoadDone) {
-      scrollSentinelRef.current.scrollIntoView({ behavior: 'smooth' });
-    } else if (selectedConversationId && messages && !initialLoadDone) {
-      setInitialLoadDone(true);
-      if (scrollSentinelRef.current) {
-        scrollSentinelRef.current.scrollIntoView({ behavior: 'instant' });
+  // Group messages by sequential instance ID for rendering
+  const groupedMessages = useMemo(() => {
+    if (!messages) return [];
+
+    // Sort messages chronologically first
+    const sortedMessages = [...messages].sort((a, b) =>
+      (a.message_timestamp || 0) - (b.message_timestamp || 0)
+    );
+
+    const groups: { instanceId: number | null; messages: Message[]; instanceName: string; cssClassIndex: number }[] = [];
+    let currentInstanceId: number | null = null;
+    let currentGroupIndex = -1;
+    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {}; // Map instance ID to a sequential group index
+
+    sortedMessages.forEach(msg => {
+      const instanceId = msg.id_instancia;
+
+      if (instanceId !== currentInstanceId) {
+        // New instance group
+        currentGroupIndex++;
+        currentInstanceId = instanceId;
+
+        // Determine instance name
+        let instanceName = 'Instância Desconhecida/Indefinida';
+        if (instanceId !== null && instanceMap.has(instanceId)) {
+          instanceName = instanceMap.get(instanceId)?.nome_exibição || `ID ${instanceId}`;
+        } else if (instanceId !== null) {
+          instanceName = `ID ${instanceId}`; // Fallback if ID exists but not in map
+        } else {
+          instanceName = 'Indefinida'; // For null instanceId
+        }
+
+        // Map instance ID to a cycling CSS class index (0-3)
+        if (instanceId !== null && typeof instanceIdToGroupIndexMap[instanceId] === 'undefined') {
+          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length; // Assign a new sequential index
+        } else if (instanceId === null && typeof instanceIdToGroupIndexMap['null'] === 'undefined') {
+          instanceIdToGroupIndexMap['null'] = Object.keys(instanceIdToGroupIndexMap).length;
+        }
+        const cssClassIndex = (instanceId !== null ? instanceIdToGroupIndexMap[instanceId] : instanceIdToGroupIndexMap['null']) % 4;
+
+        groups.push({
+          instanceId: instanceId,
+          messages: [msg],
+          instanceName: instanceName,
+          cssClassIndex: cssClassIndex,
+        });
+      } else {
+        // Add message to the current group
+        groups[groups.length - 1].messages.push(msg);
       }
-    }
-  }, [messages, selectedConversationId, initialLoadDone]);
+    });
 
-  // Select the first conversation on initial load if none is selected
-  useEffect(() => {
-    if (!selectedConversationId && filteredAndSortedSummaries.length > 0) {
-      setSelectedConversationId(filteredAndSortedSummaries[0].remoteJid);
-    }
-  }, [selectedConversationId, filteredAndSortedSummaries]);
+    return groups;
+  }, [messages, instanceMap]);
 
-  // Define selectedConversationSummary to show contact name in detail header
+  // Find the selected conversation summary to display name in detail header
   const selectedConversationSummary = useMemo(() => {
     return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
   }, [conversationSummaries, selectedConversationId]);
+
+  // Scroll to bottom of messages when messages load or when conversation changes
+  useEffect(() => {
+    if (scrollSentinelRef.current) {
+      scrollSentinelRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, selectedConversationId]);
 
   // --- Permission Check ---
   if (!clinicData) {
@@ -263,7 +308,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   return (
     <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
       {/* Conversations List Panel */}
-      <div className="conversations-list-panel w-[350px] flex flex-col flex-shrink-0 overflow-hidden px-4"> {/* Removed border-r here */}
+      <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
         <div className="list-header p-4 border-b border-gray-200 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -294,8 +339,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = conv.nome || '';
+              const contactName = conv.nome || ''; // Show nome_lead or empty string
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
+              // Log for debugging
+              console.log(`Conversation ${conversationId} lastMessageTimestamp:`, lastMessageTimestamp);
 
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -308,28 +355,21 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <div
                   key={conversationId}
                   className={cn(
-                    "conversation-list-item flex flex-col py-3 border-b border-gray-100 cursor-pointer transition-colors",
+                    "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
                     selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
                   )}
                   onClick={() => setSelectedConversationId(conversationId)}
-                  style={{ overflow: 'visible' }}
                 >
-                  <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-2 flex-grow min-w-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      <span className="contact-name font-semibold text-sm overflow-hidden text-ellipsis flex-grow min-w-0 break-words">
-                        {contactName}
-                      </span>
+                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">
-                      {lastMessageTimestamp || 'Sem data'}
-                    </span>
+                    <span className="text-xs text-red-600 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
                   </div>
-                  <div className="last-message-preview text-xs text-gray-600 mt-1 px-2 break-words max-w-full">
-                    {lastMessagePreview}
-                  </div>
+                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
               );
             })
@@ -385,7 +425,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               {messages.map(msg => (
                 <div key={msg.id} className={cn(
                   "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md' // Sem borda
+                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
                 )}>
                   <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
                   <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
