@@ -341,8 +341,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
-              // Log for debugging
-              console.log(`Conversation ${conversationId} lastMessageTimestamp:`, lastMessageTimestamp);
 
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -361,13 +359,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   onClick={() => setSelectedConversationId(conversationId)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-grow min-w-0">
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
+                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis flex-grow min-w-0">{contactName}</span>
                     </div>
-                    <span className="text-xs text-red-600 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
