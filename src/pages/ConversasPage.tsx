@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,8 @@ const REQUIRED_PERMISSION_LEVEL = 2;
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  const messagesAreaRef = useRef<HTMLDivElement | null>(null);
 
   const clinicId = clinicData?.id;
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
@@ -276,11 +278,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
-    const messagesArea = document.getElementById('messagesArea');
-    if (messagesArea) {
+    if (messagesAreaRef.current) {
       // Use setTimeout to ensure DOM updates before scrolling
       setTimeout(() => {
-        messagesArea.scrollTop = messagesArea.scrollHeight;
+        // Scroll to bottom of the scrollable content
+        messagesAreaRef.current?.scrollTo({ top: messagesAreaRef.current.scrollHeight, behavior: 'smooth' });
       }, 100);
     }
   }, [messages, selectedConversationId]);
@@ -323,7 +325,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             />
           </div>
         </div>
-        <ScrollArea className="conversations-list flex-grow">
+        <ScrollArea className="conversations-list flex-grow" ref={messagesAreaRef}>
           {isLoadingSummaries ? (
             <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
@@ -404,7 +406,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             </Button>
           )}
         </div>
-        <ScrollArea id="messagesArea" className="messages-area flex-grow p-4 flex flex-col">
+        <ScrollArea id="messagesArea" className="messages-area flex-grow p-4 flex flex-col" ref={messagesAreaRef}>
           {!selectedConversationId ? (
             <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
           ) : isLoadingMessages ? (
