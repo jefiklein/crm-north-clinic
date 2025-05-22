@@ -107,7 +107,8 @@ const REQUIRED_PERMISSION_LEVEL = 2;
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(selectedConversationId); // Keep selected conversation state
+  const [initialLoadDone, setInitialLoadDone] = useState(false); // State to track initial load
 
   const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -278,10 +279,25 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
-    if (scrollSentinelRef.current) {
+    // Only scroll after the initial load of messages for the selected conversation
+    if (scrollSentinelRef.current && selectedConversationId && messages && initialLoadDone) {
       scrollSentinelRef.current.scrollIntoView({ behavior: 'smooth' });
+    } else if (selectedConversationId && messages && !initialLoadDone) {
+        // Mark initial load as done once messages are loaded for the first selected conversation
+        setInitialLoadDone(true);
+         if (scrollSentinelRef.current) {
+             scrollSentinelRef.current.scrollIntoView({ behavior: 'instant' }); // Instant scroll on first load
+         }
     }
-  }, [messages, selectedConversationId]);
+  }, [messages, selectedConversationId, initialLoadDone]);
+
+  // Select the first conversation on initial load if none is selected
+  useEffect(() => {
+      if (!selectedConversationId && filteredAndSortedSummaries.length > 0) {
+          setSelectedConversationId(filteredAndSortedSummaries[0].remoteJid);
+      }
+  }, [selectedConversationId, filteredAndSortedSummaries]);
+
 
   // --- Permission Check ---
   if (!clinicData) {
@@ -364,10 +380,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis flex-grow min-w-0 max-w-[calc(100%-80px)]">{contactName}</span>
+                      {/* Name takes available space, truncates */}
+                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis flex-grow min-w-0">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0 mr-4">{lastMessageTimestamp || 'Sem data'}</span>
+                    {/* Timestamp is fixed width, pushed to the right */}
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
                   </div>
+                  {/* Message preview below name/timestamp line */}
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1 px-2 max-w-[calc(100%-20px)]">{lastMessagePreview}</div>
                 </div>
               );
