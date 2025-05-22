@@ -414,7 +414,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
             console.log("[MensagensConfigPage] Groups list loaded:", data.length, "items");
             return data as GroupInfo[];
         },
-        enabled: !!formData.id_instancia && (formData.para_grupo) && !!instancesList, // Only fetch if instance selected, target is group, and instances list is loaded
+        // Enable only if instance selected AND target is group AND category is Chegou or Liberado AND instances list is loaded
+        enabled: !!formData.id_instancia && formData.para_grupo && (formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && !!instancesList,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -816,24 +817,84 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     // Effect to populate group select when groupsList changes
     useEffect(() => {
         console.log("[useEffect] groupsList changed. Populating group select.");
-        // Only populate if the target type is 'Grupo' and groupsList is available
-        if (formData.para_grupo && groupsList) {
-             populateGroupSelect(groupsList, formData.grupo); // Pass current group ID to attempt selection
-        } else if (formData.para_grupo && groupsError) {
-             console.error("[useEffect] Error populating group select due to groupsError:", groupsError);
-             populateGroupSelect([], null); // Clear select on error
-             const groupSelectEl = document.getElementById('grupo') as HTMLSelectElement | null;
-             if(groupSelectEl) {
-                 groupSelectEl.innerHTML = '<option value="">-- Erro ao carregar grupos --</option>';
-                 groupSelectEl.disabled = true;
-             }
-        } else if (!formData.para_grupo) {
-             // If target is not group, ensure group select is hidden and cleared
-             const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
-             if (groupSelectionGroupEl) groupSelectionGroupEl.style.display = 'none';
-             populateGroupSelect([], null); // Clear select
+        // Only populate if the target type is 'Grupo' AND category is Chegou or Liberado AND groupsList is available
+        const shouldPopulateGroupSelect = formData.para_grupo && (formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && groupsList;
+
+        const groupSelectEl = document.getElementById('grupo') as HTMLSelectElement | null;
+        if (!groupSelectEl) return;
+
+        if (shouldPopulateGroupSelect) {
+            console.log("[useEffect] Populating group select...");
+            groupSelectEl.innerHTML = ''; // Clear existing options
+            groupSelectEl.disabled = true; // Disable while populating
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "-- Selecione o Grupo * --";
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            groupSelectEl.appendChild(defaultOption);
+
+            if (groupsList && groupsList.length > 0) {
+                groupsList.forEach(group => {
+                    if (group && typeof group.id_grupo !== 'undefined' && typeof group.nome_grupo !== 'undefined') {
+                        const option = document.createElement('option');
+                        option.value = String(group.id_grupo); // Ensure string value
+                        option.textContent = group.nome_grupo;
+                        groupSelectEl.appendChild(option);
+                    } else {
+                         console.warn("[populateGroupSelect] Invalid group object found:", group);
+                    }
+                });
+
+                if (groupSelectEl.options.length > 1) { // If added any valid group
+                    groupSelectEl.disabled = false;
+                    // Try to select the targetGroupId
+                    const targetValueString = formData.grupo !== null ? String(formData.grupo) : null;
+                    if (targetValueString !== null && Array.from(groupSelectEl.options).some(opt => opt.value === targetValueString)) {
+                        console.log(`[useEffect] Selecting target group ID: ${formData.grupo}`);
+                        groupSelectEl.value = targetValueString;
+                        // State is already updated by handleSelectChange or initial load, no need to set here
+                    } else {
+                        console.warn(`[useEffect] Target group ID '${formData.grupo}' not found or null.`);
+                        groupSelectEl.value = ""; // Keep placeholder selected
+                        // State is already updated by handleSelectChange or initial load, no need to set here
+                        if(isEditing && formData.grupo !== null) showToast("Grupo alvo salvo não encontrado.", "warning");
+                    }
+                } else {
+                    // If the array of groups came but none were valid
+                     defaultOption.textContent = "-- Nenhum grupo válido --";
+                     groupSelectEl.disabled = true;
+                     // State is already updated by handleSelectChange or initial load, no need to set here
+                }
+            } else {
+                 console.log("[useEffect] No groups provided or empty array.");
+                defaultOption.textContent = "-- Nenhum grupo disponível --";
+                groupSelectEl.disabled = true;
+                // State is already updated by handleSelectChange or initial load, no need to set here
+            }
+             console.log("[useEffect] Group select populated.");
+
+        } else {
+            // If not showing group select, ensure it's hidden and cleared
+            const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
+            if (groupSelectionGroupEl) groupSelectionGroupEl.style.display = 'none';
+            // Clear the select element options
+            groupSelectEl.innerHTML = '';
+            groupSelectEl.disabled = true;
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "-- Selecione o Grupo * --"; // Or a different placeholder
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            groupSelectEl.appendChild(defaultOption);
+            // Clear the selected group ID in state if the group select is hidden
+            if (formData.grupo !== '') {
+                 setFormData(prev => ({ ...prev, grupo: '' }));
+            }
+             console.log("[useEffect] Group select hidden/cleared.");
         }
-    }, [groupsList, groupsError, formData.para_grupo, formData.grupo]); // Depend on groupsList, error, and relevant form state
+    }, [groupsList, groupsError, formData.para_grupo, formData.grupo, formData.categoria, isEditing]); // Depend on groupsList, error, and relevant form state
 
 
     // --- Handlers ---
@@ -853,7 +914,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
          }));
          // Special handling for category and target type changes
          if (id === 'categoria') {
-             // useEffect handles category-specific visibility
+             // useEffect handles category-specific visibility and group fetching logic
          } else if (id === 'targetTypeSelect') {
              handleTargetTypeChange(value);
          }
@@ -874,35 +935,9 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
             para_funcionario: value === 'Funcionário',
         }));
 
-        // Adjust visibility of the group select based on the new value
-        const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
-        if (groupSelectionGroupEl) {
-             const shouldShowGroupSelect = (value === 'Grupo');
-             groupSelectionGroupEl.style.display = shouldShowGroupSelect ? 'block' : 'none';
-
-             // If showing group select, trigger group fetching if instance is already selected
-             if (shouldShowGroupSelect) {
-                 const currentInstanceId = formData.id_instancia;
-                 if (currentInstanceId) {
-                     // Pass the currently selected group ID (if any) to try and re-select it
-                     const currentGroupId = formData.grupo || null;
-                     console.log(`[handleTargetTypeChange] Group select visible. Fetching groups for instance ${currentInstanceId}, target: ${currentGroupId}`);
-                     // Refetch groups for the current instance, attempting to select the saved group ID
-                     refetchGroups(); // This will use the latest formData.id_instancia and formData.grupo
-                 } else {
-                     // If no instance selected, clear and disable group select
-                     populateGroupSelect([], null);
-                     const groupSelectEl = document.getElementById('grupo') as HTMLSelectElement | null;
-                     if(groupSelectEl) {
-                         groupSelectEl.innerHTML = '<option value="">-- Selecione Instância Primeiro --</option>';
-                         groupSelectEl.disabled = true;
-                     }
-                 }
-             } else {
-                 // If hiding group select, clear the selected group ID in state
-                 setFormData(prev => ({ ...prev, grupo: '' }));
-             }
-        }
+        // The useEffect watching formData.para_grupo and formData.categoria will handle
+        // showing/hiding the group select and triggering group fetching.
+        // No need to manually manage display or refetchGroups here.
     };
 
     const handleTokenClick = (e: React.MouseEvent<HTMLSpanElement>) => {
@@ -939,11 +974,21 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         dataToSave.append('id_instancia', currentFormData.id_instancia);
         dataToSave.append('modelo_mensagem', currentFormData.modelo_mensagem);
         dataToSave.append('ativo', String(currentFormData.ativo)); // Send as string 'true' or 'false'
-        dataToSave.append('prioridade', String(currentFormData.prioridade)); // Add priority to FormData
+        // Only append priority if editing
+        if (isEditing) {
+             dataToSave.append('prioridade', String(currentFormData.prioridade)); // Add priority to FormData
+        }
+
 
         // Add conditional fields (Hora, Grupo, Target Type)
         if (currentFormData.hora_envio) dataToSave.append('hora_envio', currentFormData.hora_envio);
-        if (currentFormData.grupo) dataToSave.append('grupo', currentFormData.grupo); // Group ID
+        // Only append grupo if target is group AND category is Chegou/Liberado
+        if ((currentFormData.categoria === 'Chegou' || currentFormData.categoria === 'Liberado') && currentFormData.para_grupo && currentFormData.grupo) {
+             dataToSave.append('grupo', currentFormData.grupo); // Group ID
+        } else {
+             dataToSave.append('grupo', ''); // Ensure empty string if not applicable
+        }
+
         dataToSave.append('para_funcionario', String(currentFormData.para_funcionario));
         dataToSave.append('para_grupo', String(currentFormData.para_grupo));
         dataToSave.append('para_cliente', String(currentFormData.para_cliente));
@@ -990,6 +1035,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         else if (isServiceSelectionVisible && currentFormData.categoria !== 'Aniversário' && linkedServices.length === 0) { validationError = "Pelo menos um serviço deve ser vinculado (exceto para Aniversário)."; }
         else if (currentFormData.categoria === 'Confirmar Agendamento' && !currentFormData.hora_envio) { validationError = "Hora de envio (Confirmação) é obrigatória."; }
         else if (currentFormData.categoria === 'Aniversário' && !currentFormData.hora_envio) { validationError = "Hora de envio (Aniversário) é obrigatória."; }
+        // Validate group only if category is Chegou/Liberado AND target is Grupo
         else if ((currentFormData.categoria === 'Chegou' || currentFormData.categoria === 'Liberado') && currentFormData.para_grupo && !currentFormData.grupo) { validationError = "Grupo alvo é obrigatório para Chegou/Liberado quando o alvo é Grupo."; }
         // Media validation is handled before setting selectedMediaFile
 
@@ -1080,8 +1126,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         const groupSelectEl = document.getElementById('grupo') as HTMLSelectElement | null;
         if (!groupSelectEl) return;
 
-        groupSelectEl.innerHTML = ''; // Clear
-        groupSelectEl.disabled = true;
+        groupSelectEl.innerHTML = ''; // Clear existing options
+        groupSelectEl.disabled = true; // Disable while populating
 
         const defaultOption = document.createElement('option');
         defaultOption.value = "";
@@ -1133,7 +1179,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
     // Helper to fetch and display saved media
     const fetchAndDisplaySavedMedia = async (fileKey: string) => {
-        const currentMediaPreviewEl = document.getElementById('currentMediaPreview') as HTMLImageElement | null;
+        const currentMediaPreviewEl = document.getElementById('currentMediaPreview') as HTMLImageElement | HTMLVideoElement | HTMLAudioElement | null;
         const mediaPlaceholderTextEl = document.getElementById('mediaPlaceholderText');
         const currentMediaInfoEl = document.getElementById('currentMediaInfo');
         const mediaViewLoadingEl = document.getElementById('mediaViewLoading');
@@ -1379,20 +1425,22 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                                     </Select>
                                 </div>
                             )}
-                             {/* Priority Field */}
-                            <div className="form-group" id="messagePriorityGroup">
-                                <Label htmlFor="prioridade">Prioridade</Label>
-                                <Input
-                                    id="prioridade"
-                                    type="number"
-                                    placeholder="1"
-                                    value={formData.prioridade}
-                                    onChange={handleInputChange}
-                                    disabled={isLoading}
-                                    min="1" // Assuming priority is 1 or higher
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Define a ordem de envio (menor número = maior prioridade).</p>
-                            </div>
+                             {/* Priority Field - Only visible if editing */}
+                            {isEditing && (
+                                <div className="form-group" id="messagePriorityGroup">
+                                    <Label htmlFor="prioridade">Prioridade</Label>
+                                    <Input
+                                        id="prioridade"
+                                        type="number"
+                                        placeholder="1"
+                                        value={formData.prioridade}
+                                        onChange={handleInputChange}
+                                        disabled={isLoading}
+                                        min="1" // Assuming priority is 1 or higher
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Define a ordem de envio (menor número = maior prioridade).</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1709,31 +1757,34 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                          </div>
 
                         {/* Group Selection Group (Visible only if Target Type is Grupo for Chegou/Liberado) */}
-                        <div className="form-group" id="groupSelectionGroup">
-                            <Label htmlFor="grupo">Grupo Alvo * <span className="text-xs text-gray-500">(Se 'Enviar Para' for Grupo)</span></Label>
-                            <Select
-                                id="grupo"
-                                value={formData.grupo}
-                                onValueChange={(value) => handleSelectChange('grupo', value)}
-                                disabled={isLoading || isLoadingGroups || !formData.id_instancia || formData.para_grupo === false} // Disable if loading groups, no instance, or target is not group
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder={isLoadingGroups ? "-- Carregando Grupos --" : "-- Selecione --"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {groupsList?.map(group => (
-                                        <SelectItem key={group.id_grupo} value={String(group.id_grupo)}>{group.nome_grupo}</SelectItem>
-                                    ))}
-                                    {!isLoadingGroups && groupsList?.length === 0 && (
-                                         <SelectItem value="" disabled>Nenhum grupo disponível</SelectItem>
-                                    )}
-                                     {groupsError && (
-                                         <SelectItem value="" disabled>Erro ao carregar grupos</SelectItem>
-                                     )}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-gray-500 mt-1">Grupo do WhatsApp onde a mensagem será enviada.</p>
-                        </div>
+                        {/* Conditional rendering based on category AND target type */}
+                        {(formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && formData.para_grupo && (
+                            <div className="form-group" id="groupSelectionGroup">
+                                <Label htmlFor="grupo">Grupo Alvo * <span className="text-xs text-gray-500">(Se 'Enviar Para' for Grupo)</span></Label>
+                                <Select
+                                    id="grupo"
+                                    value={formData.grupo}
+                                    onValueChange={(value) => handleSelectChange('grupo', value)}
+                                    disabled={isLoading || isLoadingGroups || !formData.id_instancia} // Disable if loading groups or no instance
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={isLoadingGroups ? "-- Carregando Grupos --" : "-- Selecione --"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {groupsList?.map(group => (
+                                            <SelectItem key={group.id_grupo} value={String(group.id_grupo)}>{group.nome_grupo}</SelectItem>
+                                        ))}
+                                        {!isLoadingGroups && groupsList?.length === 0 && (
+                                             <SelectItem value="" disabled>Nenhum grupo disponível</SelectItem>
+                                        )}
+                                         {groupsError && (
+                                             <SelectItem value="" disabled>Erro ao carregar grupos</SelectItem>
+                                         )}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">Grupo do WhatsApp onde a mensagem será enviada.</p>
+                            </div>
+                        )}
 
                     </div>
 
