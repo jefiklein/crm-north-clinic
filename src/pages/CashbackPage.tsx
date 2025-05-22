@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { Calendar } from "@/components/ui/calendar"; // Import shadcn/ui Calendar
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // For date picker popup
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -36,10 +38,6 @@ interface SupabaseSale {
 interface CashbackPageProps {
     clinicData: ClinicData | null;
 }
-
-// Removed webhook URL, fetching directly from Supabase now
-// const SALES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0ddb4be8-65ee-486b-8b29-86a9a2eafb92`;
-
 
 // Helper function to clean salesperson name (remove leading numbers and hyphen)
 function cleanSalespersonName(name: string | null): string {
@@ -79,7 +77,7 @@ const formatDate = (dateString: string | null): string => {
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
-    const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: string } }>({});
+    const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: Date | null } }>({});
 
     const clinicId = clinicData?.id;
     // Format dates for Supabase query filters
@@ -151,7 +149,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
 
     // Handle manual input changes (simple state update)
-    const handleCashbackInputChange = (saleId: number, field: 'valor' | 'validade', value: string) => {
+    const handleCashbackInputChange = (saleId: number, field: 'valor' | 'validade', value: string | Date | null) => {
         setManualCashbackData(prev => ({
             ...prev,
             [saleId]: {
@@ -217,7 +215,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     {salesData?.map(sale => {
                                         const saleId = sale.id_north; // Use id_north as unique key
                                         const cashbackValue = manualCashbackData[saleId]?.valor || '';
-                                        const cashbackValidity = manualCashbackData[saleId]?.validade || '';
+                                        const cashbackValidity = manualCashbackData[saleId]?.validade || null;
 
                                         return (
                                             <TableRow key={saleId}>
@@ -240,13 +238,28 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                         className="h-8 text-right" // Smaller input, right align text
                                                     />
                                                 </TableCell>
-                                                <TableCell className="w-[150px]"> {/* Fixed width for input */}
-                                                    <Input
-                                                        type="date" // Use date type for validity
-                                                        value={cashbackValidity}
-                                                        onChange={(e) => handleCashbackInputChange(saleId, 'validade', e.target.value)}
-                                                        className="h-8" // Smaller input
-                                                    />
+                                                <TableCell className="w-[150px]"> {/* Fixed width for date picker */}
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                className="w-full h-8 text-left"
+                                                            >
+                                                                {cashbackValidity ? format(cashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={cashbackValidity}
+                                                                onSelect={(date) => {
+                                                                    handleCashbackInputChange(saleId, 'validade', date);
+                                                                }}
+                                                                disabled={(date) => date > new Date()} // Optional: disable future dates
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
                                                 </TableCell>
                                             </TableRow>
                                         );
