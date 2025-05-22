@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -7,7 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
   // ... (outros estados e hooks)
 
-  const messageId = /* obter id da mensagem do URL ou props */;
+  // Corrigido: Obter messageId dos parâmetros de busca da URL
+  const [searchParams] = useSearchParams();
+  const messageId = searchParams.get('id');
 
   // Fetch Linked Services (if editing)
   const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
@@ -25,31 +28,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-
-  // NEW EFFECT: Populate selectedServiceIds state when linkedServicesList loads (Edit mode)
-  useEffect(() => {
-    if (isEditing && linkedServicesList !== undefined) {
-      const ids = linkedServicesList?.map(item => item.id_servico) || [];
-
-      // Only update state if different from current selectedServiceIds to avoid infinite loop
-      const areArraysEqual = (a: number[], b: number[]) => {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-          if (a[i] !== b[i]) return false;
-        }
-        return true;
-      };
-
-      setSelectedServiceIds(prevIds => {
-        if (areArraysEqual(prevIds, ids)) {
-          return prevIds; // No change, avoid state update
-        }
-        return ids;
-      });
-    } else if (!isEditing) {
-      setSelectedServiceIds([]);
-    }
-  }, [linkedServicesList, isEditing]);
 
   // ... (restante do componente)
 };
