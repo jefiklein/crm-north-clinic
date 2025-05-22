@@ -107,7 +107,7 @@ const REQUIRED_PERMISSION_LEVEL = 2;
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(selectedConversationId); // Keep selected conversation state
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null); // Fixed: initial state is null
   const [initialLoadDone, setInitialLoadDone] = useState(false); // State to track initial load
 
   const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
