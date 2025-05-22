@@ -159,7 +159,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                 const { data, error } = await supabase
                     .from('north_clinic_config_instancias')
                     .select('id, nome_exibição, telefone, nome_instancia_evolution') // Select necessary fields
-                    .eq('id_clinica', clinicId); // Filter by clinic ID
+                    // .eq('id_clinica', clinicId) // REMOVED filter for debug
+                    .order('nome_exibição', { ascending: true });
 
                 console.log("[MensagensListPage] Supabase instances fetch result:", { data, error });
 
