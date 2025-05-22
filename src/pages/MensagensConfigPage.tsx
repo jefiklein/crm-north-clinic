@@ -657,38 +657,22 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         const category = formData.categoria;
         const instanceId = formData.id_instancia;
 
-        // Hide all conditional groups first
-        const scheduledTimeGroupEl = document.getElementById('scheduledTimeGroup');
-        const birthdayTimeGroupEl = document.getElementById('birthdayTimeGroup');
+        // Hide elements that are conditionally rendered in JSX
+        // No need to hide scheduledTimeGroupEl, birthdayTimeGroupEl, targetTypeGroupEl, groupSelectionGroupEl here
         const serviceSelectionGroupEl = document.getElementById('serviceSelectionGroup');
-        // const targetTypeGroupEl = document.getElementById('targetTypeGroup'); // Removed as it's conditionally rendered
-        const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
 
-        if (scheduledTimeGroupEl) scheduledTimeGroupEl.style.display = 'none';
-        if (birthdayTimeGroupEl) birthdayTimeGroupEl.style.display = 'none';
-        if (groupSelectionGroupEl) groupSelectionGroupEl.style.display = 'none';
-        // if (targetTypeGroupEl) targetTypeGroupEl.style.display = 'none'; // Removed
         // Service selection is visible by default unless category is 'Aniversário'
-        if (serviceSelectionGroupEl) serviceSelectionGroupEl.style.display = 'block';
-
-
-        // Show relevant fields based on category
-        switch (category) {
-            case 'Confirmar Agendamento':
-                if (scheduledTimeGroupEl) scheduledTimeGroupEl.style.display = 'block';
-                break;
-            case 'Aniversário':
-                if (birthdayTimeGroupEl) birthdayTimeGroupEl.style.display = 'block';
-                if (serviceSelectionGroupEl) serviceSelectionGroupEl.style.display = 'none'; // Corrected ID
-                break;
-            case 'Chegou':
-            case 'Liberado':
-                // Target type group is now conditionally rendered in JSX
-                // We still need to trigger group select visibility logic here
-                const currentTargetType = formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'));
-                handleTargetTypeChange(currentTargetType); // This will handle showing/hiding group select and fetching
-                break;
+        if (serviceSelectionGroupEl) {
+             serviceSelectionGroupEl.style.display = (category === 'Aniversário') ? 'none' : 'block';
         }
+
+
+        // Trigger group select visibility logic based on category and target type
+        // This will also trigger group fetching if needed
+        // Pass current target type based on formData
+        const currentTargetType = formData.para_grupo ? 'Grupo' : (formData.para_cliente ? 'Cliente' : (formData.para_funcionario ? 'Funcionário' : 'Grupo'));
+        handleTargetTypeChange(currentTargetType); // This will handle showing/hiding group select and fetching
+
 
         // If category changes to something that doesn't show target type or group,
         // ensure para_grupo, para_cliente, para_funcionario are reset to defaults
@@ -700,9 +684,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                  para_cliente: false,
                  grupo: '' // Clear group selection
              }));
-             // Also ensure group select is hidden
-             const groupSelectionGroupEl = document.getElementById('groupSelectionGroup');
-             if (groupSelectionGroupEl) groupSelectionGroupEl.style.display = 'none';
+             // Also ensure group select is hidden (handled by useEffect watching para_grupo/categoria)
         }
 
 
@@ -925,6 +907,15 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
          }));
          // Special handling for category and target type changes
          if (id === 'categoria') {
+             // When category changes, reset target type and group to defaults
+             setFormData(prev => ({
+                 ...prev,
+                 categoria: value,
+                 para_funcionario: false,
+                 para_grupo: true, // Default back to group
+                 para_cliente: false,
+                 grupo: '' // Clear group selection
+             }));
              // useEffect handles category-specific visibility and group fetching logic
          } else if (id === 'targetTypeSelect') {
              handleTargetTypeChange(value);
@@ -992,7 +983,14 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
 
         // Add conditional fields (Hora, Grupo, Target Type)
-        if (currentFormData.hora_envio) dataToSave.append('hora_envio', currentFormData.hora_envio);
+        // Only append hora_envio if category requires it
+        if (currentFormData.categoria === 'Confirmar Agendamento' || currentFormData.categoria === 'Aniversário') {
+             if (currentFormData.hora_envio) dataToSave.append('hora_envio', currentFormData.hora_envio);
+        } else {
+             dataToSave.append('hora_envio', ''); // Ensure empty string if not applicable
+        }
+
+
         // Only append grupo if category is Chegou/Liberado AND target is Grupo
         if ((currentFormData.categoria === 'Chegou' || currentFormData.categoria === 'Liberado') && currentFormData.para_grupo && currentFormData.grupo) {
              dataToSave.append('grupo', currentFormData.grupo); // Group ID
@@ -1687,73 +1685,79 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                         </div>
 
                         {/* Scheduled Time Group (Visible only for Confirmar Agendamento) */}
-                        <div className="form-group" id="scheduledTimeGroup">
-                            <Label htmlFor="hora_envio">Hora Programada (Confirmação) *</Label>
-                            <Select
-                                id="hora_envio"
-                                value={formData.hora_envio}
-                                onValueChange={(value) => handleSelectChange('hora_envio', value)}
-                                disabled={isLoading}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="-- Selecione a Hora * --" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {/* Example times - populate dynamically if needed */}
-                                    <SelectItem value="08:00">08:00</SelectItem>
-                                    <SelectItem value="08:30">08:30</SelectItem>
-                                    <SelectItem value="09:00">09:00</SelectItem>
-                                    <SelectItem value="09:30">09:30</SelectItem>
-                                    <SelectItem value="10:00">10:00</SelectItem>
-                                    <SelectItem value="10:30">10:30</SelectItem>
-                                    <SelectItem value="11:00">11:00</SelectItem>
-                                    <SelectItem value="11:30">11:30</SelectItem>
-                                    <SelectItem value="12:00">12:00</SelectItem>
-                                    <SelectItem value="12:30">12:30</SelectItem>
-                                    <SelectItem value="13:00">13:00</SelectItem>
-                                    <SelectItem value="13:30">13:30</SelectItem>
-                                    <SelectItem value="14:00">14:00</SelectItem>
-                                    <SelectItem value="14:30">14:30</SelectItem>
-                                    <SelectItem value="15:00">15:00</SelectItem>
-                                    <SelectItem value="15:30">15:30</SelectItem>
-                                    <SelectItem value="16:00">16:00</SelectItem>
-                                    <SelectItem value="16:30">16:30</SelectItem>
-                                    <SelectItem value="17:00">17:00</SelectItem>
-                                    <SelectItem value="17:30">17:30</SelectItem>
-                                    <SelectItem value="18:00">18:00</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-gray-500 mt-1">Hora de envio da mensagem de lembrete/confirmação.</p>
-                        </div>
+                        {formData.categoria === 'Confirmar Agendamento' && (
+                            <div className="form-group" id="scheduledTimeGroup">
+                                <Label htmlFor="hora_envio">Hora Programada (Confirmação) *</Label>
+                                <Select
+                                    id="hora_envio"
+                                    value={formData.hora_envio}
+                                    onValueChange={(value) => handleSelectChange('hora_envio', value)}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="-- Selecione a Hora * --" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {/* Example times - populate dynamically if needed */}
+                                        <SelectItem value="08:00">08:00</SelectItem>
+                                        <SelectItem value="08:30">08:30</SelectItem>
+                                        <SelectItem value="09:00">09:00</SelectItem>
+                                        <SelectItem value="09:30">09:30</SelectItem>
+                                        <SelectItem value="10:00">10:00</SelectItem>
+                                        <SelectItem value="10:30">10:30</SelectItem>
+                                        <SelectItem value="11:00">11:00</SelectItem>
+                                        <SelectItem value="11:30">11:30</SelectItem>
+                                        <SelectItem value="12:00">12:00</SelectItem>
+                                        <SelectItem value="12:30">12:30</SelectItem>
+                                        <SelectItem value="13:00">13:00</SelectItem>
+                                        <SelectItem value="13:30">13:30</SelectItem>
+                                        <SelectItem value="14:00">14:00</SelectItem>
+                                        <SelectItem value="14:30">14:30</SelectItem>
+                                        <SelectItem value="15:00">15:00</SelectItem>
+                                        <SelectItem value="15:30">15:30</SelectItem>
+                                        <SelectItem value="16:00">16:00</SelectItem>
+                                        <SelectItem value="16:30">16:30</SelectItem>
+                                        <SelectItem value="17:00">17:00</SelectItem>
+                                        <SelectItem value="17:30">17:30</SelectItem>
+                                        <SelectItem value="18:00">18:00</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">Hora de envio da mensagem de lembrete/confirmação.</p>
+                            </div>
+                        )}
+
 
                         {/* Birthday Time Group (Visible only for Aniversário) */}
-                        <div className="form-group" id="birthdayTimeGroup">
-                            <Label htmlFor="hora_envio_aniversario">Hora de Envio (Aniversário) *</Label>
-                            <Select
-                                id="hora_envio_aniversario" // Use a different ID if needed, or handle logic based on category
-                                value={formData.hora_envio} // Still maps to hora_envio in state
-                                onValueChange={(value) => handleSelectChange('hora_envio', value)}
-                                disabled={isLoading}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="-- Selecione a Hora * --" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {/* Example times - populate dynamically if needed */}
-                                    <SelectItem value="08:00">08:00</SelectItem>
-                                    <SelectItem value="09:00">09:00</SelectItem>
-                                    <SelectItem value="10:00">10:00</SelectItem>
-                                    <SelectItem value="11:00">11:00</SelectItem>
-                                    <SelectItem value="12:00">12:00</SelectItem>
-                                    <SelectItem value="13:00">13:00</SelectItem>
-                                    <SelectItem value="14:00">14:00</SelectItem>
-                                    <SelectItem value="15:00">15:00</SelectItem>
-                                    <SelectItem value="16:00">16:00</SelectItem>
-                                    <SelectItem value="17:00">17:00</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-gray-500 mt-1">Hora de envio da mensagem de aniversário.</p>
-                        </div>
+                        {formData.categoria === 'Aniversário' && (
+                            <div className="form-group" id="birthdayTimeGroup">
+                                <Label htmlFor="hora_envio_aniversario">Hora de Envio (Aniversário) *</Label>
+                                <Select
+                                    id="hora_envio_aniversario" // Use a different ID if needed, or handle logic based on category
+                                    value={formData.hora_envio} // Still maps to hora_envio in state
+                                    onValueChange={(value) => handleSelectChange('hora_envio', value)}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="-- Selecione a Hora * --" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {/* Example times - populate dynamically if needed */}
+                                        <SelectItem value="08:00">08:00</SelectItem>
+                                        <SelectItem value="09:00">09:00</SelectItem>
+                                        <SelectItem value="10:00">10:00</SelectItem>
+                                        <SelectItem value="11:00">11:00</SelectItem>
+                                        <SelectItem value="12:00">12:00</SelectItem>
+                                        <SelectItem value="13:00">13:00</SelectItem>
+                                        <SelectItem value="14:00">14:00</SelectItem>
+                                        <SelectItem value="15:00">15:00</SelectItem>
+                                        <SelectItem value="16:00">16:00</SelectItem>
+                                        <SelectItem value="17:00">17:00</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">Hora de envio da mensagem de aniversário.</p>
+                            </div>
+                        )}
+
 
                         {/* Target Type Group (Visible only for Chegou/Liberado) */}
                         {(formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && (
