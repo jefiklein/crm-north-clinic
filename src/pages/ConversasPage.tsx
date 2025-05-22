@@ -341,6 +341,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
+              // Log for debugging
+              console.log(`Conversation ${conversationId} lastMessageTimestamp:`, lastMessageTimestamp);
+
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
                 lastMessagePreview = conv.lastMessage.trim().substring(0, 50) + (conv.lastMessage.trim().length > 50 ? '...' : '');
@@ -364,7 +367,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp}</span>
+                    <span className="text-xs text-red-600 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
