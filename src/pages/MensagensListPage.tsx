@@ -357,7 +357,9 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                         <TableBody id="messageTableBody" className="divide-y divide-gray-200">
                             {messagesList?.map(message => {
                                 const isExpanded = expandedPreviews.has(message.id);
-                                const instance = instanceMap.get(message.id_instancia || -1); // Use -1 for null/undefined lookup
+                                // Convert id_instancia to number for map lookup, handle null/undefined
+                                const instanceIdNum = message.id_instancia !== null && message.id_instancia !== undefined ? Number(message.id_instancia) : -1;
+                                const instance = instanceMap.get(instanceIdNum);
                                 const instanceName = instance ? (instance.nome_exibição || `ID ${instance.id}`) : "Não definida";
                                 const instanceClass = instance ? '' : 'not-set';
 
