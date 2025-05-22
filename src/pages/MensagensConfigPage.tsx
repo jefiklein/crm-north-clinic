@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Save, XCircle, Smile, Tags, FileText, Video, Music, Download, Zap, Trash } from 'lucide-react';
+import { Loader2, TriangleAlert } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
@@ -48,7 +47,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
   const clinicId = clinicData?.id;
 
-  // Form state - keep stable, do not reset unnecessarily
+  // Form state
   const [formData, setFormData] = useState({
     categoria: initialCategoryFromUrl || '',
     id_instancia: '',
@@ -162,8 +161,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
       const selectedValues = choicesServicesRef.current?.getValue(true);
       setFormData(prev => ({
         ...prev,
-        // Store as comma-separated string or array as needed
-        // Here storing as comma-separated string for simplicity
         variacao_1: Array.isArray(selectedValues) ? selectedValues.join(',') : selectedValues || '',
       }));
     };
@@ -175,17 +172,99 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     };
   }, [choicesServicesRef.current]);
 
-  // Render the select always, avoid conditional rendering to prevent remounts
+  // Handlers for other form fields
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  // Save mutation (example, adjust as needed)
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      // Prepare payload
+      const payload = {
+        ...formData,
+        id_clinica: clinicId,
+        id: isEditing ? parseInt(messageId!, 10) : undefined,
+      };
+      // Call your API or webhook here
+      console.log("Saving message with payload:", payload);
+      // Simulate success
+      return new Promise((resolve) => setTimeout(resolve, 1000));
+    },
+    onSuccess: () => {
+      showSuccess("Mensagem salva com sucesso!");
+      queryClient.invalidateQueries(['servicesListConfigPage', clinicId]);
+      queryClient.invalidateQueries(['linkedServicesConfigPage', messageId]);
+      navigate('/dashboard/11'); // Redirect back to messages list
+    },
+    onError: (error: any) => {
+      showError(`Erro ao salvar mensagem: ${error.message || error}`);
+    },
+  });
+
+  if (!clinicData) {
+    return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+  }
+
   return (
     <div className="mensagens-config-container p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
       <Card>
         <CardHeader>
-          <CardTitle>Configurar Mensagem Automática</CardTitle>
+          <CardTitle>{isEditing ? 'Editar Mensagem Automática' : 'Nova Mensagem Automática'}</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Other form fields here... */}
+          <div className="mb-4">
+            <Label htmlFor="categoria">Categoria</Label>
+            <Input
+              id="categoria"
+              name="categoria"
+              value={formData.categoria}
+              onChange={handleInputChange}
+              placeholder="Categoria da mensagem"
+            />
+          </div>
 
-          <div className="form-group">
+          <div className="mb-4">
+            <Label htmlFor="modelo_mensagem">Modelo de Mensagem</Label>
+            <Textarea
+              id="modelo_mensagem"
+              name="modelo_mensagem"
+              value={formData.modelo_mensagem}
+              onChange={handleInputChange}
+              placeholder="Digite o modelo da mensagem"
+              rows={5}
+            />
+          </div>
+
+          <div className="mb-4">
+            <Label htmlFor="hora_envio">Hora de Envio (HH:mm)</Label>
+            <Input
+              id="hora_envio"
+              name="hora_envio"
+              type="time"
+              value={formData.hora_envio}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          <div className="mb-4">
+            <Label htmlFor="prioridade">Prioridade</Label>
+            <Input
+              id="prioridade"
+              name="prioridade"
+              type="number"
+              min={1}
+              value={formData.prioridade}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          <div className="mb-4">
             <Label htmlFor="serviceSelect">Serviços Vinculados *</Label>
             <select
               id="serviceSelect"
@@ -206,8 +285,47 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
             )}
           </div>
 
-          {/* Other form fields and buttons */}
-          <Button onClick={() => console.log("Salvar mensagem com dados:", formData)}>Salvar</Button>
+          <div className="mb-4 flex items-center gap-4">
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="para_funcionario"
+                checked={formData.para_funcionario}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              Para Funcionário
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="para_grupo"
+                checked={formData.para_grupo}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              Para Grupo
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="para_cliente"
+                checked={formData.para_cliente}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              Para Cliente
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-4">
+            <Button variant="secondary" onClick={() => navigate('/dashboard/11')}>
+              Cancelar
+            </Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isLoading}>
+              {saveMutation.isLoading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
