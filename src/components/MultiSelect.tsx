@@ -36,13 +36,9 @@ export function MultiSelect<T extends Record<string, any>>({
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
 
-  React.useEffect(() => {
-    console.log("MultiSelect: open state changed to", open);
-  }, [open]);
-
   // Filter options based on inputValue
   const filteredOptions = React.useMemo(() => {
-    if (!inputValue) return options;
+    if (!inputValue.trim()) return options;
     return options.filter((option) =>
       String(option[labelKey])
         .toLowerCase()
@@ -66,15 +62,34 @@ export function MultiSelect<T extends Record<string, any>>({
   // Display selected labels joined by comma
   const displayValue = value.map((v) => String(v[labelKey])).join(", ");
 
+  // Close dropdown when clicking outside
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setInputValue("");
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      setInputValue("");
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
   return (
-    <div className={cn("relative w-full", className)}>
+    <div ref={containerRef} className={cn("relative w-full", className)}>
       <button
-        type="button" // Important to prevent form submit
+        type="button" // Prevent form submit
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => {
           if (!disabled) {
-            setOpen(!open);
+            setOpen((o) => !o);
           }
         }}
         disabled={disabled}
