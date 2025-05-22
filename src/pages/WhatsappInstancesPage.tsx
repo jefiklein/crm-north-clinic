@@ -149,25 +149,73 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         refetchOnWindowFocus: false,
     });
 
-    // Filter instances based on search term
-    const filteredInstances = useMemo(() => {
-        if (!instancesList) return [];
-        const lowerSearchTerm = searchTerm.toLowerCase();
-        return instancesList.filter(instance => {
-            const name = instance.nome_exibição?.toLowerCase() || '';
-            const phone = instance.telefone?.toString() || '';
-            const type = instance.tipo?.toLowerCase() || '';
-            const techName = instance.nome_instancia_evolution?.toLowerCase() || instance.nome_instancia?.toLowerCase() || '';
-            const id = instance.id?.toString() || '';
-            return name.includes(lowerSearchTerm) ||
-                   phone.includes(lowerSearchTerm) ||
-                   type.includes(lowerSearchTerm) ||
-                   techName.includes(lowerSearchTerm) ||
-                   id.includes(lowerSearchTerm);
-        });
-    }, [instancesList, searchTerm]);
+    // State to hold statuses of instances by their identifier (nome_instancia_evolution or nome_instancia)
+    const [instanceStatuses, setInstanceStatuses] = useState<Record<string, InstanceStatus>>({});
 
-    // --- Instance Actions (Mutations) ---
+    // Function to fetch status for a single instance
+    const fetchInstanceStatus = async (instanceIdentifier: string): Promise<InstanceStatus | null> => {
+        try {
+            const response = await fetch(INSTANCE_STATUS_WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome_instancia: instanceIdentifier })
+            });
+
+            if (!response.ok && response.status !== 404) {
+                const errorText = await response.text();
+                console.error(`[WhatsappInstancesPage] Status fetch failed for ${instanceIdentifier}: ${response.status} - ${errorText}`);
+                return null;
+            }
+            if (response.status === 404) {
+                // Not found, treat as not connected
+                return { instance: { state: 'not_found', status: 'not_found' } };
+            }
+
+            const statusData: InstanceStatus[] = await response.json();
+            if (Array.isArray(statusData) && statusData.length > 0 && statusData[0]?.instance?.state) {
+                return statusData[0];
+            } else {
+                console.warn(`[WhatsappInstancesPage] Unexpected status response format for ${instanceIdentifier}:`, statusData);
+                return { instance: { state: 'unknown', status: 'unknown' } };
+            }
+        } catch (error) {
+            console.error(`[WhatsappInstancesPage] Error fetching status for ${instanceIdentifier}:`, error);
+            return null;
+        }
+    };
+
+    // Effect to fetch statuses for all instances when instancesList changes
+    useEffect(() => {
+        if (!instancesList || instancesList.length === 0) {
+            setInstanceStatuses({});
+            return;
+        }
+
+        // Fetch all statuses in parallel
+        const fetchAllStatuses = async () => {
+            const statusEntries = await Promise.all(
+                instancesList.map(async (instance) => {
+                    const identifier = instance.nome_instancia_evolution || instance.nome_instancia || '';
+                    if (!identifier) return null;
+                    const status = await fetchInstanceStatus(identifier);
+                    return status ? [identifier, status] : null;
+                })
+            );
+
+            // Filter out nulls and build object
+            const statusMap: Record<string, InstanceStatus> = {};
+            statusEntries.forEach(entry => {
+                if (entry) {
+                    const [id, status] = entry;
+                    statusMap[id] = status;
+                }
+            });
+
+            setInstanceStatuses(statusMap);
+        };
+
+        fetchAllStatuses();
+    }, [instancesList]);
 
     // Mutation for getting QR Code
     const qrCodeMutation = useMutation({
@@ -212,13 +260,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
         onError: (error: Error, instanceIdentifier) => {
             showError(`Erro ao gerar QR Code para ${instanceIdentifier}: ${error.message}`);
-            // Update status element if possible
-            const statusEl = document.getElementById(`status-${instanceIdentifier}`);
-            if(statusEl) {
-                 statusEl.innerHTML = `<span class="${cn('status-desconectado', 'flex items-center gap-1')}"><${XCircle.displayName} class="h-4 w-4" /> Falha QR</span><button class="${cn('btn-reconnect', 'ml-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90')}"><${RefreshCw.displayName} class="h-3 w-3" /> Reconectar</button>`;
-                 const btn = statusEl.querySelector('.btn-reconnect');
-                 if(btn) btn.onclick = () => handleReconnectClick(instanceIdentifier); // Re-attach handler
-            }
         },
     });
 
@@ -226,62 +267,50 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const checkStatusMutation = useMutation({
         mutationFn: async (instanceIdentifier: string) => {
             console.log(`[WhatsappInstancesPage] Polling status for: ${instanceIdentifier}`);
-             const statusWebhookUrl = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-a64b-d1b7fd78dddc`;
-            const response = await fetch(statusWebhookUrl, {
+            const response = await fetch(INSTANCE_STATUS_WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nome_instancia: instanceIdentifier })
             });
 
             if (!response.ok && response.status !== 404) { // 404 is expected if instance is not ready/registered in Evolution
-                 const errorText = await response.text();
-                 console.error(`[WhatsappInstancesPage] Polling status check failed for ${instanceIdentifier}: ${response.status} - ${errorText}`);
-                 throw new Error(`Erro ${response.status}`);
+                const errorText = await response.text();
+                console.error(`[WhatsappInstancesPage] Polling status check failed for ${instanceIdentifier}: ${response.status} - ${errorText}`);
+                throw new Error(`Erro ${response.status}`);
             }
-             if (response.status === 404) {
-                 console.log(`[WhatsappInstancesPage] Status 404 for ${instanceIdentifier}, likely not ready yet.`);
-                 return { instance: { state: 'not_found', status: 'not_found' } } as InstanceStatus;
-             }
+            if (response.status === 404) {
+                console.log(`[WhatsappInstancesPage] Status 404 for ${instanceIdentifier}, likely not ready yet.`);
+                return { instance: { state: 'not_found', status: 'not_found' } } as InstanceStatus;
+            }
 
             const statusData: InstanceStatus[] = await response.json();
-             if (Array.isArray(statusData) && statusData.length > 0 && statusData[0]?.instance?.state) {
-                 return statusData[0]; // Return the first status object
-             } else {
-                 console.warn(`[WhatsappInstancesPage] Unexpected status response format for ${instanceIdentifier}:`, statusData);
-                 return { instance: { state: 'unknown', status: 'unknown' } } as InstanceStatus;
-             }
+            if (Array.isArray(statusData) && statusData.length > 0 && statusData[0]?.instance?.state) {
+                return statusData[0]; // Return the first status object
+            } else {
+                console.warn(`[WhatsappInstancesPage] Unexpected status response format for ${instanceIdentifier}:`, statusData);
+                return { instance: { state: 'unknown', status: 'unknown' } } as InstanceStatus;
+            }
         },
         onSuccess: (data, instanceIdentifier) => {
-            const statusEl = document.getElementById(`status-${instanceIdentifier}`);
-            if (!statusEl) return;
+            // Update the status in the state
+            setInstanceStatuses(prev => ({
+                ...prev,
+                [instanceIdentifier]: data
+            }));
 
             const state = data?.instance?.state;
             console.log(`[WhatsappInstancesPage] Polling status received for ${instanceIdentifier}: ${state}`);
 
             if (state === "open") {
-                console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} connected! Stopping polling.`);
                 stopConnectionPolling();
                 stopQrTimer();
                 setIsQrModalOpen(false); // Close QR modal on success
                 showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
-                statusEl.innerHTML = `<span class="${cn('status-conectado', 'flex items-center gap-1')}"><${CheckCircle2.displayName} class="h-4 w-4" /> Conectado</span>`;
-                // Optional: Highlight the list item briefly
-                 const itemEl = statusEl.closest('.whatsapp-item');
-                 if(itemEl) {
-                     itemEl.classList.add('bg-green-100');
-                     setTimeout(() => { itemEl.classList.remove('bg-green-100'); }, 2000);
-                 }
-                 refetchInstances(); // Refetch the list to get updated status if needed
-            } else if (state === "close" || state === "not_found") {
-                 // Keep polling if state is close or not_found, unless timeout is reached
-                 console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} state is ${state}, continuing polling.`);
-            } else {
-                 console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} state is ${state}, continuing polling.`);
+                refetchInstances(); // Refetch the list to get updated status if needed
             }
         },
         onError: (error: Error, instanceIdentifier) => {
             console.error(`[WhatsappInstancesPage] Polling status error for ${instanceIdentifier}:`, error.message);
-            // Polling errors don't necessarily stop the process unless it's a timeout
         },
     });
 
@@ -327,7 +356,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}_${Date.now().toString().slice(-8)}`; // Added timestamp slice
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
-            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf91202e7`; // Corrected webhook URL based on previous turn
+            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Corrected webhook URL based on previous turn
             const evolutionResponse = await fetch(evolutionWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -488,15 +517,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     setIsQrModalOpen(false); // Close QR modal on success
                     showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
                     // Update status in the list item directly for immediate feedback
-                    const statusEl = document.getElementById(`status-${instanceIdentifier}`);
-                    if (statusEl) {
-                         statusEl.innerHTML = `<span class="${cn('status-conectado', 'flex items-center gap-1')}"><${CheckCircle2.displayName} class="h-4 w-4" /> Conectado</span>`;
-                         const itemEl = statusEl.closest('.whatsapp-item');
-                         if(itemEl) {
-                             itemEl.classList.add('bg-green-100');
-                             setTimeout(() => { itemEl.classList.remove('bg-green-100'); }, 2000);
-                         }
-                    }
                     refetchInstances(); // Refetch the list to get updated status if needed
                 } else {
                     console.log(`[WhatsappInstancesPage] Instance ${instanceIdentifier} not connected yet. State: ${status?.instance?.state}`);
@@ -511,13 +531,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             console.warn(`[WhatsappInstancesPage] Polling timeout reached for ${instanceIdentifier}. Stopping connection check.`);
             stopConnectionPolling();
             showError(`Tempo limite para conectar a instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" excedido. Tente reconectar manualmente.`);
-             // Update status element to show it timed out
-             const statusEl = document.getElementById(`status-${instanceIdentifier}`);
-             if(statusEl) {
-                  statusEl.innerHTML = `<span class="${cn('status-desconectado', 'flex items-center gap-1')}"><${XCircle.displayName} class="h-4 w-4" /> Timeout</span><button class="${cn('btn-reconnect', 'ml-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90')}"><${RefreshCw.displayName} class="h-3 w-3" /> Reconectar</button>`;
-                  const btn = statusEl.querySelector('.btn-reconnect');
-                  if(btn) btn.onclick = () => handleReconnectClick(instanceIdentifier); // Re-attach handler
-             }
         }, POLLING_TIMEOUT_MS);
     };
 
@@ -540,11 +553,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         if (instance) {
             setCurrentInstanceForQr(instance);
             qrCodeMutation.mutate(instanceIdentifier);
-             // Update status element immediately to show loading
-             const statusEl = document.getElementById(`status-${instanceIdentifier}`);
-             if(statusEl) {
-                  statusEl.innerHTML = `<span class="${cn('status-desconectado', 'flex items-center gap-1')}"><${Loader2.displayName} class="h-4 w-4 animate-spin" /> Gerando QR...</span>`;
-             }
         } else {
             showError("Dados da instância não encontrados para reconectar.");
         }
@@ -554,24 +562,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         if (window.confirm(`Tem certeza que deseja excluir a instância "${instanceName}" (ID: ${instanceId})?\n\nATENÇÃO: Esta ação não pode ser desfeita!`)) {
             deleteInstanceMutation.mutate(instanceId);
         }
-    };
-
-    const handleAddInstanceSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setAddInstanceAlert(null); // Clear previous alerts
-
-        const { nome_exibição, telefone, tipo } = addInstanceFormData;
-
-        if (!nome_exibição || !telefone || !tipo) {
-            setAddInstanceAlert({ message: 'Por favor, preencha todos os campos obrigatórios.', type: 'error' });
-            return;
-        }
-        if (!validatePhone(telefone)) {
-            setAddInstanceAlert({ message: 'Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).', type: 'error' });
-            return;
-        }
-
-        createInstanceMutation.mutate(addInstanceFormData);
     };
 
 
@@ -617,7 +607,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                          />
                     </div>
                     <span id="recordsCount" className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoadingInstances ? 'Carregando...' : `${filteredInstances.length} / ${instancesList?.length || 0} registro(s)`}
+                        {isLoadingInstances ? 'Carregando...' : `${instancesList?.length || 0} registro(s)`}
                     </span>
                 </div>
                 <Button onClick={() => setIsAddInstanceModalOpen(true)} className="flex-shrink-0">
@@ -638,21 +628,59 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             <span className="text-lg text-center">Erro ao carregar instâncias: {instancesError.message}</span>
                             <Button variant="outline" onClick={() => refetchInstances()} className="mt-4">Tentar Novamente</Button>
                         </div>
-                    ) : filteredInstances.length === 0 && searchTerm !== '' ? (
-                         <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
-                            <span className="text-lg text-center">Nenhuma instância encontrada com o filtro "{searchTerm}".</span>
-                        </div>
-                    ) : filteredInstances.length === 0 ? (
+                    ) : (instancesList?.length || 0) === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
                             <Info className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Nenhuma instância encontrada.</span>
                         </div>
                     ) : (
                         <ScrollArea className="h-full">
-                            {filteredInstances.map(instance => {
-                                const instanceIdentifier = instance.nome_instancia_evolution || instance.nome_instancia;
+                            {instancesList.map(instance => {
+                                const instanceIdentifier = instance.nome_instancia_evolution || instance.nome_instancia || '';
                                 const instanceDbId = instance.id; // Use DB ID for delete
+                                const status = instanceStatuses[instanceIdentifier];
+
+                                // Determine status display
+                                let statusContent = (
+                                    <span className="flex items-center gap-1 text-sm font-medium text-gray-500">
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando status...
+                                    </span>
+                                );
+
+                                if (status) {
+                                    const state = status.instance?.state || 'unknown';
+                                    if (state === 'open') {
+                                        statusContent = (
+                                            <span className="flex items-center gap-1 text-green-600 font-semibold">
+                                                <CheckCircle2 className="h-4 w-4" /> Conectado
+                                            </span>
+                                        );
+                                    } else if (state === 'close') {
+                                        statusContent = (
+                                            <span className="flex items-center gap-1 text-red-600 font-semibold">
+                                                <XCircle className="h-4 w-4" /> Desconectado
+                                            </span>
+                                        );
+                                    } else if (state === 'connecting') {
+                                        statusContent = (
+                                            <span className="flex items-center gap-1 text-yellow-600 font-semibold">
+                                                <Loader2 className="h-4 w-4 animate-spin" /> Conectando
+                                            </span>
+                                        );
+                                    } else if (state === 'not_found') {
+                                        statusContent = (
+                                            <span className="flex items-center gap-1 text-gray-600 font-semibold">
+                                                <XCircle className="h-4 w-4" /> Não Encontrado
+                                            </span>
+                                        );
+                                    } else {
+                                        statusContent = (
+                                            <span className="flex items-center gap-1 text-gray-600 font-semibold">
+                                                <XCircle className="h-4 w-4" /> {state}
+                                            </span>
+                                        );
+                                    }
+                                }
 
                                 return (
                                     <div
@@ -668,9 +696,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                 {instanceIdentifier && ` | Tech: ${instanceIdentifier}`} {/* Show tech name */}
                                             </span>
                                         </div>
-                                        <div id={`status-${instanceIdentifier}`} className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 ml-auto">
-                                            {/* Status will be loaded here */}
-                                            <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando status...
+                                        <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 ml-auto">
+                                            {statusContent}
                                         </div>
                                         {instanceDbId ? (
                                             <Button
@@ -747,7 +774,23 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     <DialogHeader>
                         <DialogTitle>Adicionar Nova Instância</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleAddInstanceSubmit}>
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        setAddInstanceAlert(null); // Clear previous alerts
+
+                        const { nome_exibição, telefone, tipo } = addInstanceFormData;
+
+                        if (!nome_exibição || !telefone || !tipo) {
+                            setAddInstanceAlert({ message: 'Por favor, preencha todos os campos obrigatórios.', type: 'error' });
+                            return;
+                        }
+                        if (!validatePhone(telefone)) {
+                            setAddInstanceAlert({ message: 'Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).', type: 'error' });
+                            return;
+                        }
+
+                        createInstanceMutation.mutate(addInstanceFormData);
+                    }}>
                         <div className="grid gap-4 py-4">
                             {addInstanceAlert && (
                                 <div className={cn(
