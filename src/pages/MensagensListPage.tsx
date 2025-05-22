@@ -60,14 +60,6 @@ interface MensagensListPageProps {
     clinicData: ClinicData | null;
 }
 
-// Webhook URLs (Keeping mutations webhooks for now)
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-// REMOVED: const MESSAGES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/17fc5ed8-b363-4786-ab1b-daa43f63f818`; // Webhook para lista de mensagens
-// REMOVED: const INSTANCES_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`; // Webhook para lista de instâncias
-const MESSAGE_TOGGLE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4`; // Webhook para ativar/desativar
-const MESSAGE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/4632ce57-e78a-4c62-9578-5a33b576ad73`; // Webhook para excluir
-// const MESSAGE_EDIT_PAGE_URL = `${N8N_BASE_URL}/webhook/detalhe-mensagem`; // URL da página de edição (externa) - REMOVED
-
 // Placeholder data for message simulation
 const placeholderData = {
     primeiro_nome_cliente: "Maria",
@@ -210,7 +202,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             console.log(`[MensagensListPage] Toggling message ID ${id} to active: ${ativo}`);
             // This mutation still uses a webhook. If you want to migrate this to Supabase,
             // you would use supabase.from('north_clinic_config_mensagens').update({ ativo: ativo }).eq('id', id).eq('id_clinica', clinicId);
-            const response = await fetch(MESSAGE_TOGGLE_WEBHOOK_URL, {
+            const response = await fetch('https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: id, ativo: ativo, id_clinica: clinicId }) // Sending ID, new status, and clinic ID
@@ -237,7 +229,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             console.log(`[MensagensListPage] Deleting message ID ${id}`);
              // This mutation still uses a webhook. If you want to migrate this to Supabase,
             // you would use supabase.from('north_clinic_config_mensagens').delete().eq('id', id).eq('id_clinica', clinicId);
-            const response = await fetch(MESSAGE_DELETE_WEBHOOK_URL, {
+            const response = await fetch('https://n8n-n8n.sbw0pc.easypanel.host/webhook/4632ce57-e78a-4c62-9578-5a33b576ad73', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: id, id_clinica: clinicId }) // Sending ID and clinic ID
@@ -262,23 +254,19 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
 
     // Handle click on "Configurar Nova Mensagem" button
     const handleAddMessage = () => {
-        console.log("[MensagensListPage] Navigating to add new message page...");
-        if (!clinicData?.code) { // Use clinicData.code for the URL param
+        if (!clinicData?.code) {
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Use navigate to go to the internal config page, passing clinic code
         navigate(`/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
     // Handle click on "Editar" button
     const handleEditMessage = (messageId: number) => {
-        console.log(`[MensagensListPage] Navigating to edit message ID: ${messageId}`);
-         if (!clinicData?.code) { // Use clinicData.code for the URL param
+         if (!clinicData?.code) {
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Use navigate to go to the internal config page, passing message ID and clinic code
         navigate(`/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
@@ -316,17 +304,6 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
-    // Check if user has permission (assuming permission level 11 requires access_config_msg or id_permissao >= X)
-    // Based on the HTML, it seems this page might require a specific permission level,
-    // but the HTML JS only checks clinicData.code/nome. Let's assume for now
-    // that if clinicData exists, they have basic access, but maybe some actions
-    // require higher permission (not implemented here based on HTML).
-    // If a specific permission level is needed for the *page*, add it here:
-    // const REQUIRED_PAGE_PERMISSION = 11; // Example
-    // const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
-    // const hasPagePermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PAGE_PERMISSION;
-    // if (!hasPagePermission) { /* Render permission denied message */ }
-
 
     return (
         <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -335,7 +312,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                     {clinicData?.nome} | Mensagens Automáticas
                 </h1>
                 <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0">
-                    <Plus className="h-4 w-4 mr-2" /> Configurar Nova Mensagem
+                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem
                 </Button>
             </div>
 
@@ -363,19 +340,19 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                     <p className="text-lg">Nenhuma mensagem automática configurada encontrada.</p>
                 </div>
             ) : (
-                <div id="messageListContainer" className="overflow-x-auto">
-                    <Table className="message-table">
-                        <thead>
-                            <tr>
-                                <TableHead>Categoria</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Instância</TableHead>
-                                <TableHead className="text-center">Prioridade</TableHead> {/* Added Priority Header */}
+                <div id="messageListContainer" className="overflow-x-auto rounded-md border border-gray-200 shadow-sm">
+                    <Table className="message-table min-w-full">
+                        <TableHeader className="bg-gray-50">
+                            <TableRow>
+                                <TableHead className="text-left">Categoria</TableHead>
+                                <TableHead className="text-center">Status</TableHead>
+                                <TableHead className="text-left">Instância</TableHead>
+                                <TableHead className="text-center">Prioridade</TableHead>
                                 <TableHead className="text-center">Horário Prog.</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
-                            </tr>
-                        </thead>
-                        <TableBody id="messageTableBody">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody id="messageTableBody" className="divide-y divide-gray-200">
                             {messagesList?.map(message => {
                                 const isExpanded = expandedPreviews.has(message.id);
                                 const instance = instanceMap.get(message.id_instancia || -1); // Use -1 for null/undefined lookup
@@ -384,23 +361,23 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
 
                                 return (
                                     <React.Fragment key={message.id}>
-                                        <TableRow data-message-id={message.id} data-category={message.categoria}>
-                                            <TableCell className="font-medium">{message.categoria || 'N/A'}</TableCell>
-                                            <TableCell>
-                                                <span className={cn("status-badge px-2.5 py-1 rounded-full text-xs font-semibold", message.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
+                                        <TableRow data-message-id={message.id} data-category={message.categoria} className="hover:bg-gray-50 cursor-pointer transition-colors">
+                                            <TableCell className="font-medium text-gray-800">{message.categoria || 'N/A'}</TableCell>
+                                            <TableCell className="text-center">
+                                                <span className={cn(
+                                                    "inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold",
+                                                    message.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                )}>
                                                     {message.ativo ? 'Ativo' : 'Inativo'}
                                                 </span>
                                             </TableCell>
-                                            <TableCell>
-                                                <span className={cn("instance-info inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded", instanceClass)}>
-                                                    <MessagesSquare className="h-3 w-3" /> {instanceName}
+                                            <TableCell className="text-gray-700">
+                                                <span className={cn("inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded select-none", instanceClass)}>
+                                                    <MessagesSquare className="h-4 w-4" /> {instanceName}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-center">
-                                                {message.prioridade ?? 'N/D'} {/* Display priority */}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {/* Show time only for relevant categories */}
+                                            <TableCell className="text-center text-gray-700 font-semibold">{message.prioridade ?? 'N/D'}</TableCell>
+                                            <TableCell className="text-center text-gray-700">
                                                 {(message.categoria === 'Confirmar Agendamento' || message.categoria === 'Aniversário') && message.hora_envio ?
                                                     message.hora_envio : '-'
                                                 }
@@ -417,7 +394,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                                     className="preview-toggle-btn"
                                                                 >
                                                                     {isExpanded ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                                                                    Preview
+                                                                    {isExpanded ? 'Ocultar' : 'Preview'}
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
@@ -488,10 +465,10 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                             </TableCell>
                                         </TableRow>
                                         {/* Preview Row */}
-                                        <TableRow className={cn("preview-row", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="bg-gray-100 text-gray-800 text-sm border-t border-gray-200"> {/* Colspan 6 */}
+                                        <TableRow className={cn("preview-row bg-gray-50 text-gray-800 text-sm border-t border-gray-200", !isExpanded && 'hidden')}>
+                                            <TableCell colSpan={6} className="p-4">
                                                 <div
-                                                    className="preview-content"
+                                                    className="preview-content whitespace-pre-wrap"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
                                                 ></div>
                                             </TableCell>
