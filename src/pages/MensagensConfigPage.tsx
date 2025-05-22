@@ -14,7 +14,6 @@ import { showSuccess, showError, showToast } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MultiSelect } from '@/components/MultiSelect';
 
-// Define interfaces for data
 interface ClinicData {
   code: string;
   nome: string;
@@ -50,7 +49,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
   const isEditing = !!messageId;
   const clinicId = clinicData?.id;
 
-  // Form state
   const [formData, setFormData] = useState({
     categoria: '',
     modelo_mensagem: '',
@@ -58,10 +56,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     prioridade: 1,
   });
 
-  // Selected services state
   const [selectedServices, setSelectedServices] = useState<ServiceInfo[]>([]);
 
-  // Fetch services list
   const { data: servicesList, isLoading: isLoadingServices, error: servicesError } = useQuery<ServiceInfo[]>({
     queryKey: ['servicesListConfigPage', clinicId],
     queryFn: async () => {
@@ -79,7 +75,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  // Fetch linked services if editing
   const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
     queryKey: ['linkedServicesConfigPage', messageId],
     queryFn: async () => {
@@ -96,7 +91,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  // Fetch message details if editing
   const { data: messageDetails, isLoading: isLoadingDetails, error: detailsError } = useQuery({
     queryKey: ['messageDetails', messageId, clinicId],
     queryFn: async () => {
@@ -115,7 +109,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  // Populate form and selected services when data loads
   useEffect(() => {
     if (messageDetails) {
       setFormData({
@@ -129,6 +122,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
   useEffect(() => {
     if (servicesList) {
+      console.log("servicesList:", servicesList); // Debug log
       if (isEditing && linkedServicesList) {
         const linkedIds = new Set(linkedServicesList.map(ls => ls.id_servico));
         const selected = servicesList.filter(s => linkedIds.has(s.id));
@@ -139,7 +133,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     }
   }, [servicesList, linkedServicesList, isEditing]);
 
-  // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -148,7 +141,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     }));
   };
 
-  // Save mutation
   const saveMessageMutation = useMutation({
     mutationFn: async () => {
       if (!clinicData?.code) throw new Error("Código da clínica não disponível.");
@@ -160,7 +152,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
       dataToSave.append('modelo_mensagem', formData.modelo_mensagem);
       dataToSave.append('ativo', String(formData.ativo));
       dataToSave.append('prioridade', String(formData.prioridade));
-      // Add linked services as JSON string
       const linkedServiceIds = selectedServices.map(s => s.id);
       dataToSave.append('servicos_vinculados', JSON.stringify(linkedServiceIds));
 
