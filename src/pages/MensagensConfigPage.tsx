@@ -414,7 +414,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
             console.log("[MensagensConfigPage] Groups list loaded:", data.length, "items");
             return data as GroupInfo[];
         },
-        enabled: !!formData.id_instancia && (formData.categoria === 'Chegou' || formData.categoria === 'Liberado') && !!instancesList, // Only fetch if instance selected, category requires it, and instances list is loaded
+        enabled: !!formData.id_instancia && (formData.para_grupo) && !!instancesList, // Only fetch if instance selected, target is group, and instances list is loaded
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         refetchOnWindowFocus: false,
     });
@@ -437,6 +437,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         },
         onSuccess: () => {
             showSuccess(`Mensagem ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
+            // Invalidate and refetch the messages list on the list page
+            queryClient.invalidateQueries({ queryKey: ['messagesList', clinicId] });
             // Redirect back to the list page
             navigate(`/dashboard/11?status=${isEditing ? 'updated' : 'created'}`, { replace: true });
         },
@@ -572,14 +574,31 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
     // Effect to populate Choices.js and set selection when services or linked services load
     useEffect(() => {
+        // Ensure Choices.js is initialized and servicesList is available
         if (choicesServicesRef.current && servicesList) {
             console.log("[useEffect] Populating Choices.js with services...");
+
+            // In edit mode, wait until linkedServicesList is also available (not undefined)
+            if (isEditing && linkedServicesList === undefined) {
+                 console.log("[useEffect] Edit mode: Waiting for linkedServicesList...");
+                 return; // Wait until linkedServicesList is fetched
+            }
+
+            console.log("[useEffect] Services List:", servicesList);
+            console.log("[useEffect] Linked Services List:", linkedServicesList); // Will be [] or data in edit mode, undefined in create mode
+
+            // Build the set of linked service IDs (handle undefined for create mode)
             const linkedServiceIdSet = new Set(linkedServicesList?.map(item => String(item.id_servico)) || []);
+            console.log("[useEffect] Linked Service ID Set:", linkedServiceIdSet);
+
             const serviceChoices = servicesList.map(service => ({
                 value: String(service.id),
                 label: service.nome || `Serviço ID ${service.id}`,
-                selected: isEditing ? linkedServiceIdSet.has(String(service.id)) : false
+                // Select if in edit mode AND the service ID is in the linkedServiceIdSet
+                selected: isEditing && linkedServiceIdSet.has(String(service.id))
             }));
+            console.log("[useEffect] Service Choices generated:", serviceChoices);
+
             choicesServicesRef.current.clearStore();
             choicesServicesRef.current.setChoices(serviceChoices, 'value', 'label', true);
             console.log("[useEffect] Choices.js populated/selection set.");
@@ -588,6 +607,10 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
              console.error("[useEffect] Error populating Choices.js due to servicesError:", servicesError);
              choicesServicesRef.current.clearStore();
              choicesServicesRef.current.setChoices([{ value: '', label: 'Erro ao carregar serviços', disabled: true }], 'value', 'label', true);
+             choicesServicesRef.current.disable();
+        } else if (choicesServicesRef.current && !servicesList && !servicesError) {
+             console.log("[useEffect] Waiting for servicesList...");
+             // Optionally disable while waiting for services
              choicesServicesRef.current.disable();
         }
     }, [servicesList, linkedServicesList, servicesError, isEditing]); // Re-run if services or linked services change
@@ -1249,7 +1272,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
             {/* Error Display */}
             {pageError && (
-                <div className="error-message flex items-center gap-2 p-3 mb-4 bg-red-100 text-red-700 border border-red-200 rounded-md">
+                <div className="error-message flex items-center gap-2 p-3 mb-4 bg-red-100 text-red-700 border border-red-200 rounded-md shadow-sm">
                     <TriangleAlert className="h-5 w-5 flex-shrink-0" />
                     <span>Erro ao carregar dados: {pageError}</span>
                     {/* Add a retry button if needed */}
