@@ -27,19 +27,21 @@ interface Service {
   nome: string;
 }
 
-// Componente simples para exibir lista de serviços
+// Componente simples para exibir lista de serviços com debug da quantidade
 const SimpleServicesList: React.FC<{ services: Service[] }> = ({ services }) => {
-  if (!services || services.length === 0) {
-    return <p className="text-gray-500">Nenhum serviço disponível.</p>;
-  }
+  if (!services) return <p className="text-gray-500">Serviços não carregados.</p>;
+  if (services.length === 0) return <p className="text-gray-500">Nenhum serviço disponível.</p>;
   return (
-    <ul className="list-disc list-inside max-h-48 overflow-y-auto border border-gray-200 rounded p-2 bg-white">
-      {services.map(service => (
-        <li key={service.id} className="text-gray-700">
-          {service.nome}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <p className="mb-2 text-sm text-gray-600">Total de serviços carregados: {services.length}</p>
+      <ul className="list-disc list-inside max-h-48 overflow-y-auto border border-gray-200 rounded p-2 bg-white">
+        {services.map(service => (
+          <li key={service.id} className="text-gray-700">
+            {service.nome}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 
@@ -56,17 +58,24 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
   const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<Service[]>({
     queryKey: ['linkedServicesConfigPage', messageId],
     queryFn: async () => {
+      console.log("[MensagensConfigPage] Fetching linked services for messageId:", messageId);
       if (!messageId) return [];
       const { data, error } = await supabase
         .from('north_clinic_mensagens_servicos')
         .select('id_servico, nome_servico:north_clinic_servicos(nome)')
         .eq('id_mensagem', parseInt(messageId, 10));
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[MensagensConfigPage] Error fetching linked services:", error);
+        throw new Error(error.message);
+      }
+      console.log("[MensagensConfigPage] Linked services raw data:", data);
       // Map para formato Service[]
-      return data?.map(item => ({
+      const mapped = data?.map(item => ({
         id: item.id_servico,
         nome: item.nome_servico?.nome || `Serviço ${item.id_servico}`
       })) || [];
+      console.log("[MensagensConfigPage] Linked services mapped:", mapped);
+      return mapped;
     },
     enabled: !!messageId,
     staleTime: 5 * 60 * 1000,
