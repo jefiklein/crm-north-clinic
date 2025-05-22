@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Search, TriangleAlert, Loader2, Star } from 'lucide-react';
+import { Search, TriangleAlert, Loader2 } from 'lucide-react';
 import { useQuery } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -164,10 +163,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
-        .in('id_instancia', instanceIds);
-        // Removed .eq('id_clinica', clinicId) because column does not exist
-        // .eq('id_clinica', clinicId)
-        // .order('message_timestamp', { ascending: false });
+        .in('id_instancia', instanceIds)
+        .order('message_timestamp', { ascending: false });
 
       if (error) throw new Error(error.message);
       if (!data) return [];
@@ -209,10 +206,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Fetch messages for selected conversation
   const { data: messages, isLoading: isLoadingMessages, error: messagesError } = useQuery<Message[]>({
-    queryKey: ['conversationMessages', selectedConversationId, clinicId],
+    queryKey: ['conversationMessages', selectedConversationId],
     queryFn: async () => {
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
-      // Removed .eq('id_clinica', clinicId) because column does not exist
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('*')
@@ -429,60 +425,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : messages.length === 0 ? (
             <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
           ) : (
-            groupedMessages.map((group, groupIndex) => (
-              <React.Fragment key={`group-${group.instanceId}-${groupIndex}`}>
-                {/* Instance Group Header */}
-                <div className={cn(
-                  "instance-group-header text-center text-xs text-gray-700 px-2 py-1 rounded-md my-3 mx-auto max-w-[80%] font-medium border",
-                  `instance-group-${group.cssClassIndex}`,
-                  group.cssClassIndex === 0 && 'bg-blue-100 border-blue-200',
-                  group.cssClassIndex === 1 && 'bg-green-100 border-green-200',
-                  group.cssClassIndex === 2 && 'bg-orange-100 border-orange-200',
-                  group.cssClassIndex === 3 && 'bg-purple-100 border-purple-200',
-                )}>
-                  Conversa via: {group.instanceName}
-                </div>
-                {/* Messages within the group */}
-                {group.messages.map(msg => {
-                  const isSent = msg.from_me === true;
-                  const bubbleClass = isSent ? 'sent' : 'received';
-                  let messageContent = '';
-                  if (msg.mensagem?.trim()) {
-                    messageContent = msg.mensagem.trim()
-                      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
-                      .replace(/_(.*?)_/g, '<em>$1</em>')
-                      .replace(/\\n|\n/g, '<br>');
-                  } else if (msg.tipo_mensagem) {
-                    const typeLabel = msg.tipo_mensagem.replace(/Message$/i, '');
-                    messageContent = `<span class="text-gray-500 italic">[${typeLabel || 'Mídia'}]</span>`;
-                  } else {
-                    messageContent = '...';
-                  }
-
-                  if (msg.url_arquivo) {
-                    messageContent += `<br/><a href="${msg.url_arquivo}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-xs">[Ver Arquivo]</a>`;
-                  }
-
-                  const time = formatTimestampForBubble(msg.message_timestamp);
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                        bubbleClass === 'sent' ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200',
-                        group.cssClassIndex === 0 && (bubbleClass === 'received' ? 'border-l-blue-400 border-l-2' : 'border-r-blue-400 border-r-2'),
-                        group.cssClassIndex === 1 && (bubbleClass === 'received' ? 'border-l-green-400 border-l-2' : 'border-r-green-400 border-r-2'),
-                        group.cssClassIndex === 2 && (bubbleClass === 'received' ? 'border-l-orange-400 border-l-2' : 'border-r-orange-400 border-r-2'),
-                        group.cssClassIndex === 3 && (bubbleClass === 'received' ? 'border-l-purple-400 border-l-2' : 'border-r-purple-400 border-r-2'),
-                      )}
-                    >
-                      <div dangerouslySetInnerHTML={{ __html: messageContent }}></div>
-                      <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{time}</span>
-                    </div>
-                  );
-                })}
-              </React.Fragment>
+            messages.map(msg => (
+              <div key={msg.id} className={cn(
+                "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
+                msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
+              )}>
+                <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+                <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
+              </div>
             ))
           )}
         </ScrollArea>
