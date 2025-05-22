@@ -274,13 +274,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
   }, [conversationSummaries, selectedConversationId]);
 
-  // Scroll to bottom of messages when messages load or change
+  // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
     const messagesArea = document.getElementById('messagesArea');
     if (messagesArea) {
-      messagesArea.scrollTop = messagesArea.scrollHeight;
+      // Use setTimeout to ensure DOM updates before scrolling
+      setTimeout(() => {
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+      }, 100);
     }
-  }, [messages]);
+  }, [messages, selectedConversationId]);
 
   // --- Permission Check ---
   if (!clinicData) {
