@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { format, subDays, addDays, isToday, isAfter, startOfDay } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { format, subDays, addDays, isAfter, startOfDay } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -16,9 +16,9 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for a message queue item from the webhook
+// Define the structure for a message queue item from the database
 interface QueueItem {
-    id: string | number;
+    id: number;
     created_at: string;
     updated_at: string;
     status: string;
@@ -37,30 +37,20 @@ interface QueueItem {
     hash: string | null;
     tipo_evolution: string;
     id_server_evolution: number;
-    url_arquivo: string | null; // Assuming this might be a string URL
+    url_arquivo: string | null;
 }
 
-// Define the structure for instance details
+// Define the structure for instance details from Supabase
 interface InstanceDetails {
-    nome: string; // nome_exibição
-    telefone: number | null; // telefone
+    id: number;
+    nome_exibição: string;
+    telefone: number | null;
+    nome_instancia_evolution: string | null;
 }
-
-// Define the structure for the data returned by the queue webhook query
-interface QueueDataWithInstanceDetails {
-    queueItems: QueueItem[];
-    instanceDetailsMap: Map<string, InstanceDetails>;
-}
-
 
 interface FilaMensagensPageProps {
     clinicData: ClinicData | null;
 }
-
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const QUEUE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/1972fe9f-85e9-4f53-9846-8df9c2012cec`;
-const INSTANCE_DETAILS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/38785029-5651-4e3b-8508-af69bf38f28e`;
-
 
 // Helper function to format timestamp
 function formatQueueTimestamp(isoTimestamp: string | null): string {
@@ -108,7 +98,6 @@ function formatFinalMessage(messageText: string | null): string {
     return formatted;
 }
 
-
 const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => {
     const [currentQueueDate, setCurrentQueueDate] = useState<Date>(startOfDay(new Date()));
     const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set()); // State to track expanded messages
@@ -116,104 +105,73 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
     const clinicId = clinicData?.id;
     const dateString = format(currentQueueDate, 'yyyy-MM-dd');
 
-    // Fetch message queue data and instance details using react-query
-    const { data, isLoading, error, refetch } = useQuery<QueueDataWithInstanceDetails | null>({
+    // Fetch message queue items from Supabase
+    const { data: queueItems, isLoading, error, refetch } = useQuery<QueueItem[]>({
         queryKey: ['messageQueue', clinicId, dateString],
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
+            console.log(`Fetching message queue for clinic ${clinicId} on date ${dateString} from Supabase`);
 
-            console.log(`Fetching message queue for clinic ${clinicId} on date ${dateString}`);
+            // Query queue items for the clinic and date (filter by agendado_para date)
+            const { data, error } = await supabase
+                .from('north_clinic_fila_mensagens')
+                .select('*')
+                .eq('id_clinica', clinicId)
+                .gte('agendado_para', `${dateString}T00:00:00Z`)
+                .lte('agendado_para', `${dateString}T23:59:59Z`)
+                .order('prioridade', { ascending: true })
+                .order('agendado_para', { ascending: true });
 
-            // 1. Fetch Queue Data
-            const payloadQueue = { id_clinica: clinicId, data: dateString };
-            const responseQueue = await fetch(QUEUE_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify(payloadQueue)
-            });
-
-            console.log('Queue webhook response:', { status: responseQueue.status, statusText: responseQueue.statusText });
-
-            if (!responseQueue.ok) {
-                let errorDetail = responseQueue.statusText;
-                 try {
-                    const errorBody = await responseQueue.text();
-                    errorDetail = errorBody.substring(0, 200) + (errorBody.length > 200 ? '...' : '');
-                    try {
-                        const errorJson = JSON.parse(errorBody);
-                        errorDetail = errorJson.message || errorJson.error || JSON.stringify(errorJson);
-                    } catch(e) { /* ignore parse error */ }
-                } catch(readError) { /* ignore read error */ }
-                throw new Error(`Falha API Fila (${responseQueue.status}): ${errorDetail}`);
+            if (error) {
+                console.error("Error fetching queue items from Supabase:", error);
+                throw new Error(error.message);
             }
 
-            const queueData: QueueItem[] = await responseQueue.json();
-            if (!Array.isArray(queueData)) {
-                 console.warn("API Fila não retornou array:", queueData);
-                 throw new Error("Resposta inesperada API Fila.");
-            }
-            console.log("Message queue list received:", queueData.length, "items");
-
-            // 2. Fetch Instance Details for unique instances
-            const instanceDetailsMap = new Map<string, InstanceDetails>();
-            if (queueData.length > 0) {
-                const uniqueInstanceNames = [...new Set(queueData.map(item => item.instancia).filter(name => name))];
-                console.log("Unique instance names:", uniqueInstanceNames);
-
-                if (uniqueInstanceNames.length > 0) {
-                    const detailPromises = uniqueInstanceNames.map(async (name) => {
-                        // Call the instance details webhook for each unique name
-                        const payloadInstance = { "nome_instancia": name };
-                        try {
-                            const responseInstance = await fetch(INSTANCE_DETAILS_WEBHOOK_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', "Accept": "application/json" },
-                                body: JSON.stringify(payloadInstance)
-                            });
-
-                            if (!responseInstance.ok) {
-                                console.warn(`API Error ${responseInstance.status} fetching details for instance ${name}`);
-                                return null; // Return null for failed fetches
-                            }
-                            const detailsArray = await responseInstance.json();
-                             if (Array.isArray(detailsArray) && detailsArray.length > 0 && detailsArray[0] && typeof detailsArray[0] === 'object') {
-                                const details = detailsArray[0];
-                                if (details.nome_exibição && details.telefone) {
-                                    return { originalName: name, details: { nome: details.nome_exibição, telefone: Number(details.telefone) } as InstanceDetails };
-                                } else {
-                                    console.warn(`Instance details response for '${name}' missing nome_exibição or telefone:`, details);
-                                    return null;
-                                }
-                            } else {
-                                console.warn(`Unexpected instance details response format for '${name}':`, detailsArray);
-                                return null;
-                            }
-                        } catch (instanceError) {
-                            console.error(`Failed to fetch details for instance '${name}':`, instanceError);
-                            return null; // Return null on error
-                        }
-                    });
-
-                    const detailResults = await Promise.all(detailPromises); // Use Promise.all to wait for all fetches
-                    detailResults.forEach(result => {
-                        if (result && result.originalName && result.details) {
-                            instanceDetailsMap.set(result.originalName, result.details);
-                        }
-                    });
-                     console.log("Instance details map built:", instanceDetailsMap);
-                }
-            }
-
-            // Return both queue items and the instance details map
-            return { queueItems: queueData, instanceDetailsMap: instanceDetailsMap };
-
+            return data || [];
         },
-        enabled: !!clinicId, // Only fetch if clinicId is available
-        staleTime: 5 * 60 * 1000, // Data is considered fresh for 5 minutes
+        enabled: !!clinicId,
+        staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
+
+    // Fetch instance details from Supabase
+    const { data: instancesList } = useQuery<InstanceDetails[]>({
+        queryKey: ['instancesList', clinicId],
+        queryFn: async () => {
+            if (!clinicId) {
+                throw new Error("ID da clínica não disponível.");
+            }
+            console.log(`Fetching instance details for clinic ${clinicId} from Supabase`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_config_instancias')
+                .select('id, nome_exibição, telefone, nome_instancia_evolution')
+                .eq('id_clinica', clinicId);
+
+            if (error) {
+                console.error("Error fetching instances from Supabase:", error);
+                throw new Error(error.message);
+            }
+
+            return data || [];
+        },
+        enabled: !!clinicId,
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
+    // Map instance names to details for quick lookup
+    const instanceDetailsMap = React.useMemo(() => {
+        const map = new Map<string, InstanceDetails>();
+        instancesList?.forEach(instance => {
+            if (instance.nome_exibição) {
+                map.set(instance.nome_exibição, instance);
+            }
+        });
+        return map;
+    }, [instancesList]);
 
     // Function to navigate dates
     const goToPreviousDay = () => {
@@ -246,7 +204,6 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
             return newSet;
         });
     };
-
 
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
@@ -282,12 +239,12 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             <span>Erro ao carregar fila: {error.message}</span>
                             <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
                         </div>
-                    ) : (data?.queueItems?.length ?? 0) === 0 ? (
+                    ) : (queueItems?.length ?? 0) === 0 ? (
                         <div className="status-message text-gray-700 p-8 text-center">
                             Nenhuma mensagem na fila para esta data.
                         </div>
                     ) : (
-                        data?.queueItems.map(item => {
+                        queueItems?.map(item => {
                             const statusClass = getStatusClass(item.status);
                             const scheduledTime = formatQueueTimestamp(item.agendado_para);
                             const sentTime = formatQueueTimestamp(item.data_enviado);
@@ -304,7 +261,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             const needsExpansion = plainText.length > 150 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>'); // Check for length or formatting tags
 
                             const instanceOriginalName = item.instancia || 'N/A';
-                            const instanceDetails = data?.instanceDetailsMap.get(instanceOriginalName);
+                            const instanceDetails = instanceDetailsMap.get(instanceOriginalName);
 
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
@@ -312,18 +269,17 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         <span className={`queue-item-status text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
                                             {item.status || 'Desconhecido'}
                                         </span>
-                                        {/* Adjusted queue-item-details to use flex column and gap */}
                                         <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
                                             <span><strong>Agendado:</strong> {scheduledTime}</span>
                                             {instanceDetails ? (
                                                 <div className="instance-details">
-                                                    <span className="instance-name font-medium" title={`Nome original: ${instanceOriginalName}`}>{instanceDetails.nome || instanceOriginalName}</span>
+                                                    <span className="instance-name font-medium" title={`Nome original: ${instanceOriginalName}`}>{instanceDetails.nome_exibição || instanceOriginalName}</span>
                                                     <span className="instance-phone text-gray-500">{instanceDetails.telefone || 'Telefone N/A'}</span>
                                                 </div>
                                             ) : (
                                                 <span><strong>Instância:</strong> {instanceOriginalName}</span>
                                             )}
-                                            {item.status === 'Enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
+                                            {item.status?.toLowerCase() === 'enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
                                             {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
                                         </div>
                                     </div>
