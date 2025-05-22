@@ -107,8 +107,8 @@ const REQUIRED_PERMISSION_LEVEL = 2;
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null); // Fixed: initial state is null
-  const [initialLoadDone, setInitialLoadDone] = useState(false); // State to track initial load
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -154,17 +154,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) return [];
 
-      // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
         .in('id_instancia', instanceIds)
-        .order('message_timestamp', { ascending: false }); // Decrescente
+        .order('message_timestamp', { ascending: false });
 
       if (error) throw new Error(error.message);
       if (!data) return [];
 
-      // Group by remoteJid to get last message and timestamp per conversation
       const groupedMap = new Map<string, ConversationSummary>();
       for (const msg of data) {
         const existing = groupedMap.get(msg.remoteJid);
@@ -194,7 +192,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const preview = conv.lastMessage?.toLowerCase() || '';
       return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || preview.includes(lowerSearchTerm);
     });
-    // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
     return filtered;
   }, [conversationSummaries, searchTerm]);
@@ -217,87 +214,24 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Group messages by sequential instance ID for rendering
-  const groupedMessages = useMemo(() => {
-    if (!messages) return [];
-
-    // Sort messages chronologically first
-    const sortedMessages = [...messages].sort((a, b) =>
-      (a.message_timestamp || 0) - (b.message_timestamp || 0)
-    );
-
-    const groups: { instanceId: number | null; messages: Message[]; instanceName: string; cssClassIndex: number }[] = [];
-    let currentInstanceId: number | null = null;
-    let currentGroupIndex = -1;
-    const instanceIdToGroupIndexMap: { [key: number | string]: number } = {}; // Map instance ID to a sequential group index
-
-    sortedMessages.forEach(msg => {
-      const instanceId = msg.id_instancia;
-
-      if (instanceId !== currentInstanceId) {
-        // New instance group
-        currentGroupIndex++;
-        currentInstanceId = instanceId;
-
-        // Determine instance name
-        let instanceName = 'Instância Desconhecida/Indefinida';
-        if (instanceId !== null && instanceMap.has(instanceId)) {
-          instanceName = instanceMap.get(instanceId)?.nome_exibição || `ID ${instanceId}`;
-        } else if (instanceId !== null) {
-          instanceName = `ID ${instanceId}`; // Fallback if ID exists but not in map
-        } else {
-          instanceName = 'Indefinida'; // For null instanceId
-        }
-
-        // Map instance ID to a cycling CSS class index (0-3)
-        if (instanceId !== null && typeof instanceIdToGroupIndexMap[instanceId] === 'undefined') {
-          instanceIdToGroupIndexMap[instanceId] = Object.keys(instanceIdToGroupIndexMap).length; // Assign a new sequential index
-        } else if (instanceId === null && typeof instanceIdToGroupIndexMap['null'] === 'undefined') {
-          instanceIdToGroupIndexMap['null'] = Object.keys(instanceIdToGroupIndexMap).length;
-        }
-        const cssClassIndex = (instanceId !== null ? instanceIdToGroupIndexMap[instanceId] : instanceIdToGroupIndexMap['null']) % 4;
-
-        groups.push({
-          instanceId: instanceId,
-          messages: [msg],
-          instanceName: instanceName,
-          cssClassIndex: cssClassIndex,
-        });
-      } else {
-        // Add message to the current group
-        groups[groups.length - 1].messages.push(msg);
-      }
-    });
-
-    return groups;
-  }, [messages, instanceMap]);
-
-  // Find the selected conversation summary to display name in detail header
-  const selectedConversationSummary = useMemo(() => {
-    return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
-  }, [conversationSummaries, selectedConversationId]);
-
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
-    // Only scroll after the initial load of messages for the selected conversation
     if (scrollSentinelRef.current && selectedConversationId && messages && initialLoadDone) {
       scrollSentinelRef.current.scrollIntoView({ behavior: 'smooth' });
     } else if (selectedConversationId && messages && !initialLoadDone) {
-        // Mark initial load as done once messages are loaded for the first selected conversation
-        setInitialLoadDone(true);
-         if (scrollSentinelRef.current) {
-             scrollSentinelRef.current.scrollIntoView({ behavior: 'instant' }); // Instant scroll on first load
-         }
+      setInitialLoadDone(true);
+      if (scrollSentinelRef.current) {
+        scrollSentinelRef.current.scrollIntoView({ behavior: 'instant' });
+      }
     }
   }, [messages, selectedConversationId, initialLoadDone]);
 
   // Select the first conversation on initial load if none is selected
   useEffect(() => {
-      if (!selectedConversationId && filteredAndSortedSummaries.length > 0) {
-          setSelectedConversationId(filteredAndSortedSummaries[0].remoteJid);
-      }
+    if (!selectedConversationId && filteredAndSortedSummaries.length > 0) {
+      setSelectedConversationId(filteredAndSortedSummaries[0].remoteJid);
+    }
   }, [selectedConversationId, filteredAndSortedSummaries]);
-
 
   // --- Permission Check ---
   if (!clinicData) {
@@ -355,7 +289,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = conv.nome || ''; // Show nome_lead or empty string
+              const contactName = conv.nome || '';
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
 
               let lastMessagePreview = '';
@@ -380,14 +314,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       <Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                       </Avatar>
-                      {/* Name takes available space, truncates */}
-                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis flex-grow min-w-0">{contactName}</span>
+                      <span className="contact-name font-semibold text-sm overflow-hidden text-ellipsis flex-grow min-w-0 break-words">
+                        {contactName}
+                      </span>
                     </div>
-                    {/* Timestamp is fixed width, pushed to the right */}
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2 flex-shrink-0">
+                      {lastMessageTimestamp || 'Sem data'}
+                    </span>
                   </div>
-                  {/* Message preview below name/timestamp line */}
-                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1 px-2 max-w-[calc(100%-20px)]">{lastMessagePreview}</div>
+                  <div className="last-message-preview text-xs text-gray-600 mt-1 px-2 break-words max-w-full">
+                    {lastMessagePreview}
+                  </div>
                 </div>
               );
             })
