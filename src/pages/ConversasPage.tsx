@@ -55,21 +55,6 @@ interface ConversasPageProps {
 }
 
 // Helper functions
-function formatPhone(phone: string | null): string {
-  if (!phone) return 'S/ Tel.';
-  const s = String(phone).replace(/\D/g, '');
-  if (s.length === 11) return `(${s.substring(0, 2)}) ${s.substring(2, 7)}-${s.substring(7)}`;
-  if (s.length === 10) return `(${s.substring(0, 2)}) ${s.substring(2, 6)}-${s.substring(6)}`;
-  return s;
-}
-
-function extractPhoneFromRemoteJid(remoteJid: string): string {
-  // Remove everything from '@' onwards
-  const atIndex = remoteJid.indexOf('@');
-  if (atIndex === -1) return remoteJid;
-  return remoteJid.substring(0, atIndex);
-}
-
 function formatTimestampForList(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
@@ -83,9 +68,9 @@ function formatTimestampForList(unixTimestampInSeconds: number | null): string {
     messageDate.setHours(0,0,0,0);
 
     if (messageDate.getTime() === today.getTime()) {
-      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `Hoje ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
     } else {
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }
   } catch (e) {
     console.error("Error formatting timestamp for list:", unixTimestampInSeconds, e);
@@ -354,7 +339,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
-              const phoneNumber = extractPhoneFromRemoteJid(conv.remoteJid);
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -372,14 +356,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   )}
                   onClick={() => setSelectedConversationId(conversationId)}
                 >
-                  <div className="flex items-center">
-                    <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
-                      <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="conversation-info flex-grow overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
+                        <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
+                      </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
-                      <span className="contact-phone text-xs text-gray-500">{phoneNumber}</span>
                     </div>
+                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{lastMessageTimestamp}</span>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
