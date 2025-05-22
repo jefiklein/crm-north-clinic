@@ -8,7 +8,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +35,10 @@ export function MultiSelect<T extends Record<string, any>>({
 }: MultiSelectProps<T>) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
+
+  React.useEffect(() => {
+    console.log("MultiSelect: open state changed to", open);
+  }, [open]);
 
   // Filter options based on inputValue
   const filteredOptions = React.useMemo(() => {
@@ -66,10 +69,14 @@ export function MultiSelect<T extends Record<string, any>>({
   return (
     <div className={cn("relative w-full", className)}>
       <button
-        type="button"
+        type="button" // Important to prevent form submit
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!disabled) {
+            setOpen(!open);
+          }
+        }}
         disabled={disabled}
         className={cn(
           "w-full border border-input bg-background py-2 px-3 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed",
@@ -82,7 +89,7 @@ export function MultiSelect<T extends Record<string, any>>({
 
       {open && (
         <Command
-          className="absolute z-50 mt-1 w-full rounded-md border border-input bg-popover text-popover-foreground shadow-lg"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-input bg-popover text-popover-foreground shadow-lg"
           onValueChange={() => {}}
         >
           <CommandInput
