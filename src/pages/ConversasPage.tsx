@@ -109,7 +109,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const clinicId = clinicData?.id;
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
@@ -278,15 +278,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or when conversation changes
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      // The scrollable element is inside the ScrollArea component with data-scroll-area attribute
-      const scrollableElement = scrollAreaRef.current.querySelector('[data-scroll-area]') as HTMLElement | null;
-      if (scrollableElement) {
-        // Use setTimeout to ensure DOM updates before scrolling
-        setTimeout(() => {
-          scrollableElement.scrollTo({ top: scrollableElement.scrollHeight, behavior: 'smooth' });
-        }, 100);
-      }
+    if (scrollSentinelRef.current) {
+      scrollSentinelRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, selectedConversationId]);
 
@@ -328,7 +321,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             />
           </div>
         </div>
-        <ScrollArea className="conversations-list flex-grow" ref={scrollAreaRef}>
+        <ScrollArea className="conversations-list flex-grow">
           {isLoadingSummaries ? (
             <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
@@ -410,7 +403,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           )}
         </div>
         <ScrollArea id="messagesArea" className="messages-area flex-grow p-4 flex flex-col">
-          {!selectedConversationId ? (
+          {(!selectedConversationId) ? (
             <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
           ) : isLoadingMessages ? (
             <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
@@ -425,15 +418,18 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : messages.length === 0 ? (
             <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
           ) : (
-            messages.map(msg => (
-              <div key={msg.id} className={cn(
-                "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
-              )}>
-                <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
-                <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
-              </div>
-            ))
+            <>
+              {messages.map(msg => (
+                <div key={msg.id} className={cn(
+                  "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
+                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
+                )}>
+                  <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+                  <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
+                </div>
+              ))}
+              <div ref={scrollSentinelRef} />
+            </>
           )}
         </ScrollArea>
         <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100">
