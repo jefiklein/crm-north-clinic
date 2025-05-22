@@ -1,8 +1,30 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-// ... (imports unchanged)
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+// ... (outros imports e código do componente)
 
 const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
-  // ... (other state and hooks unchanged)
+  // ... (outros estados e hooks)
+
+  const messageId = /* obter id da mensagem do URL ou props */;
+
+  // Fetch Linked Services (if editing)
+  const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
+    queryKey: ['linkedServicesConfigPage', messageId],
+    queryFn: async () => {
+      if (!messageId) return [];
+      const { data, error } = await supabase
+        .from('north_clinic_mensagens_servicos')
+        .select('id_servico')
+        .eq('id_mensagem', parseInt(messageId, 10));
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+    enabled: !!messageId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // NEW EFFECT: Populate selectedServiceIds state when linkedServicesList loads (Edit mode)
   useEffect(() => {
@@ -29,7 +51,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     }
   }, [linkedServicesList, isEditing]);
 
-  // ... (rest of component unchanged)
+  // ... (restante do componente)
 };
 
 export default MensagensConfigPage;
