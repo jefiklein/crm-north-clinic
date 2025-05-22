@@ -63,6 +63,13 @@ function formatPhone(phone: string | null): string {
   return s;
 }
 
+function extractPhoneFromRemoteJid(remoteJid: string): string {
+  // Remove everything from '@' onwards
+  const atIndex = remoteJid.indexOf('@');
+  if (atIndex === -1) return remoteJid;
+  return remoteJid.substring(0, atIndex);
+}
+
 function formatTimestampForList(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
@@ -164,7 +171,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp')
         .in('id_instancia', instanceIds)
-        .order('message_timestamp', { ascending: false });
+        .order('message_timestamp', { ascending: false }); // Decrescente
 
       if (error) throw new Error(error.message);
       if (!data) return [];
@@ -199,7 +206,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const preview = conv.lastMessage?.toLowerCase() || '';
       return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || preview.includes(lowerSearchTerm);
     });
-    // Sort by lastTimestamp descending
+    // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
     return filtered;
   }, [conversationSummaries, searchTerm]);
@@ -347,6 +354,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
+              const phoneNumber = extractPhoneFromRemoteJid(conv.remoteJid);
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -359,21 +367,21 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <div
                   key={conversationId}
                   className={cn(
-                    "conversation-list-item flex items-center p-3 border-b border-gray-100 cursor-pointer transition-colors",
+                    "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
                     selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
                   )}
                   onClick={() => setSelectedConversationId(conversationId)}
                 >
-                  <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
-                    <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="conversation-info flex-grow overflow-hidden">
-                    <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
-                    <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">{lastMessagePreview}</div>
+                  <div className="flex items-center">
+                    <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
+                      <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="conversation-info flex-grow overflow-hidden">
+                      <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
+                      <span className="contact-phone text-xs text-gray-500">{phoneNumber}</span>
+                    </div>
                   </div>
-                  <div className="conversation-meta ml-3 text-right text-xs text-gray-500 flex flex-col items-end flex-shrink-0">
-                    <span className="timestamp">{lastMessageTimestamp}</span>
-                  </div>
+                  <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
               );
             })
