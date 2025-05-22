@@ -1279,6 +1279,44 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 </div>
             )}
 
+            {/* Temporary Debug Sections */}
+            {!isLoadingPage && !pageError && (
+                <div className="debug-section bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-yellow-800 border-b border-yellow-200 pb-2 mb-3">Debug: Serviços</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p className="font-medium text-yellow-900 mb-1">Serviços Disponíveis ({servicesList?.length ?? 0}):</p>
+                            {isLoadingServices ? (
+                                <p className="text-gray-600"><Loader2 className="inline h-4 w-4 animate-spin mr-1" /> Carregando...</p>
+                            ) : servicesError ? (
+                                <p className="text-red-600">Erro: {servicesError.message}</p>
+                            ) : (servicesList?.length ?? 0) === 0 ? (
+                                <p className="text-gray-600">Nenhum serviço disponível.</p>
+                            ) : (
+                                <ul className="list-disc list-inside max-h-40 overflow-y-auto">
+                                    {servicesList?.map(s => <li key={s.id}>{s.id}: {s.nome}</li>)}
+                                </ul>
+                            )}
+                        </div>
+                        <div>
+                            <p className="font-medium text-yellow-900 mb-1">Serviços Vinculados ({linkedServicesList?.length ?? 0}):</p>
+                            {isLoadingLinkedServices ? (
+                                <p className="text-gray-600"><Loader2 className="inline h-4 w-4 animate-spin mr-1" /> Carregando...</p>
+                            ) : linkedServicesError ? (
+                                <p className="text-red-600">Erro: {linkedServicesError.message}</p>
+                            ) : (linkedServicesList?.length ?? 0) === 0 ? (
+                                <p className="text-gray-600">Nenhum serviço vinculado.</p>
+                            ) : (
+                                <ul className="list-disc list-inside max-h-40 overflow-y-auto">
+                                    {linkedServicesList?.map((ls, index) => <li key={index}>ID Serviço: {ls.id_servico}</li>)}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             {/* Form */}
             {!isLoadingPage && !pageError && (
                 <form id="messageConfigForm" onSubmit={(e) => { e.preventDefault(); handleSave(); }}> {/* Call handleSave on form submit */}
