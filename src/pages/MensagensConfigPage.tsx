@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Save, XCircle, Smile, Tags, Zap } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn } from '@/lib/utils';
-import { showSuccess, showError, showToast } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MultiSelect } from '@/components/MultiSelect';
 
@@ -75,7 +71,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  const { data: linkedServicesList, isLoading: isLoadingLinkedServices, error: linkedServicesError } = useQuery<LinkedService[]>({
+  const { data: linkedServicesList, isLoading: isLoadingLinkedServices } = useQuery<LinkedService[]>({
     queryKey: ['linkedServicesConfigPage', messageId],
     queryFn: async () => {
       if (!messageId) return [];
@@ -91,7 +87,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  const { data: messageDetails, isLoading: isLoadingDetails, error: detailsError } = useQuery({
+  const { data: messageDetails, isLoading: isLoadingDetails } = useQuery({
     queryKey: ['messageDetails', messageId, clinicId],
     queryFn: async () => {
       if (!messageId || !clinicId) return null;
@@ -122,7 +118,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
 
   useEffect(() => {
     if (servicesList) {
-      console.log("servicesList:", servicesList); // Debug log
       if (isEditing && linkedServicesList) {
         const linkedIds = new Set(linkedServicesList.map(ls => ls.id_servico));
         const selected = servicesList.filter(s => linkedIds.has(s.id));
@@ -218,15 +213,16 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                 />
               </div>
 
-              <div className="form-group">
-                <Label htmlFor="ativo">Ativo</Label>
+              <div className="form-group flex items-center space-x-2">
                 <input
                   id="ativo"
                   type="checkbox"
                   checked={formData.ativo}
                   onChange={handleInputChange}
                   disabled={isLoading}
+                  className="w-4 h-4"
                 />
+                <Label htmlFor="ativo" className="mb-0 cursor-pointer">Ativo</Label>
               </div>
 
               <div className="form-group">
