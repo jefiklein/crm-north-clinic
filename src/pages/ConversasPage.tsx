@@ -346,7 +346,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = conv.nome || formatPhone(conv.remoteJid); // Use phone if name is missing
+              const contactName = conv.nome || ''; // Show nome_lead or empty string
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -386,7 +386,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
           <span id="conversationContactName" className="text-primary">
             {selectedConversationSummary ? (
-              selectedConversationSummary.nome || formatPhone(selectedConversationSummary.remoteJid)
+              selectedConversationSummary.nome || ''
             ) : (
               'Selecione uma conversa'
             )}
