@@ -263,6 +263,9 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             const instanceOriginalName = item.instancia || 'N/A';
                             const instanceDetails = instanceDetailsMap.get(instanceOriginalName);
 
+                            // Use nome_exibição if available, else fallback to original instance name
+                            const displayInstanceName = instanceDetails?.nome_exibição || instanceOriginalName;
+
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
                                     <div className="queue-item-header flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
@@ -271,14 +274,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         </span>
                                         <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
                                             <span><strong>Agendado:</strong> {scheduledTime}</span>
-                                            {instanceDetails ? (
-                                                <div className="instance-details">
-                                                    <span className="instance-name font-medium" title={`Nome original: ${instanceOriginalName}`}>{instanceDetails.nome_exibição || instanceOriginalName}</span>
-                                                    <span className="instance-phone text-gray-500">{instanceDetails.telefone || 'Telefone N/A'}</span>
-                                                </div>
-                                            ) : (
-                                                <span><strong>Instância:</strong> {instanceOriginalName}</span>
-                                            )}
+                                            <span><strong>Instância:</strong> {displayInstanceName}</span>
                                             {item.status?.toLowerCase() === 'enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
                                             {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
                                         </div>
