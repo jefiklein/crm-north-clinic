@@ -183,6 +183,46 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
+  // Fetch total message counts per conversation (remoteJid)
+  const { data: messageCountsData, isLoading: isLoadingCounts, error: countsError } = useQuery<Record<string, number>>({
+    queryKey: ['messageCounts', clinicId, instanceIds],
+    queryFn: async () => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      if (!instanceIds || instanceIds.length === 0) return {};
+
+      // Supabase does not support group by with count directly in JS client,
+      // so we use RPC or raw SQL via function or do multiple queries.
+      // Here, we do a single query with select remoteJid and count, grouped by remoteJid.
+
+      // Using Supabase's RPC or PostgREST syntax for group by:
+      const { data, error } = await supabase
+        .from('whatsapp_historico')
+        .select('remoteJid, count:remoteJid', { count: 'exact' })
+        .in('id_instancia', instanceIds)
+        .group('remoteJid');
+
+      if (error) {
+        console.error("Error fetching message counts:", error);
+        throw new Error(error.message);
+      }
+
+      if (!data) return {};
+
+      // Transform array to map remoteJid => count
+      const countsMap: Record<string, number> = {};
+      data.forEach((item: any) => {
+        if (item.remoteJid && typeof item.count === 'number') {
+          countsMap[item.remoteJid] = item.count;
+        }
+      });
+
+      return countsMap;
+    },
+    enabled: hasPermission && !!clinicId && instanceIds.length > 0,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
   // Filter and sort summaries based on search term and timestamp
   const filteredAndSortedSummaries = useMemo(() => {
     if (!conversationSummaries) return [];
@@ -341,8 +381,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const conversationId = conv.remoteJid;
               const contactName = conv.nome || ''; // Show nome_lead or empty string
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
-              // Log for debugging
-              console.log(`Conversation ${conversationId} lastMessageTimestamp:`, lastMessageTimestamp);
+              const totalMessages = messageCountsData?.[conversationId] ?? 0;
 
               let lastMessagePreview = '';
               if (conv.lastMessage && typeof conv.lastMessage === 'string' && conv.lastMessage.trim()) {
@@ -367,7 +406,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </Avatar>
                       <span className="contact-name font-semibold text-sm whitespace-nowrap overflow-hidden text-ellipsis">{contactName}</span>
                     </div>
-                    <span className="text-xs text-red-600 whitespace-nowrap ml-2 flex-shrink-0">{lastMessageTimestamp || 'Sem data'}</span>
+                    <div className="flex flex-col items-end flex-shrink-0 ml-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{lastMessageTimestamp || 'Sem data'}</span>
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Total: {totalMessages}</span>
+                    </div>
                   </div>
                   <div className="last-message-preview text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis mt-1">{lastMessagePreview}</div>
                 </div>
