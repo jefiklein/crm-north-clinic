@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Added missing import
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -22,8 +22,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
 import { Loader2, Smile } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
-
-// ... rest of the code remains unchanged (same as previous version)
 
 interface ClinicData {
   code: string;
@@ -50,24 +48,27 @@ interface Group {
   nome_grupo: string;
 }
 
-interface MessageData {
-  id?: number;
+// Updated interface to match Supabase join structure for fetching
+interface FetchedMessageData {
+  id: number;
   categoria: string;
   id_instancia: number | null;
   modelo_mensagem: string;
   ativo: boolean;
-  servicos_vinculados: number[];
-  hora_envio?: string;
-  grupo?: number | null;
-  url_arquivo?: string | null;
-  variacao_1?: string;
-  variacao_2?: string;
-  variacao_3?: string;
-  variacao_4?: string;
-  variacao_5?: string;
-  para_cliente?: boolean;
-  para_funcionario?: boolean;
+  hora_envio: string | null;
+  grupo: number | null;
+  url_arquivo: string | null;
+  variacao_1: string | null;
+  variacao_2: string | null;
+  variacao_3: string | null;
+  variacao_4: string | null;
+  variacao_5: string | null;
+  para_cliente: boolean;
+  para_funcionario: boolean;
+  // This will be an array of objects from the join table
+  north_clinic_mensagens_servicos: { id_servico: number }[];
 }
+
 
 const orderedCategories = [
   "Agendou",
@@ -137,8 +138,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Load initial data: instances, services, message details if editing
   useEffect(() => {
-    if (!clinicData?.code) {
-      setError("Código da clínica não disponível.");
+    if (!clinicData?.id) { // Use clinicData.id for Supabase queries
+      setError("ID da clínica não disponível.");
       setLoading(false);
       return;
     }
@@ -146,6 +147,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     const urlParams = new URLSearchParams(window.location.search);
     const idParam = urlParams.get("id");
     const isEditing = !!idParam;
+    const messageIdToEdit = idParam ? parseInt(idParam, 10) : null;
 
     async function fetchData() {
       setLoading(true);
@@ -154,8 +156,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         // Fetch instances
         const { data: instancesData, error: instancesError } = await supabase
           .from("north_clinic_config_instancias")
-          .select("*")
-          .eq("id_clinica", clinicData.code);
+          .select("id, nome_exibição, nome_instancia_evolution") // Select only necessary fields
+          .eq("id_clinica", clinicData.id); // Filter by clinic ID
 
         if (instancesError) throw instancesError;
         setInstances(instancesData || []);
@@ -163,51 +165,63 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         // Fetch services directly from Supabase
         const { data: servicesData, error: servicesError } = await supabase
           .from("north_clinic_servicos")
-          .select("*")
-          .eq("id_clinica", clinicData.code)
+          .select("id, nome") // Select only necessary fields
+          .eq("id_clinica", clinicData.id) // Filter by clinic ID
           .order("nome", { ascending: true });
 
         if (servicesError) throw servicesError;
         setServices(servicesData || []);
 
-        if (isEditing && idParam) {
-          // Fetch message details
-          const resMessage = await fetch(
-            `https://n8n-n8n.sbw0pc.easypanel.host/webhook/4dd9fe07-8863-4993-b21f-7e7419936d19`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id_mensagem: idParam, codigo_clinica: clinicData.code }),
-            }
-          );
-          if (!resMessage.ok) throw new Error("Falha ao carregar detalhes da mensagem");
-          const messageData: MessageData = await resMessage.json();
+        if (isEditing && messageIdToEdit !== null) {
+          // Fetch message details and linked services from Supabase
+          const { data: messageDataArray, error: messageError } = await supabase
+            .from('north_clinic_config_mensagens')
+            .select('*, north_clinic_mensagens_servicos(id_servico)') // Select message fields and linked service IDs
+            .eq('id', messageIdToEdit) // Filter by message ID
+            .eq('id_clinica', clinicData.id) // Filter by clinic ID
+            .single(); // Expecting a single message
 
-          // --- ADDED CONSOLE LOG HERE ---
-          console.log("Fetched message data:", messageData);
-          console.log("Fetched message data - linkedServices:", messageData.servicos_vinculados);
-          // --- END CONSOLE LOG ---
+          if (messageError && messageError.code !== 'PGRST116') { // PGRST116 is "No rows found"
+              throw messageError;
+          }
+
+          if (messageDataArray) {
+            const messageData: FetchedMessageData = messageDataArray; // Cast to the fetched structure
+
+            // Extract linked service IDs from the nested array
+            const fetchedLinkedServices = messageData.north_clinic_mensagens_servicos
+                .map(link => link.id_servico)
+                .filter((id): id is number => id !== null); // Ensure IDs are numbers and not null
+
+            console.log("Fetched message data from Supabase:", messageData);
+            console.log("Extracted linkedServices from Supabase:", fetchedLinkedServices);
 
 
-          setMessageId(messageData.id ?? null);
-          setCategory(messageData.categoria);
-          setInstanceId(messageData.id_instancia);
-          setMessageText(messageData.modelo_mensagem);
-          setActive(messageData.ativo ?? true);
-          setLinkedServices(messageData.servicos_vinculados ?? []); // This line sets the linked services
-          setScheduledTime(messageData.hora_envio ?? "");
-          setSelectedGroup(messageData.grupo ?? null);
-          setMediaSavedUrl(messageData.url_arquivo ?? null);
-          setVariations([
-            messageData.variacao_1 ?? "",
-            messageData.variacao_2 ?? "",
-            messageData.variacao_3 ?? "",
-            messageData.variacao_4 ?? "",
-            messageData.variacao_5 ?? "",
-          ]);
-          setTargetType(
-            messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
-          );
+            setMessageId(messageData.id);
+            setCategory(messageData.categoria);
+            setInstanceId(messageData.id_instancia);
+            setMessageText(messageData.modelo_mensagem);
+            setActive(messageData.ativo ?? true);
+            setLinkedServices(fetchedLinkedServices); // Set the extracted linked services
+            setScheduledTime(messageData.hora_envio ?? "");
+            setSelectedGroup(messageData.grupo ?? null);
+            setMediaSavedUrl(messageData.url_arquivo ?? null);
+            setVariations([
+              messageData.variacao_1 ?? "",
+              messageData.variacao_2 ?? "",
+              messageData.variacao_3 ?? "",
+              messageData.variacao_4 ?? "",
+              messageData.variacao_5 ?? "",
+            ]);
+            setTargetType(
+              messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
+            );
+          } else {
+              // Message not found for this clinic/ID
+              setError("Mensagem não encontrada ou você não tem permissão para editá-la.");
+              setMessageId(null); // Ensure messageId is null if not found
+          }
+
         } else {
           // New message defaults
           setMessageId(null);
@@ -223,14 +237,15 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setTargetType("Grupo");
         }
       } catch (e: any) {
-        setError(e.message || "Erro ao carregar dados");
+        console.error("Error fetching initial data:", e);
+        setError(e.message || "Erro ao carregar dados iniciais");
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
-  }, [clinicData]);
+  }, [clinicData?.id]); // Depend on clinicData.id
 
   // Load groups when instance or targetType changes and targetType is 'Grupo'
   useEffect(() => {
@@ -247,6 +262,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setSelectedGroup(null);
           return;
         }
+        // Fetch groups using the webhook (assuming this webhook is correct for groups)
         const res = await fetch(
           `https://n8n-n8n.sbw0pc.easypanel.host/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`,
           {
@@ -259,16 +275,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const groupsData: Group[] = await res.json();
         setGroups(groupsData);
         // If current selectedGroup is not in new groups, reset
-        if (!groupsData.find((g) => g.id_grupo === selectedGroup)) {
+        if (selectedGroup !== null && !groupsData.find((g) => g.id_grupo === selectedGroup)) {
           setSelectedGroup(null);
         }
-      } catch {
+      } catch(e: any) {
+        console.error("Error fetching groups:", e);
         setGroups([]);
         setSelectedGroup(null);
+        // Optionally set an error state specific to groups if needed
       }
     }
     fetchGroups();
-  }, [instanceId, targetType, instances, selectedGroup]);
+  }, [instanceId, targetType, instances]); // Depend on instanceId, targetType, and instances
 
   // Handle media file selection and preview
   useEffect(() => {
@@ -313,10 +331,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Handle form submission
   const handleSave = async () => {
-    if (!clinicData?.code) {
+    if (!clinicData?.code || !clinicData?.id) {
       toast({
         title: "Erro",
-        description: "Código da clínica não disponível.",
+        description: "Dados da clínica não disponíveis.",
         variant: "destructive",
       });
       return;
@@ -392,7 +410,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const formData = new FormData();
         formData.append("data", mediaFile, mediaFile.name);
         formData.append("fileName", mediaFile.name);
-        formData.append("clinicId", clinicData.code);
+        formData.append("clinicId", clinicData.code); // Use clinic code for upload webhook
         const uploadRes = await fetch(
           "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
           {
@@ -411,35 +429,35 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           null;
       }
 
-      // Prepare form data for save
-      const saveData = new FormData();
-      saveData.append("id_clinica", clinicData.code);
-      if (messageId) saveData.append("id", messageId.toString());
-      saveData.append("categoria", category);
-      saveData.append("id_instancia", instanceId.toString());
-      saveData.append("modelo_mensagem", messageText);
-      saveData.append("ativo", active ? "true" : "false");
-      saveData.append("servicos_vinculados", JSON.stringify(linkedServices));
-      if (scheduledTime) saveData.append("hora_envio", scheduledTime);
-      if (selectedGroup) saveData.append("grupo", selectedGroup.toString());
-      saveData.append("url_arquivo", url_arquivo ?? "");
-      saveData.append("para_cliente", targetType === "Cliente" ? "true" : "false");
-      saveData.append(
-        "para_funcionario",
-        targetType === "Funcionário" ? "true" : "false"
-      );
-      // Variations
-      variations.forEach((v, i) =>
-        saveData.append(`variacao_${i + 1}`, v || "")
-      );
+      // Prepare data for save webhook
+      const saveData = {
+        id_clinica: clinicData.code, // Use clinic code for save webhook
+        id: messageId, // null for new, number for edit
+        categoria: category,
+        id_instancia: instanceId,
+        modelo_mensagem: messageText,
+        ativo: active,
+        servicos_vinculados: linkedServices, // Send the array of IDs
+        hora_envio: scheduledTime || null,
+        grupo: selectedGroup || null,
+        url_arquivo: url_arquivo || null,
+        para_cliente: targetType === "Cliente",
+        para_funcionario: targetType === "Funcionário",
+        variacao_1: variations[0] || null,
+        variacao_2: variations[1] || null,
+        variacao_3: variations[2] || null,
+        variacao_4: variations[3] || null,
+        variacao_5: variations[4] || null,
+      };
 
       const saveUrl = messageId
-        ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4"
-        : "https://n8n-n8n.sbw0pc.easypanel.host/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d";
+        ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4" // Update webhook
+        : "https://n8n-n8n.sbw0pc.easypanel.host/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d"; // Create webhook
 
       const saveRes = await fetch(saveUrl, {
         method: "POST",
-        body: saveData,
+        headers: { "Content-Type": "application/json" }, // Send as JSON
+        body: JSON.stringify(saveData),
       });
       if (!saveRes.ok) {
         const text = await saveRes.text();
@@ -453,11 +471,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
       // Redirect or reset form after save
       setTimeout(() => {
-        window.location.href = `https://n8n-n8n.sbw0pc.easypanel.host/webhook/6a77013c-713e-43e1-8830-c3afd89ee512?clinic_code=${encodeURIComponent(
+        // Redirect back to the list page
+        window.location.href = `/dashboard/11?clinic_code=${encodeURIComponent(
           clinicData.code
         )}&status=${messageId ? "updated" : "created"}`;
       }, 1500);
     } catch (e: any) {
+      console.error("Error saving message:", e);
       setError(e.message || "Erro ao salvar mensagem");
       toast({
         title: "Erro",
@@ -472,7 +492,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Handlers for form fields
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    if (!messageId) {
+    // Only apply default template if creating a new message
+    if (messageId === null) {
       setMessageText(defaultTemplates[value] || "");
     }
   };
@@ -484,7 +505,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const showTargetTypeSelect = category === "Chegou" || category === "Liberado";
 
   // Variations count
-  const variationsCount = variations.filter((v) => v.trim() !== "").length;
+  const variationsCount = variations.filter((v) => v && v.trim() !== "").length; // Check for non-empty strings
 
   // Handle variation change
   const handleVariationChange = (index: number, value: string) => {
@@ -495,19 +516,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     });
   };
 
-  // Handle media file change
-  const onMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setMediaFile(e.target.files[0]);
-    } else {
-      setMediaFile(null);
-    }
-  };
-
   // Cancel action: redirect back to list
   const handleCancel = () => {
     if (!clinicData?.code) return;
-    window.location.href = `https://n8n-n8n.sbw0pc.easypanel.host/webhook/6a77013c-713e-43e1-8830-c3afd89ee512?clinic_code=${encodeURIComponent(
+    // Redirect back to the list page
+    window.location.href = `/dashboard/11?clinic_code=${encodeURIComponent(
       clinicData.code
     )}`;
   };
@@ -541,6 +554,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   value={category}
                   onValueChange={handleCategoryChange}
                   id="category"
+                  disabled={messageId !== null} // Disable category change when editing
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a categoria" />
@@ -553,6 +567,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                 {messageId !== null && (
+                     <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                 )}
               </div>
 
               <div>
@@ -637,13 +654,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               )}
 
-              {category === "Confirmar Agendamento" && (
+              {showScheduledTime && (
                 <div>
                   <label
                     htmlFor="scheduledTime"
                     className="block mb-1 font-medium text-gray-700"
                   >
-                    Hora Programada (Confirmação) *
+                    Hora Programada *
                   </label>
                   <Select
                     value={scheduledTime}
@@ -673,44 +690,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                         "15:30",
                         "16:00",
                         "16:30",
-                        "17:00",
-                      ].map((time) => (
-                        <SelectItem key={time} value={time}>
-                          {time}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {category === "Aniversário" && (
-                <div>
-                  <label
-                    htmlFor="birthdayTime"
-                    className="block mb-1 font-medium text-gray-700"
-                  >
-                    Hora de Envio (Aniversário) *
-                  </label>
-                  <Select
-                    value={scheduledTime}
-                    onValueChange={setScheduledTime}
-                    id="birthdayTime"
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a hora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        "08:00",
-                        "09:00",
-                        "10:00",
-                        "11:00",
-                        "12:00",
-                        "13:00",
-                        "14:00",
-                        "15:00",
-                        "16:00",
                         "17:00",
                       ].map((time) => (
                         <SelectItem key={time} value={time}>
@@ -759,22 +738,26 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="services"
-                  className="block mb-1 font-medium text-gray-700"
-                >
-                  Serviços Vinculados *
-                </label>
-                <MultiSelectServices
-                  options={services}
-                  selectedIds={linkedServices} // This prop controls which checkboxes are checked
-                  onChange={setLinkedServices}
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Quais agendamentos de serviço ativarão esta mensagem.
-                </p>
-              </div>
+              {/* Only show Services Vinculados for relevant categories */}
+              {category !== "Aniversário" && category !== "Chegou" && category !== "Liberado" && (
+                <div>
+                  <label
+                    htmlFor="services"
+                    className="block mb-1 font-medium text-gray-700"
+                  >
+                    Serviços Vinculados *
+                  </label>
+                  <MultiSelectServices
+                    options={services}
+                    selectedIds={linkedServices}
+                    onChange={setLinkedServices}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Quais agendamentos de serviço ativarão esta mensagem.
+                  </p>
+                </div>
+              )}
+
 
               <div>
                 <label
@@ -856,7 +839,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                           <Textarea
                             id={`variation${i + 1}`}
                             rows={3}
-                            value={v}
+                            value={v || ""} // Ensure value is string
                             onChange={(e) =>
                               handleVariationChange(i, e.target.value)
                             }
@@ -912,6 +895,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       </Card>
     </div>
   );
+);
 };
 
 export default MensagensConfigPage;
