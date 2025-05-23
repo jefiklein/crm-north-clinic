@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2 } from 'lucide-react';
+import { Search, TriangleAlert, Loader2, Smile, Send } from 'lucide-react'; // Added Smile and Send icons
 import { useQuery } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -118,6 +120,8 @@ const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhoo
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState(''); // State for the message input
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
 
   // State to hold media URLs and loading/error status for each message
   const [mediaUrls, setMediaUrls] = useState<Record<number, string | null>>({});
@@ -132,6 +136,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
+  // Ref for the message textarea
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Ref for the emoji picker element
+  const emojiPickerRef = useRef<HTMLElement | null>(null);
+
 
   // Fetch Instances from Supabase
   const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
@@ -332,8 +341,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            // Only trigger fetch if not already processing/loaded
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
-           } else {
-               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
@@ -345,6 +352,65 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, mediaUrls]); // Also depend on mediaUrls so it scrolls after media loads
+
+  // Emoji picker integration
+  const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
+
+  const onEmojiSelect = (event: CustomEvent) => {
+    const emoji = event.detail.unicode;
+    if (messageTextareaRef.current) {
+      const el = messageTextareaRef.current;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const text = el.value;
+      el.value = text.slice(0, start) + emoji + text.slice(end);
+      el.selectionStart = el.selectionEnd = start + emoji.length;
+      el.focus();
+      setMessageInput(el.value); // Update state after modifying textarea value
+    }
+    // Optionally close picker after selection
+    // setShowEmojiPicker(false);
+  };
+
+  // Attach emoji picker event listener
+  useEffect(() => {
+    const picker = emojiPickerRef.current;
+    if (!picker) return;
+    // Ensure the element is defined before adding listener
+    if (typeof customElements.get('emoji-picker') === 'undefined') {
+        console.warn("emoji-picker-element not defined yet.");
+        // You might need to wait for the element to be defined if it's lazy loaded
+        // For now, assume it's available due to import
+    } else {
+        picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+    }
+
+    return () => {
+      if (picker) {
+        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      }
+    };
+  }, [emojiPickerRef.current, onEmojiSelect]); // Add onEmojiSelect to dependencies
+
+  // Handle send message (placeholder)
+  const handleSendMessage = () => {
+      if (!messageInput.trim() || !selectedConversationId) {
+          console.log("Cannot send empty message or no conversation selected.");
+          return;
+      }
+      console.log(`Sending message to ${selectedConversationId}: "${messageInput}"`);
+      // TODO: Call webhook/API to send message here
+      setMessageInput(''); // Clear input after sending
+      setShowEmojiPicker(false); // Hide emoji picker after sending
+  };
+
+  // Allow sending with Enter key
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === 'Enter' && !event.shiftKey) { // Send on Enter, new line on Shift+Enter
+          event.preventDefault(); // Prevent default newline
+          handleSendMessage();
+      }
+  };
 
 
   // --- Permission Check ---
@@ -547,8 +613,47 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             </>
           )}
         </ScrollArea>
-        <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100">
-          <Input type="text" placeholder="Digite sua mensagem aqui..." disabled={!selectedConversationId} />
+        {/* Message Input Area */}
+        <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100 relative"> {/* Added relative for emoji picker positioning */}
+            <div className="flex items-end gap-2"> {/* Use flex items-end to align items at the bottom */}
+                <Textarea
+                    ref={messageTextareaRef}
+                    placeholder="Digite sua mensagem aqui..."
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyPress={handleKeyPress} // Handle Enter key press
+                    disabled={!selectedConversationId}
+                    rows={1} // Start with 1 row, will expand with content
+                    className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
+                />
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleEmojiPicker}
+                    disabled={!selectedConversationId}
+                    className="flex-shrink-0 h-10 w-10" // Fixed size for button
+                    aria-label="Inserir emoji"
+                >
+                    <Smile className="h-5 w-5" />
+                </Button>
+                <Button
+                    onClick={handleSendMessage}
+                    disabled={!selectedConversationId || !messageInput.trim()} // Disable if no conversation or empty message
+                    className="flex-shrink-0 h-10 w-10 p-0" // Fixed size, no padding
+                    aria-label="Enviar mensagem"
+                >
+                    <Send className="h-5 w-5" />
+                </Button>
+            </div>
+            {/* Emoji Picker */}
+            {showEmojiPicker && (
+                <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
+                    <emoji-picker
+                        ref={emojiPickerRef}
+                        style={{ width: "300px", height: "300px" }}
+                    />
+                </div>
+            )}
         </div>
       </div>
     </div>
