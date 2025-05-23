@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, TriangleAlert, Loader2, Smile, Send } from 'lucide-react'; // Added Smile and Send icons
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query"; // Import useMutation
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
-// Import the emoji-picker-element library directly to ensure custom element registration
-import 'emoji-picker-element';
+import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
+import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -116,6 +116,7 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
+const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -123,6 +124,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
+  const [selectedInstanceEvolutionName, setSelectedInstanceEvolutionName] = useState<string | null>(null); // State to hold the evolution instance name
 
   // State to hold media URLs and loading/error status for each message
   const [mediaUrls, setMediaUrls] = useState<Record<number, string | null>>({});
@@ -356,6 +358,31 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     }
   }, [messages, mediaUrls]); // Also depend on mediaUrls so it scrolls after media loads
 
+  // Effect to determine the instance evolution name for the selected conversation
+  useEffect(() => {
+      if (selectedConversationId && messages && messages.length > 0 && instanceMap.size > 0) {
+          // Find the instance ID from the first message in the conversation
+          const firstMessageInstanceId = messages[0].id_instancia;
+          if (firstMessageInstanceId !== null && firstMessageInstanceId !== undefined) {
+              const instance = instanceMap.get(firstMessageInstanceId);
+              if (instance?.nome_instancia_evolution) {
+                  setSelectedInstanceEvolutionName(instance.nome_instancia_evolution);
+                  console.log(`[ConversasPage] Selected conversation instance evolution name: ${instance.nome_instancia_evolution}`);
+              } else {
+                  setSelectedInstanceEvolutionName(null);
+                  console.warn(`[ConversasPage] Could not find instance evolution name for instance ID: ${firstMessageInstanceId}`);
+              }
+          } else {
+              setSelectedInstanceEvolutionName(null);
+              console.warn(`[ConversasPage] First message in conversation ${selectedConversationId} has no instance ID.`);
+          }
+      } else {
+          setSelectedInstanceEvolutionName(null);
+          console.log("[ConversasPage] No conversation selected, no messages, or instance map not ready. Clearing selected instance evolution name.");
+      }
+  }, [selectedConversationId, messages, instanceMap]); // Re-run when conversation, messages, or instanceMap changes
+
+
   // Emoji picker integration
   const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
 
@@ -392,16 +419,69 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     };
   }, [emojiPickerRef.current, onEmojiSelect]); // Add onEmojiSelect to dependencies
 
-  // Handle send message (placeholder)
+  // Mutation for sending the message
+  const sendMessageMutation = useMutation({
+      mutationFn: async (messagePayload: {
+          mensagem: string;
+          recipiente: string;
+          instancia: string;
+          id_clinica: number | string;
+          tipo_mensagem: string;
+          prioridade: string;
+          tipo_evolution: string;
+      }) => {
+          console.log("[ConversasPage] Sending message payload:", messagePayload);
+          const response = await fetch(SEND_MESSAGE_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(messagePayload),
+          });
+
+          if (!response.ok) {
+              let errorMsg = `Erro ${response.status} ao enviar mensagem`;
+              try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+              throw new Error(errorMsg);
+          }
+
+          return response.json(); // Assuming webhook returns some confirmation
+      },
+      onSuccess: (data) => {
+          console.log("[ConversasPage] Message sent successfully:", data);
+          showSuccess('Mensagem enviada para a fila!');
+          setMessageInput(''); // Clear input after sending
+          setShowEmojiPicker(false); // Hide emoji picker
+          // Optionally refetch messages for the current conversation to show the sent message
+          // queryClient.invalidateQueries(['conversationMessages', selectedConversationId]);
+      },
+      onError: (error: Error) => {
+          console.error("[ConversasPage] Error sending message:", error);
+          showError(`Falha ao enviar mensagem: ${error.message}`);
+      },
+  });
+
+
+  // Handle send message
   const handleSendMessage = () => {
-      if (!messageInput.trim() || !selectedConversationId) {
-          console.log("Cannot send empty message or no conversation selected.");
+      if (!messageInput.trim() || !selectedConversationId || !clinicData?.id || !selectedInstanceEvolutionName) {
+          console.log("Cannot send message: missing input, conversation, clinic ID, or instance name.");
+          // Optionally show a warning toast
+          if (!selectedInstanceEvolutionName) {
+              showError("Não foi possível determinar a instância para enviar a mensagem.");
+          }
           return;
       }
-      console.log(`Sending message to ${selectedConversationId}: "${messageInput}"`);
-      // TODO: Call webhook/API to send message here
-      setMessageInput(''); // Clear input after sending
-      setShowEmojiPicker(false); // Hide emoji picker after sending
+
+      const messagePayload = {
+          mensagem: messageInput,
+          recipiente: selectedConversationId, // remoteJid is the recipient
+          instancia: selectedInstanceEvolutionName, // Use the determined evolution instance name
+          id_clinica: clinicData.id, // Use clinic ID
+          tipo_mensagem: "CRM", // As specified
+          prioridade: "0", // As specified
+          tipo_evolution: "text", // As specified
+      };
+
+      sendMessageMutation.mutate(messagePayload); // Trigger the mutation
   };
 
   // Allow sending with Enter key
@@ -592,7 +672,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
                     )}
                     {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
-                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
+                        <audio src={mediaUrlForUrl} controls className="w-full mb-2" />
                     )}
                      {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
                         <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
@@ -622,7 +702,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={handleKeyPress} // Handle Enter key press
-                    disabled={!selectedConversationId}
+                    disabled={!selectedConversationId || sendMessageMutation.isLoading || !selectedInstanceEvolutionName} // Disable if no conversation, sending, or no instance
                     rows={4} // Start with 4 rows
                     className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
                 />
@@ -630,7 +710,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     variant="ghost"
                     size="icon"
                     onClick={toggleEmojiPicker}
-                    disabled={!selectedConversationId}
+                    disabled={!selectedConversationId || sendMessageMutation.isLoading} // Disable if no conversation or sending
                     className="flex-shrink-0 h-10 w-10" // Fixed size for button
                     aria-label="Inserir emoji"
                 >
@@ -638,11 +718,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 </Button>
                 <Button
                     onClick={handleSendMessage}
-                    disabled={!selectedConversationId || !messageInput.trim()} // Disable if no conversation or empty message
+                    disabled={!selectedConversationId || !messageInput.trim() || sendMessageMutation.isLoading || !selectedInstanceEvolutionName} // Disable if no conversation, empty message, sending, or no instance
                     className="flex-shrink-0 h-10 w-10 p-0" // Fixed size, no padding
                     aria-label="Enviar mensagem"
                 >
-                    <Send className="h-5 w-5" />
+                    {sendMessageMutation.isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <Send className="h-5 w-5" />
+                    )}
                 </Button>
             </div>
             {/* Emoji Picker */}
