@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; // Import useQueryClient
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
@@ -115,6 +115,7 @@ const menuIdToFunnelIdMap: { [key: number]: number } = {
 
 
 const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
+    const queryClient = useQueryClient(); // Get query client instance
     const { funnelId: menuIdParam } = useParams<{ funnelId: string }>(); // Get menu item ID from URL
     const menuId = parseInt(menuIdParam || '0', 10);
 
@@ -125,6 +126,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
+    const [dragOverStageId, setDragOverStageId] = useState<number | null>(null); // State for drag over visual feedback
+
 
     const ITEMS_PER_PAGE = 15;
 
@@ -247,7 +250,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Request count only for list view
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Request exact count only for list view
                 .eq('id_clinica', currentClinicId) // Filter by clinic ID - KEEP THIS
                 .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
 
@@ -383,6 +386,51 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const funnelName = funnelDetailsData?.nome_funil || `Funil ID ${funnelIdForQuery}`; // Use funnelIdForQuery for default name display
 
+    // Handle drop event on a stage column
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>, targetStageId: number) => {
+        event.preventDefault();
+        setDragOverStageId(null); // Clear drag over state
+
+        const leadId = event.dataTransfer.getData('text/plain');
+        if (!leadId) return;
+
+        const leadIdNum = parseInt(leadId, 10);
+        if (isNaN(leadIdNum)) return;
+
+        console.log(`Dropped lead ${leadIdNum} onto stage ${targetStageId}`);
+
+        // Optimistically update the UI using react-query cache
+        queryClient.setQueryData(['funnelLeads', clinicId, funnelIdForQuery, currentView, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], (oldData: LeadsQueryData | undefined) => {
+            if (!oldData || !oldData.leads) return oldData;
+
+            const draggedLead = oldData.leads.find(lead => lead.id === leadIdNum);
+
+            // If lead not found or already in the target stage, do nothing
+            if (!draggedLead || draggedLead.id_etapa === targetStageId) {
+                console.log(`Lead ${leadIdNum} not found or already in stage ${targetStageId}. No UI update.`);
+                return oldData;
+            }
+
+            console.log(`Optimistically updating lead ${leadIdNum} from stage ${draggedLead.id_etapa} to ${targetStageId}`);
+
+            // Create a new array of leads with the dragged lead's stage updated
+            const newLeads = oldData.leads.map(lead =>
+                lead.id === leadIdNum ? { ...lead, id_etapa: targetStageId } : lead
+            );
+
+            // Return the new data object
+            return { ...oldData, leads: newLeads };
+        });
+
+        // TODO: Call webhook here to update lead stage in database
+        // You will need to implement a function here that calls your webhook
+        // with the leadIdNum and targetStageId.
+        // Example placeholder:
+        // updateLeadStageInDatabase(leadIdNum, targetStageId);
+        console.log(`Placeholder: Call webhook to update lead ${leadIdNum} to stage ${targetStageId}`);
+    };
+
+
     // Display UnderConstructionPage if the funnel is invalid
     if (isInvalidFunnel) {
         console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
@@ -479,7 +527,17 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                         {currentView === 'kanban' && (
                             <div className="kanban-board flex gap-4 h-full overflow-x-auto pb-4">
                                 {stagesData?.map(stage => (
-                                    <Card key={stage.id} className="kanban-column flex flex-col flex-shrink-0 w-80 bg-gray-200 h-full">
+                                    <Card
+                                        key={stage.id}
+                                        className={cn(
+                                            "kanban-column flex flex-col flex-shrink-0 w-80 bg-gray-200 h-full",
+                                            dragOverStageId === stage.id && "border-2 border-primary" // Add border when dragging over
+                                        )}
+                                        onDragOver={(e) => e.preventDefault()} // Allow dropping
+                                        onDrop={(e) => handleDrop(e, stage.id)} // Handle drop
+                                        onDragEnter={(e) => { e.preventDefault(); setDragOverStageId(stage.id); }} // Set drag over state
+                                        onDragLeave={() => setDragOverStageId(null)} // Clear drag over state
+                                    >
                                         <CardHeader className="py-3 px-4 border-b-2 border-gray-300 bg-gray-300 rounded-t-md flex flex-row items-center justify-between">
                                             <CardTitle className="text-base font-semibold text-gray-800">{stage.nome_etapa || 'S/Nome'}</CardTitle>
                                             <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm">
@@ -491,12 +549,12 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 <div
                                                     key={lead.id}
                                                     className="kanban-card bg-white rounded-md p-3 shadow-sm border border-gray-200 cursor-grab hover:shadow-md hover:border-l-4 hover:border-primary transition-all duration-200"
-                                                    draggable // Make cards draggable (visual only for now)
+                                                    draggable // Make cards draggable
                                                     onDragStart={(e) => {
-                                                        // Basic drag start - no complex data transfer or state update yet
                                                         console.log('Drag started for lead:', lead.id);
-                                                        e.dataTransfer.setData('text/plain', String(lead.id)); // Example data transfer
+                                                        e.dataTransfer.setData('text/plain', String(lead.id)); // Set lead ID
                                                     }}
+                                                    onDragEnd={() => setDragOverStageId(null)} // Clear drag over state on drag end
                                                     onClick={() => openLeadDetails(lead.telefone)} // Open details on click
                                                 >
                                                     <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
