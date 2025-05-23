@@ -895,7 +895,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       </Card>
     </div>
   );
-);
 };
 
 export default MensagensConfigPage;
