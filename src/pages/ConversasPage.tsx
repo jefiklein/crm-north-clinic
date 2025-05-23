@@ -698,7 +698,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                                   <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
                                     <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                                   </Avatar>
-                                  <div className="flex flex-col min-w-0"> {/* Use flex-col here */}
+                                  {/* Added max-w-[180px] here */}
+                                  <div className="flex flex-col min-w-0 max-w-[180px]"> {/* Use flex-col here */}
                                     {/* Display nome_lead if available, otherwise formatted phone */}
                                     <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">
                                         {contactName || formatPhone(conversationId.split('@')[0]) || 'Sem Nome'}
@@ -916,7 +917,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
