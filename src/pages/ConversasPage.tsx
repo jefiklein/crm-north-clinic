@@ -295,16 +295,30 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const responseData = await response.json();
               console.log(`[ConversasPage] Message ${msg.id}: Media webhook response data:`, responseData); // Log response data BEFORE format check
 
-              // --- MODIFIED: Adjust condition to check for signedUrl in the first object ---
+              // --- MODIFIED: Check if responseData is an array or a single object ---
+              let signedUrl = null;
               if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
-                  console.log(`[ConversasPage] Message ${msg.id}: Signed URL received.`); // Log success
-                  setMediaUrls(prev => ({ ...prev, [msg.id]: responseData[0].signedUrl })); // Use the signedUrl directly
-                  setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
+                  signedUrl = responseData[0].signedUrl;
+                  console.log(`[ConversasPage] Message ${msg.id}: Signed URL found in array.`);
+              } else if (responseData && typeof responseData === 'object' && responseData.signedUrl) {
+                   signedUrl = responseData.signedUrl;
+                   console.log(`[ConversasPage] Message ${msg.id}: Signed URL found in single object.`);
               } else {
                   console.error(`[ConversasPage] Message ${msg.id}: Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData); // Log format error
                   throw new Error('Formato de resposta da mídia inesperado.');
               }
               // --- END MODIFIED ---
+
+
+              if (signedUrl) {
+                  setMediaUrls(prev => ({ ...prev, [msg.id]: signedUrl })); // Use the signedUrl
+                  setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
+              } else {
+                   // This case should ideally be caught by the format check above, but as a fallback:
+                   console.error(`[ConversasPage] Message ${msg.id}: Signed URL is null or undefined after processing.`);
+                   throw new Error('URL da mídia não encontrada na resposta.');
+              }
+
 
           } catch (err: any) {
               console.error(`[ConversasPage] Message ${msg.id}: Error fetching media for ${msg.url_arquivo}:`, err); // Log catch error
@@ -318,6 +332,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            // Only trigger fetch if not already processing/loaded
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
+           } else {
+               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
