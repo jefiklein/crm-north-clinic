@@ -46,7 +46,7 @@ interface Message {
   tipo_mensagem: string | null;
   id_whatsapp: string | null;
   transcrito: boolean | null;
-  id_instancia: number | null;
+  id_instancia: number | null; // This links to north_clinic_config_instancias.id
   url_arquivo: string | null;
 }
 
@@ -362,15 +362,30 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
           ) : (
             <>
-              {messages.map(msg => (
-                <div key={msg.id} className={cn(
-                  "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                  msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
-                )}>
-                  <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
-                  <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
-                </div>
-              ))}
+              {messages.map(msg => {
+                // Find the instance name using the instanceMap
+                const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
+                    ? instanceMap.get(msg.id_instancia)
+                    : null;
+                const instanceName = instance?.nome_exibição || 'Instância Desconhecida';
+
+                return (
+                  <div key={msg.id} className={cn(
+                    "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
+                    msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
+                  )}>
+                    {/* Add instance name label */}
+                    <div className={cn(
+                        "text-xs text-gray-500 mb-1",
+                        msg.from_me ? 'text-right' : 'text-left' // Align label with bubble
+                    )}>
+                        {instanceName}
+                    </div>
+                    <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+                    <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
+                  </div>
+                );
+              })}
               <div ref={endOfMessagesRef} />
             </>
           )}
