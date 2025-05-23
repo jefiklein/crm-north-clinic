@@ -125,36 +125,41 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
 
-  // Fetch Instances from Supabase
+  // Fetch Instances from Supabase - REMOVED id_clinica filter here
   const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
-    queryKey: ['instancesList', clinicId],
+    queryKey: ['instancesListConversas'], // Changed key to avoid conflict if other pages filter by clinicId
     queryFn: async () => {
-      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      // No clinicId check needed here as we are fetching all instances
+      console.log("[ConversasPage] Fetching ALL instances list...");
       const { data, error } = await supabase
         .from('north_clinic_config_instancias')
         .select('id, nome_exibição, telefone, nome_instancia_evolution')
-        .eq('id_clinica', clinicId)
+        // REMOVED: .eq('id_clinica', clinicId) // Removed this filter
         .order('nome_exibição', { ascending: true });
       if (error) throw new Error(error.message);
-      console.log("[ConversasPage] Fetched instances list:", data); // Log fetched instances
+      console.log("[ConversasPage] Fetched ALL instances list:", data); // Log fetched instances
       return data || [];
     },
-    enabled: hasPermission && !!clinicId,
+    enabled: hasPermission, // Still requires permission to view the page
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  // Extract instance IDs for filtering messages
+  // Extract instance IDs for filtering messages (still filter messages by clinic's instances)
   const instanceIds = useMemo(() => {
-    if (!instancesList) return [];
-    return instancesList.map(inst => inst.id);
-  }, [instancesList]);
+    if (!instancesList || !clinicId) return [];
+     // Filter instances list by the current clinic ID *after* fetching all
+     const clinicInstances = instancesList.filter(inst => inst.id_clinica === clinicId); // Assuming id_clinica is available in InstanceInfo
+     console.log("[ConversasPage] Filtering instances by clinic ID for message query:", clinicId, clinicInstances.map(inst => inst.id));
+     return clinicInstances.map(inst => inst.id);
 
-  // Map instance IDs to names for quick lookup
+  }, [instancesList, clinicId]); // Depend on instancesList and clinicId
+
+  // Map instance IDs to names for quick lookup (uses the full list)
   const instanceMap = useMemo(() => {
     const map = new Map<number, InstanceInfo>();
     instancesList?.forEach(instance => map.set(instance.id, instance));
-    console.log("[ConversasPage] Created instance map:", map); // Log the created map
+    console.log("[ConversasPage] Created instance map (from all instances):", map); // Log the created map
     return map;
   }, [instancesList]);
 
@@ -163,13 +168,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     queryKey: ['conversationSummaries', clinicId, instanceIds],
     queryFn: async () => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
-      if (!instanceIds || instanceIds.length === 0) return [];
+      if (!instanceIds || instanceIds.length === 0) {
+          console.warn("[ConversasPage] No instance IDs found for clinic, returning empty summaries.");
+          return []; // Return empty if no instances for the clinic
+      }
 
-      // Fetch messages with id_instancia in instanceIds
+      // Fetch messages with id_instancia in instanceIds (filtered by clinic's instances)
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('remoteJid, nome, mensagem, message_timestamp, id_instancia') // Select id_instancia here
-        .in('id_instancia', instanceIds)
+        .in('id_instancia', instanceIds) // Filter messages by the current clinic's instance IDs
         .order('message_timestamp', { ascending: false }); // Decrescente
 
       if (error) throw new Error(error.message);
@@ -190,7 +198,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
       return Array.from(groupedMap.values());
     },
-    enabled: hasPermission && !!clinicId && instanceIds.length > 0,
+    enabled: hasPermission && !!clinicId && instanceIds.length > 0, // Enable only if user has permission, clinicId, and instanceIds are available
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -380,10 +388,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
                 // Determine the name to display based on from_me
                 const displayName = msg.from_me ? instanceName : (msg.nome || 'Contato Desconhecido');
-
-                // Log the instance ID and lookup result for debugging
-                console.log(`[ConversasPage] Message ID: ${msg.id}, id_instancia: ${msg.id_instancia}, Instance lookup result:`, instance);
-
 
                 return (
                   <div key={msg.id} className={cn(
