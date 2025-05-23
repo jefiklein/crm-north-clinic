@@ -285,14 +285,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     queryKey: ['conversationMessages', selectedConversationId],
     queryFn: async () => {
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
-      // Fetch messages - UPDATED SELECT TO INCLUDE nome_lead
+      // Fetch messages in DESCENDING order
       const { data, error } = await supabase
         .from('whatsapp_historico')
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
-        .order('message_timestamp', { ascending: true });
+        .order('message_timestamp', { ascending: false }); // <-- Changed to DESCENDING
       if (error) throw new Error(error.message);
-      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log messages with nome_lead and message preview
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId} (DESC):`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log messages with nome_lead and message preview
       return data || [];
     },
     enabled: hasPermission && !!selectedConversationId,
@@ -730,14 +730,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Combine fetched messages and pending messages for display
   const allMessages = useMemo(() => {
-      const combined = [...(messages || []), ...pendingMessages];
+      // Reverse the fetched messages array before combining
+      const fetchedMessagesReversed = (messages || []).slice().reverse(); // Use slice() to avoid mutating the original array
+      const combined = [...fetchedMessagesReversed, ...pendingMessages];
       // Sort by timestamp (handle null timestamps by putting them at the end)
       combined.sort((a, b) => {
           const tsA = a.message_timestamp ?? 0; // Treat null as 0 for sorting
           const tsB = b.message_timestamp ?? 0;
           return tsA - tsB;
       });
-      console.log("[ConversasPage] useMemo computed allMessages:", combined.length, "items. First:", combined[0]?.mensagem?.substring(0, 30), "Last:", combined[combined.length - 1]?.mensagem?.substring(0, 30)); // Log combined messages
+      console.log("[ConversasPage] useMemo computed allMessages (fetched reversed):", combined.length, "items. First:", combined[0]?.mensagem?.substring(0, 30), "Last:", combined[combined.length - 1]?.mensagem?.substring(0, 30)); // Log combined messages
       return combined;
   }, [messages, pendingMessages]);
 
