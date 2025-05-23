@@ -210,7 +210,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
     }
 
     return (
-        <div className="fila-mensagens-container max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <div className="fila-mensagens-container bg-gray-100 p-6"> {/* Removed max-w-4xl mx-auto */}
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="page-title text-2xl font-bold text-primary">Fila de Mensagens</h1>
                 <div className="date-navigation flex items-center gap-4">
