@@ -13,6 +13,7 @@ import { ptBR } from 'date-fns/locale'; // Import locale
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -123,10 +124,10 @@ const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const queryClient = useQueryClient(); // Get query client instance
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null); // Corrected initialization
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
-  const [selectedInstanceEvolutionName, setSelectedInstanceEvolutionName] = useState<string | null>(null); // State to hold the evolution instance name
+  // Removed selectedInstanceEvolutionName state
 
   // State to hold media URLs and loading/error status for each message
   const [mediaUrls, setMediaUrls] = useState<Record<number, string | null>>({});
@@ -134,6 +135,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // State for optimistic updates - holds messages sent but not yet confirmed in history
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+
+  // New state for the selected sending instance ID
+  const [sendingInstanceId, setSendingInstanceId] = useState<number | null>(null);
 
 
   const clinicId = clinicData?.id;
@@ -363,29 +367,36 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     }
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
-  // Effect to determine the instance evolution name for the selected conversation
+  // Effect to set the default sending instance when conversation or instances change
   useEffect(() => {
-      if (selectedConversationId && messages && messages.length > 0 && instanceMap.size > 0) {
-          // Find the instance ID from the first message in the conversation
-          const firstMessageInstanceId = messages[0].id_instancia;
-          if (firstMessageInstanceId !== null && firstMessageInstanceId !== undefined) {
-              const instance = instanceMap.get(firstMessageInstanceId);
-              if (instance?.nome_instancia_evolution) {
-                  setSelectedInstanceEvolutionName(instance.nome_instancia_evolution);
-                  console.log(`[ConversasPage] Selected conversation instance evolution name: ${instance.nome_instancia_evolution}`);
-              } else {
-                  setSelectedInstanceEvolutionName(null);
-                  console.warn(`[ConversasPage] Could not find instance evolution name for instance ID: ${firstMessageInstanceId}`);
-              }
-          } else {
-              setSelectedInstanceEvolutionName(null);
-              console.warn(`[ConversasPage] First message in conversation ${selectedConversationId} has no instance ID.`);
-          }
-      } else {
-          setSelectedInstanceEvolutionName(null);
-          console.log("[ConversasPage] No conversation selected, no messages, or instance map not ready. Clearing selected instance evolution name.");
+      console.log("[ConversasPage] Setting default sending instance effect triggered.");
+      if (!selectedConversationId || !instancesList || instancesList.length === 0) {
+          console.log("[ConversasPage] No conversation selected or no instances available. Clearing sending instance.");
+          setSendingInstanceId(null);
+          return;
       }
-  }, [selectedConversationId, messages, instanceMap]); // Re-run when conversation, messages, or instanceMap changes
+
+      // Find the instance ID of the last message in the conversation
+      const lastMessageInstanceId = messages && messages.length > 0
+          ? messages[messages.length - 1].id_instancia
+          : null;
+
+      console.log("[ConversasPage] Last message instance ID:", lastMessageInstanceId);
+
+      // Check if the last message's instance is in the available instances list
+      const lastMessageInstanceExists = lastMessageInstanceId !== null && instancesList.some(inst => inst.id === lastMessageInstanceId);
+
+      if (lastMessageInstanceExists) {
+          console.log("[ConversasPage] Setting sending instance to last message's instance:", lastMessageInstanceId);
+          setSendingInstanceId(lastMessageInstanceId);
+      } else {
+          // If no messages, or last message's instance is not available, default to the first instance
+          const firstInstanceId = instancesList[0]?.id || null;
+          console.log("[ConversasPage] Last message instance not found or not available. Setting sending instance to first available instance:", firstInstanceId);
+          setSendingInstanceId(firstInstanceId);
+      }
+
+  }, [selectedConversationId, messages, instancesList]); // Depend on conversation, messages, and instances list
 
 
   // Emoji picker integration
@@ -429,10 +440,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       mutationFn: async (messagePayload: {
           mensagem: string;
           recipiente: string;
-          instancia: string;
+          instancia: string; // Evolution instance name
           id_clinica: number | string;
           tipo_mensagem: string;
-          prioridade: string; // Changed to string based on user payload example
+          prioridade: string;
           tipo_evolution: string;
       }) => {
           console.log("[ConversasPage] Sending message payload:", messagePayload);
@@ -514,14 +525,23 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Handle send message
   const handleSendMessage = () => {
-      if (!messageInput.trim() || !selectedConversationId || !clinicData?.id || !selectedInstanceEvolutionName) {
-          console.log("Cannot send message: missing input, conversation, clinic ID, or instance name.");
+      if (!messageInput.trim() || !selectedConversationId || !clinicData?.id || sendingInstanceId === null) {
+          console.log("Cannot send message: missing input, conversation, clinic ID, or sending instance.");
           // Optionally show a warning toast
-          if (!selectedInstanceEvolutionName) {
-              showError("Não foi possível determinar a instância para enviar a mensagem.");
+          if (sendingInstanceId === null) {
+              showError("Selecione uma instância para enviar a mensagem.");
           }
           return;
       }
+
+      // Find the selected instance details
+      const selectedInstance = instanceMap.get(sendingInstanceId);
+      if (!selectedInstance?.nome_instancia_evolution) {
+          showError("Dados da instância selecionada inválidos.");
+          return;
+      }
+      const instanceEvolutionName = selectedInstance.nome_instancia_evolution;
+
 
       // Extract the number part from remoteJid (selectedConversationId)
       const recipientNumber = selectedConversationId.split('@')[0];
@@ -541,7 +561,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           tipo_mensagem: 'text', // Assuming text for now
           id_whatsapp: null,
           transcrito: null,
-          id_instancia: instancesList?.find(inst => inst.nome_instancia_evolution === selectedInstanceEvolutionName)?.id || null, // Find the instance ID
+          id_instancia: sendingInstanceId, // Use the selected sending instance ID
           url_arquivo: null,
           status: 'pending', // Mark as pending
       };
@@ -552,7 +572,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const messagePayload = {
           mensagem: messageInput,
           recipiente: recipientNumber, // <-- Use only the number part here
-          instancia: selectedInstanceEvolutionName, // Use the determined evolution instance name
+          instancia: instanceEvolutionName, // Use the determined evolution instance name from the selected instance
           id_clinica: clinicData.id, // Use clinic ID
           tipo_mensagem: "CRM", // As specified
           prioridade: "99", // <-- Set priority to 99 for testing
@@ -604,6 +624,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       </div>
     );
   }
+
+  // Determine if sending is possible (conversation selected, instances loaded, an instance is selected)
+  const canSend = !!selectedConversationId && !sendMessageMutation.isLoading && !!instancesList && instancesList.length > 0 && sendingInstanceId !== null;
+
 
   return (
     <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
@@ -791,6 +815,32 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         </ScrollArea>
         {/* Message Input Area */}
         <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100 relative"> {/* Added relative for emoji picker positioning */}
+            {/* Instance Selection */}
+            <div className="mb-2">
+                 <Select
+                     value={sendingInstanceId?.toString() || ''}
+                     onValueChange={(value) => setSendingInstanceId(value ? parseInt(value, 10) : null)}
+                     disabled={!selectedConversationId || isLoadingInstances || (instancesList?.length ?? 0) === 0}
+                 >
+                     <SelectTrigger className="w-full">
+                         <SelectValue placeholder={isLoadingInstances ? "Carregando instâncias..." : (instancesList?.length === 0 ? "Nenhuma instância disponível" : "Enviar de...")} />
+                     </SelectTrigger>
+                     <SelectContent>
+                         {instancesList?.map(instance => (
+                             <SelectItem key={instance.id} value={instance.id.toString()}>
+                                 {instance.nome_exibição} ({formatPhone(instance.telefone)})
+                             </SelectItem>
+                         ))}
+                     </SelectContent>
+                 </Select>
+                 {selectedConversationId && !isLoadingInstances && (instancesList?.length ?? 0) === 0 && (
+                     <p className="text-sm text-red-600 mt-1">Nenhuma instância de WhatsApp configurada para esta clínica. Não é possível enviar mensagens.</p>
+                 )}
+                 {selectedConversationId && sendingInstanceId === null && !isLoadingInstances && (instancesList?.length ?? 0) > 0 && (
+                      <p className="text-sm text-orange-600 mt-1">Selecione uma instância para enviar a mensagem.</p>
+                 )}
+            </div>
+
             <div className="flex items-end gap-2"> {/* Use flex items-end to align items at the bottom */}
                 <Textarea
                     ref={messageTextareaRef}
@@ -798,7 +848,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={handleKeyPress} // Handle Enter key press
-                    disabled={!selectedConversationId || sendMessageMutation.isLoading || !selectedInstanceEvolutionName} // Disable if no conversation, sending, or no instance
+                    disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
                     rows={4} // Start with 4 rows
                     className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
                 />
@@ -806,7 +856,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     variant="ghost"
                     size="icon"
                     onClick={toggleEmojiPicker}
-                    disabled={!selectedConversationId || sendMessageMutation.isLoading} // Disable if no conversation or sending
+                    disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
                     className="flex-shrink-0 h-10 w-10" // Fixed size for button
                     aria-label="Inserir emoji"
                 >
@@ -814,7 +864,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 </Button>
                 <Button
                     onClick={handleSendMessage}
-                    disabled={!selectedConversationId || !messageInput.trim() || sendMessageMutation.isLoading || !selectedInstanceEvolutionName} // Disable if no conversation, empty message, sending, or no instance
+                    disabled={!canSend || !messageInput.trim() || sendMessageMutation.isLoading} // Disable based on canSend and message input
                     className="flex-shrink-0 h-10 w-10 p-0" // Fixed size, no padding
                     aria-label="Enviar mensagem"
                 >
@@ -825,6 +875,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
+            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
