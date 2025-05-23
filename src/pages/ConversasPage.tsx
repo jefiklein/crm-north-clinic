@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Removed Collapsible imports
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
+import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -383,7 +385,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       return map;
   }, [allFunnels]);
 
-  // Get Stage and Funnel Info Helper (uses the maps) - MODIFIED TO RETURN CLASSES
+  // Get Stage and Funnel Info Helper (uses the maps)
   const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string, etapaClass: string, funilClass: string } => {
       let stageName = 'Etapa Desconhecida';
       let funnelName = 'Funil Desconhecido';
@@ -913,11 +915,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               ) : (
                 <span className="text-primary text-lg font-bold">Selecione uma conversa</span>
               )}
-              {/* Removed the "Ver Detalhes do Lead" button */}
             </div>
-
-            {/* Removed Temporary Lead Details Section */}
-
 
             <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
               {!selectedConversationId ? (
@@ -1022,24 +1020,33 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100 relative"> {/* Added relative for emoji picker positioning */}
                 {/* Instance Selection */}
                 <div className="mb-2">
-                     <Select
-                         value={sendingInstanceId?.toString() || ''}
-                         onValueChange={(value) => setSendingInstanceId(value ? parseInt(value, 10) : null)}
-                         disabled={!selectedConversationId || isLoadingInstances || (instancesList?.length ?? 0) === 0}
-                     >
-                         <SelectTrigger className="w-full">
-                             <SelectValue placeholder={isLoadingInstances ? "Carregando instâncias..." : (instancesList?.length === 0 ? "Nenhuma instância disponível" : "Enviar de...")} />
-                         </SelectTrigger>
-                         <SelectContent>
+                     <Label className="block mb-1 text-sm font-medium text-gray-700">Enviar de:</Label> {/* Added Label */}
+                     {isLoadingInstances ? (
+                         <div className="flex items-center text-gray-500 text-sm">
+                             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
+                         </div>
+                     ) : (instancesList?.length ?? 0) === 0 ? (
+                         <p className="text-sm text-red-600">Nenhuma instância de WhatsApp configurada para esta clínica. Não é possível enviar mensagens.</p>
+                     ) : (
+                         <RadioGroup
+                             value={sendingInstanceId?.toString() || ''}
+                             onValueChange={(value) => setSendingInstanceId(value ? parseInt(value, 10) : null)}
+                             disabled={!selectedConversationId || sendMessageMutation.isLoading} // Disable based on conversation selected and sending state
+                             className="flex flex-wrap gap-4" // Arrange radio buttons side-by-side with gap
+                         >
                              {instancesList?.map(instance => (
-                                 <SelectItem key={instance.id} value={instance.id.toString()}>
-                                     {instance.nome_exibição} ({formatPhone(instance.telefone)})
-                                 </SelectItem>
+                                 <div key={instance.id} className="flex items-center space-x-2"> {/* Container for radio item and label */}
+                                     <RadioGroupItem
+                                         value={instance.id.toString()}
+                                         id={`instance-${instance.id}`}
+                                         disabled={!selectedConversationId || sendMessageMutation.isLoading}
+                                     />
+                                     <Label htmlFor={`instance-${instance.id}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                                         {instance.nome_exibição} ({formatPhone(instance.telefone)})
+                                     </Label>
+                                 </div>
                              ))}
-                         </SelectContent>
-                     </Select>
-                     {selectedConversationId && !isLoadingInstances && (instancesList?.length ?? 0) === 0 && (
-                         <p className="text-sm text-red-600 mt-1">Nenhuma instância de WhatsApp configurada para esta clínica. Não é possível enviar mensagens.</p>
+                         </RadioGroup>
                      )}
                      {selectedConversationId && sendingInstanceId === null && !isLoadingInstances && (instancesList?.length ?? 0) > 0 && (
                           <p className="text-sm text-orange-600 mt-1">Selecione uma instância para enviar a mensagem.</p>
@@ -1080,7 +1087,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
