@@ -341,6 +341,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            // Only trigger fetch if not already processing/loaded
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
+           } else {
+               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
@@ -623,7 +625,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={handleKeyPress} // Handle Enter key press
                     disabled={!selectedConversationId}
-                    rows={1} // Start with 1 row, will expand with content
+                    rows={4} // Start with 4 rows
                     className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
                 />
                 <Button
