@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Removed Collapsible imports
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
+import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -181,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -570,6 +572,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Effect to log the last messages for comparison
   useEffect(() => {
+      // Defensive check: Ensure allMessages is an array before proceeding
+      if (!Array.isArray(allMessages)) {
+          console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
+          return; // Exit early if not an array
+      }
+
       console.log("--- Last Message Comparison ---");
       if (selectedConversationSummary) {
           console.log("Summary Last Message:", {
@@ -581,7 +589,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           console.log("No conversation summary selected.");
       }
 
-      if (allMessages && allMessages.length > 0) {
+      if (allMessages.length > 0) {
           const lastDetailMessage = allMessages[allMessages.length - 1];
            console.log("Detail Last Message:", {
                id: lastDetailMessage.id,
@@ -799,9 +807,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           const tsB = b.message_timestamp ?? 0;
           return tsA - tsB;
       });
-      console.log("[ConversasPage] Combined and sorted messages (allMessages):", combined.map(msg => ({ id: msg.id, from_me: msg.from_me, status: msg.status, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log combined messages
+      console.log("[ConversasPage] useMemo computed allMessages:", combined.length, "items. First:", combined[0]?.mensagem?.substring(0, 30), "Last:", combined[combined.length - 1]?.mensagem?.substring(0, 30)); // Log combined messages
       return combined;
   }, [messages, pendingMessages]);
+
+  // Add a log immediately after useMemo
+  console.log("[ConversasPage] After useMemo, allMessages is:", allMessages);
 
 
   // --- Permission Check ---
@@ -1123,7 +1134,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
