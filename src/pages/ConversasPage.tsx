@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, TriangleAlert, Loader2, Smile, Send } from 'lucide-react'; // Added Smile and Send icons
-import { useQuery, useMutation } from "@tanstack/react-query"; // Import useMutation
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
@@ -120,6 +120,7 @@ const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
+  const queryClient = useQueryClient(); // Get query client instance
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState(''); // State for the message input
@@ -447,11 +448,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       },
       onSuccess: (data) => {
           console.log("[ConversasPage] Message sent successfully:", data);
-          showSuccess('Mensagem enviada para a fila!');
+          // showSuccess('Mensagem enviada para a fila!'); // Removed success toast
           setMessageInput(''); // Clear input after sending
           setShowEmojiPicker(false); // Hide emoji picker
-          // Optionally refetch messages for the current conversation to show the sent message
-          // queryClient.invalidateQueries(['conversationMessages', selectedConversationId]);
+          // Force refetch messages for the current conversation
+          queryClient.invalidateQueries({ queryKey: ['conversationMessages', selectedConversationId] });
       },
       onError: (error: Error) => {
           console.error("[ConversasPage] Error sending message:", error);
@@ -737,7 +738,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
