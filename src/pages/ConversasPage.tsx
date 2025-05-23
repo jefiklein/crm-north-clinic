@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react'; // Added Clock and XCircle icons, ChevronDown, ChevronUp
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { cn, formatPhone } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,8 +14,7 @@ import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible components
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+// Removed Collapsible imports
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -35,19 +34,19 @@ interface InstanceInfo {
   nome_instancia_evolution: string | null;
 }
 
-// Conversation summary (grouped by remoteJid)
+// Conversation summary (grouped by remoteJid) - UPDATED to use nome_lead
 interface ConversationSummary {
   remoteJid: string;
-  nome: string | null;
+  nome_lead: string | null; // Use nome_lead
   lastMessage: string | null;
   lastTimestamp: number | null;
 }
 
-// Message detail - ADDED status property for optimistic updates
+// Message detail - UPDATED to use nome_lead
 interface Message {
   id: number | string; // Allow string for temporary client-side IDs
   remoteJid: string;
-  nome: string | null;
+  nome_lead: string | null; // Use nome_lead
   mensagem: string | null;
   message_timestamp: number | null; // Unix timestamp in seconds
   from_me: boolean | null;
@@ -57,11 +56,6 @@ interface Message {
   id_instancia: number | null; // This links to north_clinic_config_instancias.id
   url_arquivo: string | null; // This is the file key for the webhook
   status?: 'pending' | 'failed'; // Added status for optimistic updates
-}
-
-// Define the structure for Lead Details fetched from Supabase (using a generic type for now)
-interface LeadDetails {
-    [key: string]: any; // Allow any properties for temporary display
 }
 
 
@@ -148,8 +142,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // New state for the selected sending instance ID
   const [sendingInstanceId, setSendingInstanceId] = useState<number | null>(null);
 
-  // State to toggle visibility of temporary lead details
-  const [showTemporaryLeadDetails, setShowTemporaryLeadDetails] = useState(false);
+  // Removed state to toggle visibility of temporary lead details
+  // const [showTemporaryLeadDetails, setShowTemporaryLeadDetails] = useState(false);
 
 
   const clinicId = clinicData?.id;
@@ -161,7 +155,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -207,10 +201,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) return [];
 
-      // Fetch messages with id_instancia in instanceIds
+      // Fetch messages with id_instancia in instanceIds - UPDATED SELECT TO INCLUDE nome_lead
       const { data, error } = await supabase
         .from('whatsapp_historico')
-        .select('remoteJid, nome, mensagem, message_timestamp, tipo_mensagem, from_me, id_instancia, url_arquivo') // Select tipo_mensagem and url_arquivo here
+        .select('remoteJid, nome_lead, mensagem, message_timestamp, tipo_mensagem, from_me, id_instancia, url_arquivo') // Select nome_lead here
         .in('id_instancia', instanceIds)
         .order('message_timestamp', { ascending: false }); // Decrescente
 
@@ -224,14 +218,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         if (!existing || (msg.message_timestamp && msg.message_timestamp > (existing.lastTimestamp || 0))) {
           groupedMap.set(msg.remoteJid, {
             remoteJid: msg.remoteJid,
-            nome: msg.nome,
+            nome_lead: msg.nome_lead, // Use nome_lead here
             lastMessage: msg.mensagem,
             lastTimestamp: msg.message_timestamp,
           });
         }
       }
       const summaries = Array.from(groupedMap.values());
-      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome: s.nome, lastTimestamp: s.lastTimestamp }))); // Log summaries
+      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp }))); // Log summaries with nome_lead
       return summaries;
     },
     enabled: hasPermission && !!clinicId && instanceIds.length > 0,
@@ -244,7 +238,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     if (!conversationSummaries) return [];
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filtered = conversationSummaries.filter(conv => {
-      const name = conv.nome?.toLowerCase() || '';
+      const name = conv.nome_lead?.toLowerCase() || ''; // Use nome_lead for filtering
       const phone = conv.remoteJid?.toLowerCase() || '';
       const preview = conv.lastMessage?.toLowerCase() || '';
       return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || preview.includes(lowerSearchTerm);
@@ -259,13 +253,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     queryKey: ['conversationMessages', selectedConversationId],
     queryFn: async () => {
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
+      // Fetch messages - UPDATED SELECT TO INCLUDE nome_lead
       const { data, error } = await supabase
         .from('whatsapp_historico')
-        .select('*')
+        .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
         .order('message_timestamp', { ascending: true });
       if (error) throw new Error(error.message);
-      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome: msg.nome, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp }))); // Log messages
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp }))); // Log messages with nome_lead
       return data || [];
     },
     enabled: hasPermission && !!selectedConversationId,
@@ -273,39 +268,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Fetch Lead Details for the selected conversation's remoteJid
-  const { data: leadDetails, isLoading: isLoadingLeadDetails, error: leadDetailsError } = useQuery<LeadDetails | null>({
-      queryKey: ['leadDetails', clinicId, selectedConversationId],
-      queryFn: async () => {
-          if (!clinicId || !selectedConversationId) {
-              console.log("[ConversasPage] Skipping lead details fetch: missing clinicId or selectedConversationId.");
-              return null; // Don't fetch if no clinic or conversation is selected
-          }
-          console.log(`[ConversasPage] Fetching lead details for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
-          const { data, error } = await supabase
-              .from('north_clinic_leads_API')
-              .select('*') // Select all columns for temporary display
-              .eq('id_clinica', clinicId)
-              .eq('remoteJid', selectedConversationId)
-              .single(); // Expecting a single lead per remoteJid/clinic
-
-          if (error && error.code !== 'PGRST116') { // PGRST116 means "No rows found"
-              console.error("[ConversasPage] Supabase lead details fetch error:", error);
-              throw new Error(`Erro ao buscar detalhes do lead: ${error.message}`);
-          }
-
-          if (!data) {
-              console.log("[ConversasPage] No lead details found for remoteJid:", selectedConversationId);
-              return null; // Return null if no lead is found
-          }
-
-          console.log("[ConversasPage] Lead details fetched:", data);
-          return data as LeadDetails; // Return the single lead object
-      },
-      enabled: hasPermission && !!clinicId && !!selectedConversationId && showTemporaryLeadDetails, // Only fetch if user has permission, clinicId, conversation selected, AND the temporary section is toggled open
-      staleTime: 5 * 60 * 1000, // Cache lead details for 5 minutes
-      refetchOnWindowFocus: false,
-  });
+  // Removed Fetch Lead Details query
 
 
   // Find the selected conversation summary to display name in detail header
@@ -605,7 +568,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const tempMessage: Message = {
           id: Date.now() + Math.random(), // Unique client-side ID (string or number)
           remoteJid: selectedConversationId,
-          nome: selectedConversationSummary?.nome || null, // Use the contact name from summary
+          nome_lead: selectedConversationSummary?.nome_lead || null, // Use nome_lead from summary
           mensagem: messageInput,
           message_timestamp: Math.floor(Date.now() / 1000), // Client-side timestamp in seconds
           from_me: true,
@@ -714,7 +677,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           ) : (
             filteredAndSortedSummaries.map(conv => {
               const conversationId = conv.remoteJid;
-              const contactName = conv.nome || '';
+              const contactName = conv.nome_lead || ''; // Use nome_lead here
               const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
               const lastMessagePreview = conv.lastMessage || '';
 
@@ -735,8 +698,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                                 <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col min-w-0"> {/* Use flex-col here */}
-                                <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">{contactName || 'Sem Nome'}</span> {/* Display 'Sem Nome' if empty */}
-                                <span className="contact-phone text-xs text-gray-600 truncate whitespace-nowrap">{formatPhone(conversationId.split('@')[0])}</span> {/* Display formatted phone */}
+                                {/* Display nome_lead if available, otherwise formatted phone */}
+                                <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">
+                                    {contactName || formatPhone(conversationId.split('@')[0]) || 'Sem Nome'}
+                                </span>
+                                {/* Display formatted phone below the name/fallback */}
+                                {contactName && ( // Only show phone explicitly if name is present
+                                    <span className="contact-phone text-xs text-gray-600 truncate whitespace-nowrap">
+                                        {formatPhone(conversationId.split('@')[0])}
+                                    </span>
+                                )}
                               </div>
                             </div>
                             <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
@@ -746,7 +717,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     </TooltipTrigger>
                     <TooltipContent>
                         <p>RemoteJid: {conv.remoteJid}</p>
-                        <p>Nome no DB: {conv.nome || 'Nulo/Vazio'}</p>
+                        <p>Nome Lead no DB: {conv.nome_lead || 'Nulo/Vazio'}</p> {/* Show nome_lead in tooltip */}
                     </TooltipContent>
                 </Tooltip>
                 </TooltipProvider>
@@ -761,67 +732,32 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
           <span id="conversationContactName" className="text-primary">
             {selectedConversationSummary ? (
-              selectedConversationSummary.nome || selectedConversationSummary.remoteJid.split('@')[0] // Fallback to phone number if name is empty
+              // Use nome_lead for header, fallback to formatted phone
+              selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'
             ) : (
               'Selecione uma conversa'
             )}
           </span>
           {selectedConversationSummary && (
-            <>
-              {/* Temporary button to show/hide lead details */}
-              <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto text-xs h-auto py-1 px-2 mr-2"
-                  onClick={() => setShowTemporaryLeadDetails(prev => !prev)}
-              >
-                  {showTemporaryLeadDetails ? (
-                      <> <ChevronUp className="h-4 w-4 mr-1" /> Ocultar Detalhes Lead </>
-                  ) : (
-                      <> <ChevronDown className="h-4 w-4 mr-1" /> Ver Detalhes Lead </>
-                  )}
-              </Button>
-              {/* Original button */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-auto py-1 px-2"
-                onClick={() => {
-                  const phone = selectedConversationSummary.remoteJid;
-                  if (!phone) return;
-                  const clean = String(phone).replace(/\D/g, '');
-                  if (clean) {
-                    window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
-                  }
-                }}
-              >
-                Abrir Detalhes Lead (Webhook)
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto text-xs h-auto py-1 px-2"
+              onClick={() => {
+                const phone = selectedConversationSummary.remoteJid;
+                if (!phone) return;
+                const clean = String(phone).replace(/\D/g, '');
+                if (clean) {
+                  window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
+                }
+              }}
+            >
+              Ver Detalhes do Lead
+            </Button>
           )}
         </div>
 
-        {/* Temporary Lead Details Section */}
-        {selectedConversationId && ( // Only show if a conversation is selected
-            <Collapsible open={showTemporaryLeadDetails} onOpenChange={setShowTemporaryLeadDetails}>
-                <CollapsibleContent className="border-b border-gray-200 bg-gray-100 p-4 text-sm text-gray-700">
-                    <h3 className="font-semibold mb-2">Detalhes Completos do Lead (Temporário)</h3>
-                    {isLoadingLeadDetails ? (
-                        <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" /> Carregando detalhes...
-                        </div>
-                    ) : leadDetailsError ? (
-                        <div className="text-red-600">Erro ao carregar detalhes: {leadDetailsError.message}</div>
-                    ) : leadDetails ? (
-                        <ScrollArea className="h-40 max-h-60 w-full rounded-md border p-2 bg-white font-mono text-xs overflow-auto">
-                            <pre className="whitespace-pre-wrap break-words">{JSON.stringify(leadDetails, null, 2)}</pre>
-                        </ScrollArea>
-                    ) : (
-                        <div>Nenhum detalhe de lead encontrado para esta conversa.</div>
-                    )}
-                </CollapsibleContent>
-            </Collapsible>
-        )}
+        {/* Removed Temporary Lead Details Section */}
 
 
         <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
@@ -848,8 +784,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     : null;
                 const instanceName = instance?.nome_exibição || 'Instância Desconhecida';
 
-                // Determine the name to display based on from_me
-                const displayName = msg.from_me ? instanceName : (msg.nome || formatPhone(msg.remoteJid.split('@')[0]) || 'Contato Desconhecido'); // Fallback to formatted phone if name is empty
+                // Determine the name to display based on from_me - Use nome_lead here
+                const displayName = msg.from_me ? instanceName : (msg.nome_lead || formatPhone(msg.remoteJid.split('@')[0]) || 'Contato Desconhecido'); // Fallback to formatted phone if nome_lead is empty
 
                 // Get media status and URL from component state
                 const mediaStatusForMsg = mediaStatus[msg.id];
@@ -978,7 +914,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
