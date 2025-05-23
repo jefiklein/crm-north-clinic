@@ -15,6 +15,7 @@ import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 // Removed Collapsible imports
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -155,7 +156,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -644,287 +645,288 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
 
   return (
-    <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
-      {/* Conversations List Panel */}
-      <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
-        <div className="list-header p-4 border-b border-gray-200 flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <Input
-              type="text"
-              placeholder="Buscar conversas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-full"
-            />
+    <TooltipProvider> {/* Moved TooltipProvider here */}
+        <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
+          {/* Conversations List Panel */}
+          <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
+            <div className="list-header p-4 border-b border-gray-200 flex-shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                  type="text"
+                  placeholder="Buscar conversas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 w-full"
+                />
+              </div>
+            </div>
+            <ScrollArea className="conversations-list flex-grow">
+              {isLoadingSummaries ? (
+                <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
+                  <Loader2 className="h-8 w-8 animate-spin mb-4" />
+                  <span>Carregando conversas...</span>
+                </div>
+              ) : summariesError ? (
+                <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-50 rounded-md m-4">
+                  <TriangleAlert className="h-8 w-8 mb-4" />
+                  <span>Erro ao carregar conversas: {summariesError.message}</span>
+                </div>
+              ) : filteredAndSortedSummaries.length === 0 ? (
+                <div className="status-message text-gray-700 p-8 text-center">
+                  {searchTerm ? 'Nenhuma conversa encontrada com este filtro.' : 'Nenhuma conversa encontrada.'}
+                </div>
+              ) : (
+                filteredAndSortedSummaries.map(conv => {
+                  const conversationId = conv.remoteJid;
+                  const contactName = conv.nome_lead || ''; // Use nome_lead here
+                  const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
+                  const lastMessagePreview = conv.lastMessage || '';
+
+                  return (
+                    <Tooltip key={conversationId}> {/* Keep Tooltip */}
+                        <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
+                                selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
+                              )}
+                              onClick={() => setSelectedConversationId(conversationId)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
+                                    <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col min-w-0"> {/* Use flex-col here */}
+                                    {/* Display nome_lead if available, otherwise formatted phone */}
+                                    <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">
+                                        {contactName || formatPhone(conversationId.split('@')[0]) || 'Sem Nome'}
+                                    </span>
+                                    {/* Display formatted phone below the name/fallback */}
+                                    {contactName && ( // Only show phone explicitly if name is present
+                                        <span className="contact-phone text-xs text-gray-600 truncate whitespace-nowrap">
+                                            {formatPhone(conversationId.split('@')[0])}
+                                        </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
+                              </div>
+                              <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>RemoteJid: {conv.remoteJid}</p>
+                            <p>Nome Lead no DB: {conv.nome_lead || 'Nulo/Vazio'}</p> {/* Show nome_lead in tooltip */}
+                        </TooltipContent>
+                    </Tooltip>
+                  );
+                })
+              )}
+            </ScrollArea>
+          </div>
+
+          {/* Conversation Detail Panel */}
+          <div className="conversation-detail-panel flex-grow flex flex-col overflow-hidden bg-gray-50">
+            <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
+              <span id="conversationContactName" className="text-primary">
+                {selectedConversationSummary ? (
+                  // Use nome_lead for header, fallback to formatted phone
+                  selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'
+                ) : (
+                  'Selecione uma conversa'
+                )}
+              </span>
+              {selectedConversationSummary && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto text-xs h-auto py-1 px-2"
+                  onClick={() => {
+                    const phone = selectedConversationSummary.remoteJid;
+                    if (!phone) return;
+                    const clean = String(phone).replace(/\D/g, '');
+                    if (clean) {
+                      window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
+                    }
+                  }}
+                >
+                  Ver Detalhes do Lead
+                </Button>
+              )}
+            </div>
+
+            {/* Removed Temporary Lead Details Section */}
+
+
+            <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
+              {!selectedConversationId ? (
+                <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
+              ) : isLoadingMessages && allMessages.length === 0 ? ( // Show loading only if no messages (initial load)
+                <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
+                  <Loader2 className="h-8 w-8 animate-spin mb-4" />
+                  <span>Carregando mensagens...</span>
+                </div>
+              ) : messagesError && allMessages.length === 0 ? ( // Show error only if no messages (initial load)
+                <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-100 rounded-md">
+                  <TriangleAlert className="h-8 w-8 mb-4" />
+                  <span>Erro ao carregar mensagens: {messagesError.message}</span>
+                </div>
+              ) : allMessages.length === 0 ? ( // Show no messages found if combined list is empty
+                <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
+              ) : (
+                <>
+                  {allMessages.map(msg => { // Use allMessages (fetched + pending)
+                    // Find the instance name using the instanceMap
+                    const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
+                        ? instanceMap.get(msg.id_instancia)
+                        : null;
+                    const instanceName = instance?.nome_exibição || 'Instância Desconhecida';
+
+                    // Determine the name to display based on from_me - Use nome_lead here
+                    const displayName = msg.from_me ? instanceName : (msg.nome_lead || formatPhone(msg.remoteJid.split('@')[0]) || 'Contato Desconhecido'); // Fallback to formatted phone if nome_lead is empty
+
+                    // Get media status and URL from component state
+                    const mediaStatusForMsg = mediaStatus[msg.id];
+                    const mediaUrlForMsg = mediaUrls[msg.id];
+                    const isLoadingMedia = mediaStatusForMsg?.isLoading ?? false;
+                    const mediaError = mediaStatusForMsg?.error ?? null;
+
+                    // Log the media state for this specific message during render
+                    console.log(`[ConversasPage] Rendering message ${msg.id}: isLoadingMedia=${isLoadingMedia}, mediaError=${mediaError}, mediaUrlForMsg=${mediaUrlForMsg ? 'Exists' : 'Null'}`);
+
+
+                    return (
+                      <div key={msg.id} className={cn(
+                        "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
+                        msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200',
+                        msg.status === 'pending' && 'opacity-70', // Dim pending messages
+                        msg.status === 'failed' && 'border-red-500 border-2' // Highlight failed messages
+                      )}>
+                        {/* Add instance/contact name label */}
+                        <div className={cn(
+                            "text-xs text-gray-500 mb-1",
+                            msg.from_me ? 'text-right' : 'text-left' // Align label with bubble
+                        )}>
+                            {displayName}
+                        </div>
+
+                        {/* Render media if available */}
+                        {isLoadingMedia && (
+                            <div className="flex items-center justify-center text-primary mb-2">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando mídia...
+                            </div>
+                        )}
+                        {mediaError && (
+                             <div className="text-red-600 text-xs mb-2">
+                                 <TriangleAlert className="h-3 w-3 inline-block mr-1" /> {mediaError}
+                             </div>
+                        )}
+                        {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('image') && (
+                            <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
+                        )}
+                        {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
+                            <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
+                        )}
+                         {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
+                            <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
+                        )}
+
+                        {/* Render message text */}
+                        {/* Only render text if it exists OR if there's no media being loaded/displayed */}
+                        {(msg.mensagem || (!mediaUrlForMsg && !isLoadingMedia && !mediaError)) && (
+                             <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+                        )}
+
+
+                        <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">
+                            {formatTimestampForBubble(msg.message_timestamp)}
+                            {msg.status === 'pending' && <Clock className="h-3 w-3 inline-block ml-1 text-gray-500" title="Pendente" />}
+                            {msg.status === 'failed' && <XCircle className="h-3 w-3 inline-block ml-1 text-red-500" title="Falhou" />}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div ref={endOfMessagesRef} />
+                </>
+              )}
+            </ScrollArea>
+            {/* Message Input Area */}
+            <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100 relative"> {/* Added relative for emoji picker positioning */}
+                {/* Instance Selection */}
+                <div className="mb-2">
+                     <Select
+                         value={sendingInstanceId?.toString() || ''}
+                         onValueChange={(value) => setSendingInstanceId(value ? parseInt(value, 10) : null)}
+                         disabled={!selectedConversationId || isLoadingInstances || (instancesList?.length ?? 0) === 0}
+                     >
+                         <SelectTrigger className="w-full">
+                             <SelectValue placeholder={isLoadingInstances ? "Carregando instâncias..." : (instancesList?.length === 0 ? "Nenhuma instância disponível" : "Enviar de...")} />
+                         </SelectTrigger>
+                         <SelectContent>
+                             {instancesList?.map(instance => (
+                                 <SelectItem key={instance.id} value={instance.id.toString()}>
+                                     {instance.nome_exibição} ({formatPhone(instance.telefone)})
+                                 </SelectItem>
+                             ))}
+                         </SelectContent>
+                     </Select>
+                     {selectedConversationId && !isLoadingInstances && (instancesList?.length ?? 0) === 0 && (
+                         <p className="text-sm text-red-600 mt-1">Nenhuma instância de WhatsApp configurada para esta clínica. Não é possível enviar mensagens.</p>
+                     )}
+                     {selectedConversationId && sendingInstanceId === null && !isLoadingInstances && (instancesList?.length ?? 0) > 0 && (
+                          <p className="text-sm text-orange-600 mt-1">Selecione uma instância para enviar a mensagem.</p>
+                     )}
+                </div>
+
+                <div className="flex items-end gap-2"> {/* Use flex items-end to align items at the bottom */}
+                    <Textarea
+                        ref={messageTextareaRef}
+                        placeholder="Digite sua mensagem aqui..."
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyPress={handleKeyPress} // Handle Enter key press
+                        disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
+                        rows={4} // Start with 4 rows
+                        className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
+                    />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleEmojiPicker}
+                        disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
+                        className="flex-shrink-0 h-10 w-10" // Fixed size for button
+                        aria-label="Inserir emoji"
+                    >
+                        <Smile className="h-5 w-5" />
+                    </Button>
+                    <Button
+                        onClick={handleSendMessage}
+                        disabled={!canSend || !messageInput.trim() || sendMessageMutation.isLoading} // Disable based on canSend and message input
+                        className="flex-shrink-0 h-10 w-10 p-0" // Fixed size, no padding
+                        aria-label="Enviar mensagem"
+                    >
+                        {sendMessageMutation.isLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                            <Send className="h-5 w-5" />
+                        )}
+                    </Button>
+                </div>
+                {/* Emoji Picker */}
+                {showEmojiPicker && (
+                    <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
+                        <emoji-picker
+                            ref={emojiPickerRef}
+                            style={{ width: "300px", height: "300px" }}
+                        />
+                    </div>
+                )}
+            </div>
           </div>
         </div>
-        <ScrollArea className="conversations-list flex-grow">
-          {isLoadingSummaries ? (
-            <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
-              <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <span>Carregando conversas...</span>
-            </div>
-          ) : summariesError ? (
-            <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-50 rounded-md m-4">
-              <TriangleAlert className="h-8 w-8 mb-4" />
-              <span>Erro ao carregar conversas: {summariesError.message}</span>
-            </div>
-          ) : filteredAndSortedSummaries.length === 0 ? (
-            <div className="status-message text-gray-700 p-8 text-center">
-              {searchTerm ? 'Nenhuma conversa encontrada com este filtro.' : 'Nenhuma conversa encontrada.'}
-            </div>
-          ) : (
-            filteredAndSortedSummaries.map(conv => {
-              const conversationId = conv.remoteJid;
-              const contactName = conv.nome_lead || ''; // Use nome_lead here
-              const lastMessageTimestamp = formatTimestampForList(conv.lastTimestamp);
-              const lastMessagePreview = conv.lastMessage || '';
-
-              return (
-                <TooltipProvider key={conversationId}> {/* Wrap each item with TooltipProvider */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <div
-                          className={cn(
-                            "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
-                            selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
-                          )}
-                          onClick={() => setSelectedConversationId(conversationId)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
-                                <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col min-w-0"> {/* Use flex-col here */}
-                                {/* Display nome_lead if available, otherwise formatted phone */}
-                                <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">
-                                    {contactName || formatPhone(conversationId.split('@')[0]) || 'Sem Nome'}
-                                </span>
-                                {/* Display formatted phone below the name/fallback */}
-                                {contactName && ( // Only show phone explicitly if name is present
-                                    <span className="contact-phone text-xs text-gray-600 truncate whitespace-nowrap">
-                                        {formatPhone(conversationId.split('@')[0])}
-                                    </span>
-                                )}
-                              </div>
-                            </div>
-                            <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
-                          </div>
-                          <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>RemoteJid: {conv.remoteJid}</p>
-                        <p>Nome Lead no DB: {conv.nome_lead || 'Nulo/Vazio'}</p> {/* Show nome_lead in tooltip */}
-                    </TooltipContent>
-                </Tooltip>
-                </TooltipProvider>
-              );
-            })
-          )}
-        </ScrollArea>
-      </div>
-
-      {/* Conversation Detail Panel */}
-      <div className="conversation-detail-panel flex-grow flex flex-col overflow-hidden bg-gray-50">
-        <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
-          <span id="conversationContactName" className="text-primary">
-            {selectedConversationSummary ? (
-              // Use nome_lead for header, fallback to formatted phone
-              selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'
-            ) : (
-              'Selecione uma conversa'
-            )}
-          </span>
-          {selectedConversationSummary && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto text-xs h-auto py-1 px-2"
-              onClick={() => {
-                const phone = selectedConversationSummary.remoteJid;
-                if (!phone) return;
-                const clean = String(phone).replace(/\D/g, '');
-                if (clean) {
-                  window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
-                }
-              }}
-            >
-              Ver Detalhes do Lead
-            </Button>
-          )}
-        </div>
-
-        {/* Removed Temporary Lead Details Section */}
-
-
-        <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
-          {!selectedConversationId ? (
-            <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
-          ) : isLoadingMessages && allMessages.length === 0 ? ( // Show loading only if no messages (initial load)
-            <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
-              <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <span>Carregando mensagens...</span>
-            </div>
-          ) : messagesError && allMessages.length === 0 ? ( // Show error only if no messages (initial load)
-            <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-100 rounded-md">
-              <TriangleAlert className="h-8 w-8 mb-4" />
-              <span>Erro ao carregar mensagens: {messagesError.message}</span>
-            </div>
-          ) : allMessages.length === 0 ? ( // Show no messages found if combined list is empty
-            <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
-          ) : (
-            <>
-              {allMessages.map(msg => { // Use allMessages (fetched + pending)
-                // Find the instance name using the instanceMap
-                const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
-                    ? instanceMap.get(msg.id_instancia)
-                    : null;
-                const instanceName = instance?.nome_exibição || 'Instância Desconhecida';
-
-                // Determine the name to display based on from_me - Use nome_lead here
-                const displayName = msg.from_me ? instanceName : (msg.nome_lead || formatPhone(msg.remoteJid.split('@')[0]) || 'Contato Desconhecido'); // Fallback to formatted phone if nome_lead is empty
-
-                // Get media status and URL from component state
-                const mediaStatusForMsg = mediaStatus[msg.id];
-                const mediaUrlForMsg = mediaUrls[msg.id];
-                const isLoadingMedia = mediaStatusForMsg?.isLoading ?? false;
-                const mediaError = mediaStatusForMsg?.error ?? null;
-
-                // Log the media state for this specific message during render
-                console.log(`[ConversasPage] Rendering message ${msg.id}: isLoadingMedia=${isLoadingMedia}, mediaError=${mediaError}, mediaUrlForMsg=${mediaUrlForMsg ? 'Exists' : 'Null'}`);
-
-
-                return (
-                  <div key={msg.id} className={cn(
-                    "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                    msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200',
-                    msg.status === 'pending' && 'opacity-70', // Dim pending messages
-                    msg.status === 'failed' && 'border-red-500 border-2' // Highlight failed messages
-                  )}>
-                    {/* Add instance/contact name label */}
-                    <div className={cn(
-                        "text-xs text-gray-500 mb-1",
-                        msg.from_me ? 'text-right' : 'text-left' // Align label with bubble
-                    )}>
-                        {displayName}
-                    </div>
-
-                    {/* Render media if available */}
-                    {isLoadingMedia && (
-                        <div className="flex items-center justify-center text-primary mb-2">
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando mídia...
-                        </div>
-                    )}
-                    {mediaError && (
-                         <div className="text-red-600 text-xs mb-2">
-                             <TriangleAlert className="h-3 w-3 inline-block mr-1" /> {mediaError}
-                         </div>
-                    )}
-                    {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('image') && (
-                        <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
-                    )}
-                    {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
-                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
-                    )}
-                     {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
-                        <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
-                    )}
-
-                    {/* Render message text */}
-                    {/* Only render text if it exists OR if there's no media being loaded/displayed */}
-                    {(msg.mensagem || (!mediaUrlForMsg && !isLoadingMedia && !mediaError)) && (
-                         <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
-                    )}
-
-
-                    <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">
-                        {formatTimestampForBubble(msg.message_timestamp)}
-                        {msg.status === 'pending' && <Clock className="h-3 w-3 inline-block ml-1 text-gray-500" title="Pendente" />}
-                        {msg.status === 'failed' && <XCircle className="h-3 w-3 inline-block ml-1 text-red-500" title="Falhou" />}
-                    </span>
-                  </div>
-                );
-              })}
-              <div ref={endOfMessagesRef} />
-            </>
-          )}
-        </ScrollArea>
-        {/* Message Input Area */}
-        <div className="message-input-area p-4 border-t border-gray-200 flex-shrink-0 bg-gray-100 relative"> {/* Added relative for emoji picker positioning */}
-            {/* Instance Selection */}
-            <div className="mb-2">
-                 <Select
-                     value={sendingInstanceId?.toString() || ''}
-                     onValueChange={(value) => setSendingInstanceId(value ? parseInt(value, 10) : null)}
-                     disabled={!selectedConversationId || isLoadingInstances || (instancesList?.length ?? 0) === 0}
-                 >
-                     <SelectTrigger className="w-full">
-                         <SelectValue placeholder={isLoadingInstances ? "Carregando instâncias..." : (instancesList?.length === 0 ? "Nenhuma instância disponível" : "Enviar de...")} />
-                     </SelectTrigger>
-                     <SelectContent>
-                         {instancesList?.map(instance => (
-                             <SelectItem key={instance.id} value={instance.id.toString()}>
-                                 {instance.nome_exibição} ({formatPhone(instance.telefone)})
-                             </SelectItem>
-                         ))}
-                     </SelectContent>
-                 </Select>
-                 {selectedConversationId && !isLoadingInstances && (instancesList?.length ?? 0) === 0 && (
-                     <p className="text-sm text-red-600 mt-1">Nenhuma instância de WhatsApp configurada para esta clínica. Não é possível enviar mensagens.</p>
-                 )}
-                 {selectedConversationId && sendingInstanceId === null && !isLoadingInstances && (instancesList?.length ?? 0) > 0 && (
-                      <p className="text-sm text-orange-600 mt-1">Selecione uma instância para enviar a mensagem.</p>
-                 )}
-            </div>
-
-            <div className="flex items-end gap-2"> {/* Use flex items-end to align items at the bottom */}
-                <Textarea
-                    ref={messageTextareaRef}
-                    placeholder="Digite sua mensagem aqui..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyPress={handleKeyPress} // Handle Enter key press
-                    disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
-                    rows={4} // Start with 4 rows
-                    className="flex-grow min-h-[40px] max-h-[150px] resize-none overflow-y-auto pr-10" // Added pr-10 for emoji button space
-                />
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleEmojiPicker}
-                    disabled={!canSend || sendMessageMutation.isLoading} // Disable based on canSend
-                    className="flex-shrink-0 h-10 w-10" // Fixed size for button
-                    aria-label="Inserir emoji"
-                >
-                    <Smile className="h-5 w-5" />
-                </Button>
-                <Button
-                    onClick={handleSendMessage}
-                    disabled={!canSend || !messageInput.trim() || sendMessageMutation.isLoading} // Disable based on canSend and message input
-                    className="flex-shrink-0 h-10 w-10 p-0" // Fixed size, no padding
-                    aria-label="Enviar mensagem"
-                >
-                    {sendMessageMutation.isLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                        <Send className="h-5 w-5" />
-                    )}
-                </Button>
-            </div>
-            {showEmojiPicker && (
-                <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
-                    <emoji-picker
-                        ref={emojiPickerRef}
-                        style={{ width: "300px", height: "300px" }}
-                    />
-                </div>
-            )}
-        </div>
-      </div>
-    </div>
+    </TooltipProvider> {/* Close the provider */}
   );
 };
 
