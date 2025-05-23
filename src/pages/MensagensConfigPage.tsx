@@ -13,7 +13,7 @@ interface ServiceOption {
 const MensagensConfigPage: React.FC<{ clinicData: any }> = ({ clinicData }) => {
   // --- Seus estados e lógica existentes aqui ---
 
-  // Adicione estes estados para os serviços
+  // Estados para os serviços
   const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
@@ -46,9 +46,12 @@ const MensagensConfigPage: React.FC<{ clinicData: any }> = ({ clinicData }) => {
 
   return (
     <div>
-      {/* Mantenha todo o JSX existente da tela aqui */}
+      {/* TODO: Mantenha todo o JSX existente da tela aqui */}
 
-      {/* Insira o componente de seleção de serviços no local desejado */}
+      {/* Exemplo: outros campos do formulário */}
+      {/* ... seu código existente ... */}
+
+      {/* Aqui insira a lista de serviços */}
       <div className="mt-6">
         <label className="block font-semibold mb-1">Serviços Relacionados</label>
         {isLoadingServices ? (
@@ -63,6 +66,7 @@ const MensagensConfigPage: React.FC<{ clinicData: any }> = ({ clinicData }) => {
       </div>
 
       {/* Continue com o restante do JSX da tela */}
+      {/* ... seu código existente ... */}
     </div>
   );
 };
