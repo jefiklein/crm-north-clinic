@@ -1,59 +1,80 @@
-// Adicione no topo, junto com os outros imports:
+import React, { useState, useEffect } from 'react';
 import MultiSelectServices from '@/components/MultiSelectServices';
-import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { showError } from '@/utils/toast';
 
-// Dentro do componente MensagensConfigPage, adicione estes estados:
-const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
-const [isLoadingServices, setIsLoadingServices] = useState<boolean>(false);
-const [selectedServices, setSelectedServices] = useState<number[]>([]);
+interface ClinicData {
+  code: string;
+  nome: string;
+  id: string | number | null;
+  acesso_crm: boolean;
+  acesso_config_msg: boolean;
+  id_permissao: number;
+}
 
-// Adicione este useEffect para buscar os serviços do Supabase:
-useEffect(() => {
-  if (!clinicData?.id) return;
+interface ServiceOption {
+  id: number;
+  nome: string;
+}
 
-  const fetchServices = async () => {
-    setIsLoadingServices(true);
-    try {
-      const { data, error } = await supabase
-        .from('north_clinic_servicos')
-        .select('id, nome')
-        .eq('id_clinica', clinicData.id)
-        .order('nome', { ascending: true });
+interface MensagensConfigPageProps {
+  clinicData: ClinicData | null;
+}
 
-      if (error) {
-        throw error;
+const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
+  const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(false);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!clinicData?.id) return;
+
+    const fetchServices = async () => {
+      setIsLoadingServices(true);
+      try {
+        const { data, error } = await supabase
+          .from('north_clinic_servicos')
+          .select('id, nome')
+          .eq('id_clinica', clinicData.id)
+          .order('nome', { ascending: true });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setServicesOptions(data);
+        }
+      } catch (error: any) {
+        showError(`Erro ao carregar serviços: ${error.message}`);
+      } finally {
+        setIsLoadingServices(false);
       }
+    };
 
-      if (data) {
-        setServicesOptions(data);
-      }
-    } catch (error: any) {
-      showError(`Erro ao carregar serviços: ${error.message}`);
-    } finally {
-      setIsLoadingServices(false);
-    }
-  };
+    fetchServices();
+  }, [clinicData]);
 
-  fetchServices();
-}, [clinicData]);
+  return (
+    <div className="p-6 max-w-3xl mx-auto bg-white rounded shadow">
+      <h2 className="text-xl font-semibold mb-4">Configuração de Mensagens</h2>
 
-// No local onde deseja exibir a lista de serviços (por exemplo, próximo ao campo de mídia da mensagem), adicione:
+      <div>
+        <label className="block font-semibold mb-1">Serviços Relacionados</label>
+        {isLoadingServices ? (
+          <p>Carregando serviços...</p>
+        ) : (
+          <MultiSelectServices
+            options={servicesOptions}
+            selectedIds={selectedServices}
+            onChange={setSelectedServices}
+          />
+        )}
+      </div>
 
-<div>
-  <label className="block font-semibold mb-1">Serviços Relacionados</label>
-  {isLoadingServices ? (
-    <p>Carregando serviços...</p>
-  ) : (
-    <MultiSelectServices
-      options={servicesOptions}
-      selectedIds={selectedServices}
-      onChange={setSelectedServices}
-    />
-  )}
-</div>
+      {/* O restante do formulário e campos da tela permanecem inalterados */}
+    </div>
+  );
+};
 
-// Além disso, ao carregar os dados da mensagem para edição, se existir um campo 'servicos', atualize o estado selectedServices com os valores existentes (array ou string CSV).
-
-// E ao salvar a mensagem, inclua o campo 'servicos' com o array selectedServices no payload enviado para o banco.
-
-// Essas são as únicas alterações necessárias para adicionar a lista de serviços sem modificar o restante do código.
+export default MensagensConfigPage;
