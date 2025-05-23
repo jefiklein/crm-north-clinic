@@ -1,15 +1,10 @@
 "use client";
 
 import React from "react";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Label } from "@/components/ui/label"; // Import Label
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
+import { cn } from "@/lib/utils"; // Import cn for styling
 
 interface ServiceOption {
   id: number;
@@ -29,50 +24,52 @@ const MultiSelectServices: React.FC<MultiSelectServicesProps> = ({
   onChange,
   disabled = false,
 }) => {
-  // Convert selectedIds to strings for Select component
-  const selectedValues = selectedIds.map(String);
 
-  const handleValueChange = (values: string | string[]) => {
-    if (Array.isArray(values)) {
-      const selectedNumbers = values.map((v) => parseInt(v, 10)).filter((n) => !isNaN(n));
-      onChange(selectedNumbers);
-    } else if (typeof values === "string") {
-      // Single value (should not happen in multiple mode)
-      const n = parseInt(values, 10);
-      onChange(isNaN(n) ? [] : [n]);
+  const handleCheckedChange = (id: number, checked: boolean) => {
+    let newSelectedIds;
+    if (checked) {
+      // Add the ID if it's not already there
+      newSelectedIds = [...selectedIds, id];
     } else {
-      onChange([]);
+      // Remove the ID
+      newSelectedIds = selectedIds.filter(selectedId => selectedId !== id);
     }
+    onChange(newSelectedIds);
   };
 
-  // Find the selected service objects to display their names
-  const selectedServices = options.filter(option => selectedIds.includes(option.id));
-  const displayValue = selectedServices.map(service => service.nome).join(", ");
-
   return (
-    <Select
-      multiple
-      value={selectedValues}
-      onValueChange={handleValueChange}
-      disabled={disabled}
-    >
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Selecione um ou mais serviços">
-          {/* Display selected names or placeholder */}
-          {selectedIds.length > 0 ? displayValue : "Selecione um ou mais serviços"}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          <SelectLabel>Serviços Disponíveis</SelectLabel>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={String(option.id)}>
-              {option.nome}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+    <div className={cn("border rounded-md p-2", disabled && "opacity-50 cursor-not-allowed")}>
+      <ScrollArea className="h-40 w-full"> {/* Fixed height scroll area */}
+        <div className="flex flex-col space-y-2">
+          {options.length === 0 ? (
+            <div className="text-center text-gray-500 text-sm py-4">Nenhum serviço disponível.</div>
+          ) : (
+            options.map((option) => {
+              const isSelected = selectedIds.includes(option.id);
+              return (
+                <div key={option.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`service-${option.id}`}
+                    checked={isSelected}
+                    onCheckedChange={(checked) => handleCheckedChange(option.id, !!checked)}
+                    disabled={disabled}
+                  />
+                  <Label
+                    htmlFor={`service-${option.id}`}
+                    className={cn(
+                      "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+                      disabled && "cursor-not-allowed"
+                    )}
+                  >
+                    {option.nome}
+                  </Label>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
 
