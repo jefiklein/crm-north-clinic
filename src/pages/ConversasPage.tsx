@@ -11,7 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
-import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
+// Import the emoji-picker-element library directly to ensure custom element registration
+import 'emoji-picker-element';
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -378,14 +379,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   useEffect(() => {
     const picker = emojiPickerRef.current;
     if (!picker) return;
-    // Ensure the element is defined before adding listener
-    if (typeof customElements.get('emoji-picker') === 'undefined') {
-        console.warn("emoji-picker-element not defined yet.");
-        // You might need to wait for the element to be defined if it's lazy loaded
-        // For now, assume it's available due to import
-    } else {
-        picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
-    }
+
+    // Remove the check for customElements.get('emoji-picker')
+    // Assume the import handles registration and attach listener directly
+    picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+
 
     return () => {
       if (picker) {
