@@ -89,13 +89,14 @@ function formatTimestampForBubble(unixTimestampInSeconds: number | null): string
     const date = new Date(timestampMs);
 
     if (isToday(date)) {
-      return format(date, 'Hoje HH:mm', { locale: ptBR });
+      // Correct format for 'Hoje HH:mm' - Escape 'Hoje'
+      return format(date, "'Hoje' HH:mm", { locale: ptBR });
     } else {
       return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
     }
   } catch (e) {
     console.error("Error formatting timestamp for bubble:", unixTimestampInSeconds, e);
-    return '';
+    return 'Erro'; // Return 'Erro' on failure
   }
 }
 
@@ -244,6 +245,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   useEffect(() => {
       console.log("[ConversasPage] Media fetching useEffect triggered. Messages:", messages?.length); // Log useEffect trigger
       if (!messages || messages.length === 0) {
+          // Clear media state when messages are cleared (e.g., changing conversation)
           setMediaUrls({});
           setMediaStatus({});
           return;
@@ -251,8 +253,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
       const fetchAndSetMedia = async (msg: Message) => {
           // Only fetch if there's a file URL and it's a media type we want to display inline
-          if (!msg.url_arquivo || (!msg.tipo_mensagem || (msg.tipo_mensagem !== 'image' && msg.tipo_mensagem !== 'audio' && msg.tipo_mensagem !== 'video'))) {
+          const isMediaType = msg.tipo_mensagem && ['image', 'audio', 'video'].includes(msg.tipo_mensagem);
+          console.log(`[ConversasPage] Message ${msg.id}: Checking media condition. url_arquivo: ${!!msg.url_arquivo}, tipo_mensagem: ${msg.tipo_mensagem}, isMediaType: ${isMediaType}`); // Log condition check
+
+          if (!msg.url_arquivo || !isMediaType) {
               console.log(`[ConversasPage] Message ${msg.id}: No media URL or type for inline display. Skipping fetch.`); // Log skip
+              // Ensure state is set to non-loading/non-error for messages without media
               setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
               setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
               return;
@@ -307,13 +313,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       // Iterate through messages and trigger fetch for each
       messages.forEach(msg => {
            // Only trigger fetch if not already processing/loaded
+           // Check if the message ID is NOT already in mediaUrls or mediaStatus
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
+           } else {
+               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
-  }, [messages, MEDIA_WEBHOOK_URL, mediaUrls, mediaStatus]); // Added mediaUrls and mediaStatus to dependencies to prevent re-fetching already processed items
-
+  }, [messages, MEDIA_WEBHOOK_URL]); // DEPEND ONLY ON MESSAGES AND WEBHOOK URL
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
