@@ -183,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -570,79 +570,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   }, [selectedConversationId, messages, instancesList]); // Depend on conversation, messages, and instances list
 
 
-  // Effect to log the last messages for comparison
-  useEffect(() => {
-      // Defensive check: Ensure allMessages is an array before proceeding
-      if (!Array.isArray(allMessages)) {
-          console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
-          return; // Exit early if not an array
-      }
-
-      console.log("--- Last Message Comparison ---");
-      if (selectedConversationSummary) {
-          console.log("Summary Last Message:", {
-              remoteJid: selectedConversationSummary.remoteJid,
-              timestamp: selectedConversationSummary.lastTimestamp,
-              message: selectedConversationSummary.lastMessage?.substring(0, 50) + '...'
-          });
-      } else {
-          console.log("No conversation summary selected.");
-      }
-
-      if (allMessages.length > 0) {
-          const lastDetailMessage = allMessages[allMessages.length - 1];
-           console.log("Detail Last Message:", {
-               id: lastDetailMessage.id,
-               remoteJid: lastDetailMessage.remoteJid,
-               timestamp: lastDetailMessage.message_timestamp,
-               from_me: lastDetailMessage.from_me,
-               status: lastDetailMessage.status,
-               message: lastDetailMessage.mensagem?.substring(0, 50) + '...'
-           });
-      } else {
-          console.log("No messages in detail view.");
-      }
-      console.log("-----------------------------");
-
-  }, [selectedConversationSummary, allMessages]); // Re-run when summary or detail messages change
-
-
-  // Emoji picker integration
-  const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
-
-  const onEmojiSelect = (event: CustomEvent) => {
-    const emoji = event.detail.unicode;
-    if (messageTextareaRef.current) {
-      const el = messageTextareaRef.current;
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const text = el.value;
-      el.value = text.slice(0, start) + emoji + text.slice(end);
-      el.selectionStart = el.selectionEnd = start + emoji.length;
-      el.focus();
-      setMessageInput(el.value); // Update state after modifying textarea value
-    }
-    // Optionally close picker after selection
-    // setShowEmojiPicker(false);
-  };
-
-  // Attach emoji picker event listener
-  useEffect(() => {
-    const picker = emojiPickerRef.current;
-    if (!picker) return;
-
-    // Remove the check for customElements.get('emoji-picker')
-    // Assume the import handles registration and attach listener directly
-    picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
-
-
-    return () => {
-      if (picker) {
-        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
-      }
-    };
-  }, [emojiPickerRef.current, onEmojiSelect]); // Add onEmojiSelect to dependencies
-
   // Mutation for sending the message
   const sendMessageMutation = useMutation({
       mutationFn: async (messagePayload: {
@@ -798,6 +725,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
   };
 
+  // Log inputs to useMemo
+  console.log("[ConversasPage] useMemo inputs: messages =", messages ? messages.length : 'null/undefined', ", pendingMessages =", pendingMessages.length);
+
   // Combine fetched messages and pending messages for display
   const allMessages = useMemo(() => {
       const combined = [...(messages || []), ...pendingMessages];
@@ -813,6 +743,86 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Add a log immediately after useMemo
   console.log("[ConversasPage] After useMemo, allMessages is:", allMessages);
+
+
+  // Effect to log the last messages for comparison
+  useEffect(() => {
+      // Add a simple check at the very beginning
+      if (!allMessages) {
+          console.error("[ConversasPage] useEffect: allMessages is null or undefined!", allMessages);
+          return; // Exit early if not available
+      }
+
+      // Defensive check: Ensure allMessages is an array before proceeding
+      if (!Array.isArray(allMessages)) {
+          console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
+          return; // Exit early if not an array
+      }
+
+      console.log("--- Last Message Comparison ---");
+      if (selectedConversationSummary) {
+          console.log("Summary Last Message:", {
+              remoteJid: selectedConversationSummary.remoteJid,
+              timestamp: selectedConversationSummary.lastTimestamp,
+              message: selectedConversationSummary.lastMessage?.substring(0, 50) + '...'
+          });
+      } else {
+          console.log("No conversation summary selected.");
+      }
+
+      if (allMessages.length > 0) {
+          const lastDetailMessage = allMessages[allMessages.length - 1];
+           console.log("Detail Last Message:", {
+               id: lastDetailMessage.id,
+               remoteJid: lastDetailMessage.remoteJid,
+               timestamp: lastDetailMessage.message_timestamp,
+               from_me: lastDetailMessage.from_me,
+               status: lastDetailMessage.status,
+               message: lastDetailMessage.mensagem?.substring(0, 50) + '...'
+           });
+      } else {
+          console.log("No messages in detail view.");
+      }
+      console.log("-----------------------------");
+
+  }, [selectedConversationSummary, allMessages]); // Re-run when summary or detail messages change
+
+
+  // Emoji picker integration
+  const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
+
+  const onEmojiSelect = (event: CustomEvent) => {
+    const emoji = event.detail.unicode;
+    if (messageTextareaRef.current) {
+      const el = messageTextareaRef.current;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const text = el.value;
+      el.value = text.slice(0, start) + emoji + text.slice(end);
+      el.selectionStart = el.selectionEnd = start + emoji.length;
+      el.focus();
+      setMessageInput(el.value); // Update state after modifying textarea value
+    }
+    // Optionally close picker after selection
+    // setShowEmojiPicker(false);
+  };
+
+  // Attach emoji picker event listener
+  useEffect(() => {
+    const picker = emojiPickerRef.current;
+    if (!picker) return;
+
+    // Remove the check for customElements.get('emoji-picker')
+    // Assume the import handles registration and attach listener directly
+    picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+
+
+    return () => {
+      if (picker) {
+        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      }
+    };
+  }, [emojiPickerRef.current, onEmojiSelect]); // Add onEmojiSelect to dependencies
 
 
   // --- Permission Check ---
@@ -1134,6 +1144,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
+                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
