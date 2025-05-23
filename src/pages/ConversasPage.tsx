@@ -143,7 +143,7 @@ function getInitials(name: string | null): string {
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
 const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
-// Removed LEAD_DETAILS_WEBHOOK_URL as the button is removed
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -383,10 +383,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       return map;
   }, [allFunnels]);
 
-  // Get Stage and Funnel Info Helper (uses the maps)
-  const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string } => {
+  // Get Stage and Funnel Info Helper (uses the maps) - MODIFIED TO RETURN CLASSES
+  const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string, etapaClass: string, funilClass: string } => {
       let stageName = 'Etapa Desconhecida';
       let funnelName = 'Funil Desconhecido';
+      let etapaClass = 'bg-gray-100 text-gray-800 border border-gray-800'; // Default class
+      let funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; // Default class
+
 
       if (idEtapa !== null) {
           const stage = stageMap.get(idEtapa);
@@ -398,9 +401,22 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       funnelName = funnel.nome_funil || 'Sem nome';
                   }
               }
+
+              // Determine classes based on names (copied from AllLeadsPage)
+              const etapaLower = stageName.toLowerCase();
+              if (etapaLower.includes('novo') || etapaLower.includes('lead')) { etapaClass = 'bg-blue-100 text-blue-800 border border-blue-800'; }
+              else if (etapaLower.includes('agendado')) { etapaClass = 'bg-purple-100 text-purple-800 border border-purple-800'; } // Using purple for scheduled
+              else if (etapaLower.includes('qualificação')) { etapaClass = 'bg-orange-100 text-orange-800 border border-orange-800'; } // Using orange for qualified
+              else { etapaClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
+
+              const funnelLower = funnelName.toLowerCase();
+               if (funnelLower.includes('vendas')) { funilClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
+               else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
+               else if (funnelLower.includes('compareceram')) { funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
+               else { funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
           }
       }
-      return { etapa: stageName, funil: funnelName };
+      return { etapa: stageName, funil: funnelName, etapaClass, funilClass };
   };
 
 
@@ -775,8 +791,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Determine if sending is possible (conversation selected, instances loaded, an instance is selected)
   const canSend = !!selectedConversationId && !sendMessageMutation.isLoading && !!instancesList && instancesList.length > 0 && sendingInstanceId !== null;
 
-  // Get Funnel and Stage names for the header
-  const { etapa: leadStageName, funil: leadFunnelName } = getStageAndFunnelInfo(selectedLeadDetails?.id_etapa ?? null);
+  // Get Funnel and Stage info for the header (now includes classes)
+  const { etapa: leadStageName, funil: leadFunnelName, etapaClass, funilClass } = getStageAndFunnelInfo(selectedLeadDetails?.id_etapa ?? null);
   const isLoadingLeadInfo = isLoadingSelectedLead || isLoadingStages || isLoadingFunnels;
   const leadInfoError = selectedLeadError || stagesError || funnelsError;
 
@@ -886,9 +902,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                              <TriangleAlert className="h-3 w-3" /> Erro ao carregar info do lead.
                          </span>
                     ) : selectedLeadDetails ? (
-                        <span className="text-sm text-gray-600">
-                            {leadFunnelName} &gt; {leadStageName}
-                        </span>
+                        <div className="flex items-center gap-2 text-xs font-semibold mt-1"> {/* Use flex and gap for badges */}
+                            <span className={cn("funnel px-2 py-1 rounded-md", funilClass)}>{leadFunnelName}</span>
+                            <span className={cn("stage px-2 py-1 rounded-md", etapaClass)}>{leadStageName}</span>
+                        </div>
                     ) : (
                          <span className="text-sm text-gray-600">Lead não encontrado no CRM.</span>
                     )}
@@ -1063,6 +1080,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
+                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
