@@ -173,7 +173,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         if (isEditing && idParam) {
           // Fetch message details
           const resMessage = await fetch(
-            `https://n8n-n8n.sbw0pc.easypanel.host/webhook/4dd9fe07-8863-4993-b21f-7e74199d6d19`,
+            `https://n8n-n8n.sbw0pc.easypanel.host/webhook/4dd9fe07-8863-4993-b21f-7e7419936d19`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -183,12 +183,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           if (!resMessage.ok) throw new Error("Falha ao carregar detalhes da mensagem");
           const messageData: MessageData = await resMessage.json();
 
+          // --- ADDED CONSOLE LOG HERE ---
+          console.log("Fetched message data:", messageData);
+          console.log("Fetched message data - linkedServices:", messageData.servicos_vinculados);
+          // --- END CONSOLE LOG ---
+
+
           setMessageId(messageData.id ?? null);
           setCategory(messageData.categoria);
           setInstanceId(messageData.id_instancia);
           setMessageText(messageData.modelo_mensagem);
           setActive(messageData.ativo ?? true);
-          setLinkedServices(messageData.servicos_vinculados ?? []);
+          setLinkedServices(messageData.servicos_vinculados ?? []); // This line sets the linked services
           setScheduledTime(messageData.hora_envio ?? "");
           setSelectedGroup(messageData.grupo ?? null);
           setMediaSavedUrl(messageData.url_arquivo ?? null);
@@ -204,6 +210,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           );
         } else {
           // New message defaults
+          setMessageId(null);
           setCategory("");
           setInstanceId(null);
           setMessageText("");
@@ -753,12 +760,15 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               </div>
 
               <div>
-                <label className="block mb-1 font-medium text-gray-700">
+                <label
+                  htmlFor="services"
+                  className="block mb-1 font-medium text-gray-700"
+                >
                   Serviços Vinculados *
                 </label>
                 <MultiSelectServices
                   options={services}
-                  selectedIds={linkedServices}
+                  selectedIds={linkedServices} // This prop controls which checkboxes are checked
                   onChange={setLinkedServices}
                 />
                 <p className="text-sm text-gray-500 mt-1">
