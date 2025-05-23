@@ -693,8 +693,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                               )}
                               onClick={() => setSelectedConversationId(conversationId)}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center">
+                              <div className="flex items-center justify-between"> {/* This is the row with avatar/info and timestamp */}
+                                <div className="flex items-center flex-grow"> {/* Added flex-grow here */}
                                   <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
                                     <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
                                   </Avatar>
@@ -711,7 +711,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                                     )}
                                   </div>
                                 </div>
-                                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
+                                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap flex-shrink-0"> {/* Added flex-shrink-0 here */}
+                                    {lastMessageTimestamp}
+                                </span>
                               </div>
                               <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
                             </div>
@@ -914,6 +916,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
+                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
