@@ -110,24 +110,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     refetchOnWindowFocus: false,
   });
 
-  // Estado e fetch para grupos
-  const { data: groupsList, isLoading: isLoadingGroups, error: groupsError } = useQuery({
-    queryKey: ['groupsList', clinicData?.id],
-    queryFn: async () => {
-      if (!clinicData?.id) return [];
-      const { data, error } = await supabase
-        .from('north_clinic_config_grupos')
-        .select('id, nome')
-        .eq('id_clinica', clinicData.id)
-        .order('nome', { ascending: true });
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
-    enabled: !!clinicData?.id,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
   // Estado do formulário
   const [formData, setFormData] = useState({
     categoria: initialCategoryFromUrl || '',
@@ -135,7 +117,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
     modelo_mensagem: '',
     ativo: true,
     hora_envio: '',
-    grupo: '',
     para_funcionario: false,
     para_grupo: true,
     para_cliente: false,
@@ -158,7 +139,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         modelo_mensagem: messageDetails.modelo_mensagem || '',
         ativo: messageDetails.ativo,
         hora_envio: messageDetails.hora_envio || '',
-        grupo: messageDetails.grupo || '',
         para_funcionario: messageDetails.para_funcionario,
         para_grupo: messageDetails.para_grupo,
         para_cliente: messageDetails.para_cliente,
@@ -206,8 +186,8 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
   };
 
   // Loading e erros
-  const isLoading = isLoadingMessageDetails || isLoadingInstances || isLoadingGroups || isLoadingLinkedServices;
-  const error = messageDetailsError || instancesError || groupsError || linkedServicesError;
+  const isLoading = isLoadingMessageDetails || isLoadingInstances || isLoadingLinkedServices;
+  const error = messageDetailsError || instancesError || linkedServicesError;
 
   if (isLoading) {
     return (
@@ -262,20 +242,6 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
                   <SelectContent>
                     {instancesList?.map(inst => (
                       <SelectItem key={inst.id} value={String(inst.id)}>{inst.nome_exibição}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="grupo">Grupo</Label>
-                <Select value={formData.grupo} onValueChange={(value) => handleSelectChange('grupo', value)}>
-                  <SelectTrigger id="grupo">
-                    <SelectValue placeholder="Selecione o grupo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groupsList?.map(group => (
-                      <SelectItem key={group.id} value={String(group.id)}>{group.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
