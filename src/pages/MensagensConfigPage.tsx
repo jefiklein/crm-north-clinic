@@ -58,11 +58,23 @@ interface FetchedMessageData {
   hora_envio: string | null; // Can be null
   grupo: number | null;
   url_arquivo: string | null;
-  // Removed variations from interface
+  variacao_1: string | null;
+  variacao_2: string | null;
+  variacao_3: string | null;
+  variacao_4: string | null;
+  variacao_5: string | null;
   para_cliente: boolean;
   para_funcionario: boolean;
   // This will be an array of objects from the join table
   north_clinic_mensagens_servicos: { id_servico: number }[];
+}
+
+// Interface for webhook response (assuming it might return success/error flags)
+interface WebhookResponse {
+    success?: boolean;
+    error?: string;
+    message?: string; // Common field for success or error messages
+    // Add other expected fields from webhook response if any
 }
 
 
@@ -465,10 +477,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         headers: { "Content-Type": "application/json" }, // Send as JSON
         body: JSON.stringify(saveData),
       });
-      if (!saveRes.ok) {
-        const text = await saveRes.text();
-        throw new Error(text || "Falha ao salvar mensagem");
+
+      // --- MODIFIED: Check response status AND body for errors ---
+      const responseData: WebhookResponse = await saveRes.json(); // Always read the JSON response
+
+      if (!saveRes.ok || responseData.error || (responseData.success === false)) {
+          // If HTTP status is not OK, OR if the JSON body contains an error/success: false
+          const errorMessage = responseData.error || responseData.message || `Erro desconhecido (Status: ${saveRes.status})`;
+          console.error("Webhook save error:", responseData); // Log the full response data
+          throw new Error(errorMessage);
       }
+      // --- END MODIFIED ---
+
 
       toast({
         title: "Sucesso",
