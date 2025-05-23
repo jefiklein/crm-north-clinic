@@ -251,19 +251,15 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       const fetchAndSetMedia = async (msg: Message) => {
-          // --- MODIFIED: Adjust condition to check if tipo_mensagem includes 'image', 'audio', or 'video' ---
+          // Only fetch if there's a file URL and it's a media type we want to display inline
           const isMediaType = msg.tipo_mensagem && (
               msg.tipo_mensagem.includes('image') ||
               msg.tipo_mensagem.includes('audio') ||
               msg.tipo_mensagem.includes('video')
           );
-          // --- END MODIFIED ---
-
-          console.log(`[ConversasPage] Message ${msg.id}: Checking media condition. url_arquivo: ${!!msg.url_arquivo}, tipo_mensagem: ${msg.tipo_mensagem}, isMediaType: ${isMediaType}`); // Log condition check
 
           if (!msg.url_arquivo || !isMediaType) {
               console.log(`[ConversasPage] Message ${msg.id}: No media URL or type for inline display. Skipping fetch.`); // Log skip
-              // Ensure state is set to non-loading/non-error for messages without media
               setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
               setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
               return;
@@ -297,7 +293,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               }
 
               const responseData = await response.json();
-              console.log(`[ConversasPage] Message ${msg.id}: Media webhook response data:`, responseData); // Log response data
+              console.log(`[ConversasPage] Message ${msg.id}: Media webhook response data:`, responseData); // Log response data BEFORE format check
 
               if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
                   console.log(`[ConversasPage] Message ${msg.id}: Signed URL received.`); // Log success
@@ -320,10 +316,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            // Only trigger fetch if not already processing/loaded
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
+           } else {
+               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
-  }, [messages, MEDIA_WEBHOOK_URL]); // Removed mediaUrls and mediaStatus from dependencies
+  }, [messages, MEDIA_WEBHOOK_URL]); // DEPEND ONLY ON MESSAGES AND WEBHOOK URL
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
