@@ -140,7 +140,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -729,6 +729,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
+            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
