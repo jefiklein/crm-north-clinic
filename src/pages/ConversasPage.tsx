@@ -17,8 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Removed Collapsible imports
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
-import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -237,7 +235,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .order('message_timestamp', { ascending: false }); // Decrescente
 
       if (error) throw new Error(error.message);
-      if (!data) return [];
+      if (!data) {
+          console.log("[ConversasPage] Supabase conversation summaries fetch returned null data."); // Log null data
+          return [];
+      }
 
       // Group by remoteJid to get last message and timestamp per conversation
       const groupedMap = new Map<string, ConversationSummary>();
@@ -253,7 +254,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         }
       }
       const summaries = Array.from(groupedMap.values());
-      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp }))); // Log summaries with nome_lead
+      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp, lastMessage: s.lastMessage?.substring(0, 50) + '...' }))); // Log summaries with nome_lead and message preview
       return summaries;
     },
     enabled: hasPermission && !!clinicId && instanceIds.length > 0,
@@ -273,6 +274,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     });
     // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
+    console.log("[ConversasPage] Filtered and sorted summaries:", filtered.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp, lastMessage: s.lastMessage?.substring(0, 50) + '...' }))); // Log filtered summaries
     return filtered;
   }, [conversationSummaries, searchTerm]);
 
@@ -288,7 +290,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .eq('remoteJid', selectedConversationId)
         .order('message_timestamp', { ascending: true });
       if (error) throw new Error(error.message);
-      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp }))); // Log messages with nome_lead
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log messages with nome_lead and message preview
       return data || [];
     },
     enabled: hasPermission && !!selectedConversationId,
@@ -424,7 +426,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Find the selected conversation summary to display name in detail header
   const selectedConversationSummary = useMemo(() => {
-    return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
+    const summary = conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
+    console.log("[ConversasPage] Selected conversation summary:", summary ? { remoteJid: summary.remoteJid, nome_lead: summary.nome_lead, lastTimestamp: summary.lastTimestamp, lastMessage: summary.lastMessage?.substring(0, 50) + '...' } : null); // Log selected summary
+    return summary;
   }, [conversationSummaries, selectedConversationId]);
 
   // --- New useEffect to fetch media for messages ---
@@ -562,6 +566,37 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
   }, [selectedConversationId, messages, instancesList]); // Depend on conversation, messages, and instances list
+
+
+  // Effect to log the last messages for comparison
+  useEffect(() => {
+      console.log("--- Last Message Comparison ---");
+      if (selectedConversationSummary) {
+          console.log("Summary Last Message:", {
+              remoteJid: selectedConversationSummary.remoteJid,
+              timestamp: selectedConversationSummary.lastTimestamp,
+              message: selectedConversationSummary.lastMessage?.substring(0, 50) + '...'
+          });
+      } else {
+          console.log("No conversation summary selected.");
+      }
+
+      if (allMessages && allMessages.length > 0) {
+          const lastDetailMessage = allMessages[allMessages.length - 1];
+           console.log("Detail Last Message:", {
+               id: lastDetailMessage.id,
+               remoteJid: lastDetailMessage.remoteJid,
+               timestamp: lastDetailMessage.message_timestamp,
+               from_me: lastDetailMessage.from_me,
+               status: lastDetailMessage.status,
+               message: lastDetailMessage.mensagem?.substring(0, 50) + '...'
+           });
+      } else {
+          console.log("No messages in detail view.");
+      }
+      console.log("-----------------------------");
+
+  }, [selectedConversationSummary, allMessages]); // Re-run when summary or detail messages change
 
 
   // Emoji picker integration
@@ -764,6 +799,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           const tsB = b.message_timestamp ?? 0;
           return tsA - tsB;
       });
+      console.log("[ConversasPage] Combined and sorted messages (allMessages):", combined.map(msg => ({ id: msg.id, from_me: msg.from_me, status: msg.status, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log combined messages
       return combined;
   }, [messages, pendingMessages]);
 
@@ -1087,6 +1123,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
+                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
