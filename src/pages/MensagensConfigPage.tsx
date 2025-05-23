@@ -3,29 +3,22 @@ import MultiSelectServices from '@/components/MultiSelectServices';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
-interface ClinicData {
-  code: string;
-  nome: string;
-  id: string | number | null;
-  acesso_crm: boolean;
-  acesso_config_msg: boolean;
-  id_permissao: number;
-}
+// (Mantenha os outros imports e o código existente da tela intactos)
 
 interface ServiceOption {
   id: number;
   nome: string;
 }
 
-interface MensagensConfigPageProps {
-  clinicData: ClinicData | null;
-}
+const MensagensConfigPage: React.FC<{ clinicData: any }> = ({ clinicData }) => {
+  // --- Seus estados e lógica existentes aqui ---
 
-const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData }) => {
+  // Adicione estes estados para os serviços
   const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
-  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(false);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
 
+  // Busque os serviços ao montar o componente ou quando clinicData mudar
   useEffect(() => {
     if (!clinicData?.id) return;
 
@@ -38,13 +31,9 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
           .eq('id_clinica', clinicData.id)
           .order('nome', { ascending: true });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        if (data) {
-          setServicesOptions(data);
-        }
+        if (data) setServicesOptions(data);
       } catch (error: any) {
         showError(`Erro ao carregar serviços: ${error.message}`);
       } finally {
@@ -56,10 +45,11 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
   }, [clinicData]);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto bg-white rounded shadow">
-      <h2 className="text-xl font-semibold mb-4">Configuração de Mensagens</h2>
+    <div>
+      {/* Mantenha todo o JSX existente da tela aqui */}
 
-      <div>
+      {/* Insira o componente de seleção de serviços no local desejado */}
+      <div className="mt-6">
         <label className="block font-semibold mb-1">Serviços Relacionados</label>
         {isLoadingServices ? (
           <p>Carregando serviços...</p>
@@ -72,7 +62,7 @@ const MensagensConfigPage: React.FC<MensagensConfigPageProps> = ({ clinicData })
         )}
       </div>
 
-      {/* O restante do formulário e campos da tela permanecem inalterados */}
+      {/* Continue com o restante do JSX da tela */}
     </div>
   );
 };
