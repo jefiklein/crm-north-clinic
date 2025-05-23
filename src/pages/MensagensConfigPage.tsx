@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
-import { Loader2, Smile, X } from "lucide-react";
+import { Loader2, Smile } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
 
 interface ClinicData {
@@ -150,30 +149,23 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       setError(null);
       try {
         // Fetch instances
-        const resInstances = await fetch(
-          `https://n8n-n8n.sbw0pc.easypanel.host/webhook/469bd748-c728-4ba9-8a3f-64b55984183b`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ codigo_clinica: clinicData.code }),
-          }
-        );
-        if (!resInstances.ok) throw new Error("Falha ao carregar instâncias");
-        const instancesData: Instance[] = await resInstances.json();
-        setInstances(instancesData);
+        const { data: instancesData, error: instancesError } = await supabase
+          .from("north_clinic_config_instancias")
+          .select("*")
+          .eq("id_clinica", clinicData.code);
 
-        // Fetch services
-        const resServices = await fetch(
-          `https://n8n-n8n.sbw0pc.easypanel.host/webhook/fd13f63f-8fae-4e1b-996e-c42c1ba9d7ae`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ codigo_clinica: clinicData.code }),
-          }
-        );
-        if (!resServices.ok) throw new Error("Falha ao carregar serviços");
-        const servicesData: Service[] = await resServices.json();
-        setServices(servicesData);
+        if (instancesError) throw instancesError;
+        setInstances(instancesData || []);
+
+        // Fetch services directly from Supabase
+        const { data: servicesData, error: servicesError } = await supabase
+          .from("north_clinic_servicos")
+          .select("*")
+          .eq("id_clinica", clinicData.code)
+          .order("nome", { ascending: true });
+
+        if (servicesError) throw servicesError;
+        setServices(servicesData || []);
 
         if (isEditing && idParam) {
           // Fetch message details
@@ -782,7 +774,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   type="file"
                   id="mediaFile"
                   accept="image/*,video/*,audio/*"
-                  onChange={onMediaChange}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setMediaFile(e.target.files[0]);
+                    } else {
+                      setMediaFile(null);
+                    }
+                  }}
                 />
                 {mediaPreviewUrl && (
                   <div className="mt-2">
@@ -851,7 +849,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             }
                             placeholder={`Variação ${i + 1}...`}
                           />
-                          {/* IA and Clear buttons could be added here */}
                         </div>
                       </div>
                     ))}
