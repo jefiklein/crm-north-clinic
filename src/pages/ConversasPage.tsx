@@ -16,6 +16,7 @@ import { showSuccess, showError } from '@/utils/toast'; // Import toast utilitie
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 // Removed Collapsible imports
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -142,6 +143,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // New state for the selected sending instance ID
   const [sendingInstanceId, setSendingInstanceId] = useState<number | null>(null);
+
+  // State to hold the URL of the image to be enlarged in the modal
+  const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
+
 
   // Removed state to toggle visibility of temporary lead details
   // const [showTemporaryLeadDetails, setShowTemporaryLeadDetails] = useState(false);
@@ -827,7 +832,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                              </div>
                         )}
                         {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('image') && (
-                            <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
+                            // Wrap image in a clickable div and make it smaller
+                            <div className="cursor-pointer" onClick={() => setEnlargedImageUrl(mediaUrlForMsg)}>
+                                <img
+                                    src={mediaUrlForMsg}
+                                    alt="Anexo de imagem"
+                                    className="max-w-[200px] h-auto rounded-md mb-2" // Adjusted size
+                                />
+                            </div>
                         )}
                         {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
                             <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
@@ -917,6 +929,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
+                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
@@ -928,6 +941,31 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             </div>
           </div>
         </div>
+
+        {/* Image Enlargement Dialog */}
+        <Dialog open={!!enlargedImageUrl} onOpenChange={(open) => { if (!open) setEnlargedImageUrl(null); }}>
+            <DialogContent className="sm:max-w-[800px] w-[95vw] h-[95vh] flex flex-col p-0">
+                <DialogHeader className="p-4 pb-0">
+                    <DialogTitle>Visualizar Imagem</DialogTitle>
+                </DialogHeader>
+                <div className="flex-grow flex items-center justify-center overflow-hidden p-4">
+                    {enlargedImageUrl && (
+                        <img
+                            src={enlargedImageUrl}
+                            alt="Imagem ampliada"
+                            className="max-w-full max-h-full object-contain" // Ensure image fits within the dialog
+                        />
+                    )}
+                </div>
+                <DialogFooter className="p-4 pt-0">
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">
+                            Fechar
+                        </Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </TooltipProvider>
   );
 };
