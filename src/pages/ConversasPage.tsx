@@ -60,6 +60,26 @@ interface Message {
   status?: 'pending' | 'failed'; // Added status for optimistic updates
 }
 
+// Structure for Lead data fetched for the selected conversation
+interface ConversationLeadDetails {
+    id: number;
+    id_etapa: number | null;
+    // Add other lead fields if needed in the future
+}
+
+// Structure for Funnel Stages (from Supabase)
+interface FunnelStage {
+    id: number;
+    nome_etapa: string;
+    id_funil: number;
+}
+
+// Structure for Funnel Details (from Supabase)
+interface FunnelDetails {
+    id: number;
+    nome_funil: string;
+}
+
 
 interface ConversasPageProps {
   clinicData: ClinicData | null;
@@ -123,7 +143,7 @@ function getInitials(name: string | null): string {
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
 const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
-const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
+// Removed LEAD_DETAILS_WEBHOOK_URL as the button is removed
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -274,7 +294,114 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // Removed Fetch Lead Details query
+  // --- New Queries for Funnel/Stage in Header ---
+
+  // Fetch all stages (needed for mapping id_etapa to name)
+  const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
+      queryKey: ['allStagesConversations'],
+      queryFn: async () => {
+          console.log(`[ConversasPage] Fetching all stages from Supabase...`);
+          const { data, error } = await supabase
+              .from('north_clinic_crm_etapa')
+              .select('id, nome_etapa, id_funil')
+              .order('ordem', { ascending: true });
+          if (error) {
+              console.error("[ConversasPage] Supabase all stages fetch error:", error);
+              throw new Error(`Erro ao buscar etapas: ${error.message}`);
+          }
+          return data || [];
+      },
+      enabled: hasPermission, // Enabled if user has permission
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+  });
+
+  // Fetch all funnels (needed for mapping id_funil to name)
+  const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
+      queryKey: ['allFunnelsConversations'],
+      queryFn: async () => {
+          console.log(`[ConversasPage] Fetching all funnels from Supabase...`);
+          const { data, error } = await supabase
+              .from('north_clinic_crm_funil')
+              .select('id, nome_funil')
+              .order('nome_funil', { ascending: true });
+          if (error) {
+              console.error("[ConversasPage] Supabase all funnels fetch error:", error);
+              throw new Error(`Erro ao buscar funis: ${error.message}`);
+          }
+          return data || [];
+      },
+      enabled: hasPermission, // Enabled if user has permission
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+  });
+
+  // Fetch lead details (specifically id_etapa) for the selected conversation
+  const { data: selectedLeadDetails, isLoading: isLoadingSelectedLead, error: selectedLeadError } = useQuery<ConversationLeadDetails | null>({
+      queryKey: ['selectedLeadDetails', selectedConversationId],
+      queryFn: async () => {
+          if (!selectedConversationId || !clinicId) {
+              console.log("[ConversasPage] Skipping selected lead details fetch: No conversation selected or clinicId missing.");
+              return null;
+          }
+          console.log(`[ConversasPage] Fetching lead details for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
+          const { data, error } = await supabase
+              .from('north_clinic_leads_API')
+              .select('id, id_etapa')
+              .eq('remoteJid', selectedConversationId)
+              .eq('id_clinica', clinicId) // Filter by clinic ID
+              .single(); // Expecting a single lead
+
+          if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+              console.error("[ConversasPage] Supabase selected lead details fetch error:", error);
+              throw new Error(`Erro ao buscar detalhes do lead: ${error.message}`);
+          }
+
+          if (!data) {
+              console.log(`[ConversasPage] No lead found for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
+              return null;
+          }
+
+          console.log("[ConversasPage] Fetched selected lead details:", data);
+          return data as ConversationLeadDetails;
+      },
+      enabled: hasPermission && !!selectedConversationId && !!clinicId, // Enabled if user has permission, conversation selected, and clinicId available
+      staleTime: 60 * 1000, // 1 minute
+      refetchOnWindowFocus: false,
+  });
+
+  // Memoized maps for stages and funnels
+  const stageMap = useMemo(() => {
+      const map = new Map<number, FunnelStage>();
+      allStages?.forEach(stage => map.set(stage.id, stage));
+      return map;
+  }, [allStages]);
+
+  const funnelMap = useMemo(() => {
+      const map = new Map<number, FunnelDetails>();
+      allFunnels?.forEach(funnel => map.set(funnel.id, funnel));
+      return map;
+  }, [allFunnels]);
+
+  // Get Stage and Funnel Info Helper (uses the maps)
+  const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string } => {
+      let stageName = 'Etapa Desconhecida';
+      let funnelName = 'Funil Desconhecido';
+
+      if (idEtapa !== null) {
+          const stage = stageMap.get(idEtapa);
+          if (stage) {
+              stageName = stage.nome_etapa || 'Sem nome';
+              if (stage.id_funil !== null) {
+                  const funnel = funnelMap.get(stage.id_funil);
+                  if (funnel) {
+                      funnelName = funnel.nome_funil || 'Sem nome';
+                  }
+              }
+          }
+      }
+      return { etapa: stageName, funil: funnelName };
+  };
 
 
   // Find the selected conversation summary to display name in detail header
@@ -648,6 +775,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Determine if sending is possible (conversation selected, instances loaded, an instance is selected)
   const canSend = !!selectedConversationId && !sendMessageMutation.isLoading && !!instancesList && instancesList.length > 0 && sendingInstanceId !== null;
 
+  // Get Funnel and Stage names for the header
+  const { etapa: leadStageName, funil: leadFunnelName } = getStageAndFunnelInfo(selectedLeadDetails?.id_etapa ?? null);
+  const isLoadingLeadInfo = isLoadingSelectedLead || isLoadingStages || isLoadingFunnels;
+  const leadInfoError = selectedLeadError || stagesError || funnelsError;
+
 
   return (
     <TooltipProvider>
@@ -738,31 +870,33 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           {/* Conversation Detail Panel */}
           <div className="conversation-detail-panel flex-grow flex flex-col overflow-hidden bg-gray-50">
             <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
-              <span id="conversationContactName" className="text-primary">
-                {selectedConversationSummary ? (
-                  // Use nome_lead for header, fallback to formatted phone
-                  selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'
-                ) : (
-                  'Selecione uma conversa'
-                )}
-              </span>
-              {selectedConversationSummary && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto text-xs h-auto py-1 px-2"
-                  onClick={() => {
-                    const phone = selectedConversationSummary.remoteJid;
-                    if (!phone) return;
-                    const clean = String(phone).replace(/\D/g, '');
-                    if (clean) {
-                      window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
-                    }
-                  }}
-                >
-                  Ver Detalhes do Lead
-                </Button>
+              {selectedConversationSummary ? (
+                <div className="flex flex-col">
+                    {/* Display nome_lead or formatted phone */}
+                    <span id="conversationContactName" className="text-primary text-lg font-bold">
+                        {selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'}
+                    </span>
+                    {/* Display Funnel and Stage */}
+                    {isLoadingLeadInfo ? (
+                        <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Carregando info do lead...
+                        </span>
+                    ) : leadInfoError ? (
+                         <span className="text-sm text-red-600 flex items-center gap-1">
+                             <TriangleAlert className="h-3 w-3" /> Erro ao carregar info do lead.
+                         </span>
+                    ) : selectedLeadDetails ? (
+                        <span className="text-sm text-gray-600">
+                            {leadFunnelName} &gt; {leadStageName}
+                        </span>
+                    ) : (
+                         <span className="text-sm text-gray-600">Lead não encontrado no CRM.</span>
+                    )}
+                </div>
+              ) : (
+                <span className="text-primary text-lg font-bold">Selecione uma conversa</span>
               )}
+              {/* Removed the "Ver Detalhes do Lead" button */}
             </div>
 
             {/* Removed Temporary Lead Details Section */}
@@ -929,7 +1063,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
