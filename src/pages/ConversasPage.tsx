@@ -645,7 +645,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
 
   return (
-    <TooltipProvider> {/* Moved TooltipProvider here */}
+    <TooltipProvider>
         <div className="conversations-container flex flex-grow h-full overflow-hidden bg-white rounded-lg shadow-md border border-gray-200">
           {/* Conversations List Panel */}
           <div className="conversations-list-panel w-[350px] border-r border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
@@ -914,7 +914,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                     <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                         <emoji-picker
@@ -926,7 +925,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             </div>
           </div>
         </div>
-    </TooltipProvider> {/* Close the provider */}
+    </TooltipProvider>
   );
 };
 
