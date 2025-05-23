@@ -45,6 +45,10 @@ const MultiSelectServices: React.FC<MultiSelectServicesProps> = ({
     }
   };
 
+  // Find the selected service objects to display their names
+  const selectedServices = options.filter(option => selectedIds.includes(option.id));
+  const displayValue = selectedServices.map(service => service.nome).join(", ");
+
   return (
     <Select
       multiple
@@ -53,11 +57,10 @@ const MultiSelectServices: React.FC<MultiSelectServicesProps> = ({
       disabled={disabled}
     >
       <SelectTrigger className="w-full">
-        <SelectValue
-          placeholder="Selecione um ou mais serviços"
-          // Display selected count or names
-          // The SelectValue component will show comma separated values by default
-        />
+        <SelectValue placeholder="Selecione um ou mais serviços">
+          {/* Display selected names or placeholder */}
+          {selectedIds.length > 0 ? displayValue : "Selecione um ou mais serviços"}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
