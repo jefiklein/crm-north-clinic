@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale'; // Import locale for month names
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { Calendar } from "@/components/ui/calendar"; // Import shadcn/ui Calendar
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // For date picker popup
+import { formatPhone } from '@/lib/utils'; // Import formatPhone
 
 // Define the structure for clinic data
 interface ClinicData {

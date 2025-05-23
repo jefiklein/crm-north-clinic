@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils'; // Utility for class names
+import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
@@ -64,17 +64,11 @@ interface FunnelPageProps {
 
 // Placeholder for the update webhook URL - KEEP THIS IF NEEDED FOR FUTURE DRAG-AND-DROP UPDATES
 const UPDATE_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/seu-webhook-real-para-atualizar-etapa'; // Keep this if needed for future drag-and-drop updates
-const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a'; // Keep this for opening lead details
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 // Helper functions (adapted from HTML)
-function formatPhone(phone: number | string | null): string {
-    if (!phone) return 'S/ Tel.';
-    const s = String(phone).replace(/\D/g, '');
-    if (s.length === 11) return `(${s.substring(0, 2)}) ${s.substring(2, 7)}-${s.substring(7)}`;
-    if (s.length === 10) return `(${s.substring(0, 2)}) ${s.substring(2, 6)}-${s.substring(6)}`;
-    return s;
-}
+// formatPhone moved to utils.ts
 
 function renderStars(score: number | null): JSX.Element[] {
     const stars = [];

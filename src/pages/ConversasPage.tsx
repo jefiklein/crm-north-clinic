@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
-import { cn } from '@/lib/utils';
+import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
@@ -61,7 +61,7 @@ interface ConversasPageProps {
   clinicData: ClinicData | null;
 }
 
-// Helper functions
+// Helper functions (formatPhone moved to utils.ts)
 function formatTimestampForList(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
@@ -443,7 +443,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           instancia: string; // Evolution instance name
           id_clinica: number | string;
           tipo_mensagem: string;
-          prioridade: string;
+          prioridade: string; // Changed to string based on user payload example
           tipo_evolution: string;
       }) => {
           console.log("[ConversasPage] Sending message payload:", messagePayload);
@@ -875,7 +875,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker

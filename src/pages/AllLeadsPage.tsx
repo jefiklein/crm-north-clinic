@@ -7,7 +7,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { Search, List, Star, User, Info, TriangleAlert, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils'; // Utility for class names
+import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
@@ -57,17 +57,11 @@ interface AllLeadsPageProps {
 // const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
 // const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
-const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a'; // Keep this for opening lead details
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 // Helper functions (adapted from HTML)
-function formatPhone(phone: number | string | null): string {
-    if (!phone) return 'S/ Tel.';
-    const s = String(phone).replace(/\D/g, '');
-    if (s.length === 11) return `(${s.substring(0, 2)}) ${s.substring(2, 7)}-${s.substring(7)}`;
-    if (s.length === 10) return `(${s.substring(0, 2)}) ${s.substring(2, 6)}-${s.substring(6)}`;
-    return s;
-}
+// formatPhone moved to utils.ts
 
 function renderStars(score: number | null): JSX.Element[] {
     const stars = [];
