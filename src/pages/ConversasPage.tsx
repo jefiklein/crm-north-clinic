@@ -123,7 +123,7 @@ const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const queryClient = useQueryClient(); // Get query client instance
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(selectedConversationId); // Keep selectedConversationId state
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
   const [selectedInstanceEvolutionName, setSelectedInstanceEvolutionName] = useState<string | null>(null); // State to hold the evolution instance name
@@ -457,9 +457,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           setShowEmojiPicker(false); // Hide emoji picker
           // Force refetch messages for the current conversation
           queryClient.invalidateQueries({ queryKey: ['conversationMessages', selectedConversationId] });
-          // Clear pending messages after successful send and query invalidation
-          // The refetch will bring the actual message from the DB
-          setPendingMessages([]);
+          // DO NOT clear pendingMessages here. The sync effect will handle it.
       },
       onError: (error: Error, variables) => {
           console.error("[ConversasPage] Error sending message:", error);
@@ -475,6 +473,43 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           );
       },
   });
+
+  // Effect to synchronize pending messages with fetched messages
+  useEffect(() => {
+      if (!messages || pendingMessages.length === 0) {
+          return; // Nothing to sync if no fetched messages or no pending messages
+      }
+
+      console.log("[ConversasPage] Sync effect running. Pending:", pendingMessages.length, "Fetched:", messages.length);
+
+      const updatedPendingMessages = pendingMessages.filter(pendingMsg => {
+          // Keep the pending message if it's marked as failed
+          if (pendingMsg.status === 'failed') {
+              return true;
+          }
+
+          // Check if a matching message exists in the fetched messages
+          const isFoundInFetched = messages.some(fetchedMsg =>
+              fetchedMsg.from_me === true && // Must be a message sent by me
+              fetchedMsg.mensagem === pendingMsg.mensagem && // Content must match
+              (fetchedMsg.message_timestamp ?? 0) >= (pendingMsg.message_timestamp ?? 0) // Timestamp must be equal or later
+              // Note: Matching by content and timestamp is a heuristic.
+              // A more robust approach would involve the webhook returning the DB ID of the created message.
+          );
+
+          // Keep the pending message ONLY if it was NOT found in the fetched messages
+          return !isFoundInFetched;
+      });
+
+      // Update pendingMessages state if anything changed
+      if (updatedPendingMessages.length !== pendingMessages.length) {
+          console.log("[ConversasPage] Sync effect: Removing", pendingMessages.length - updatedPendingMessages.length, "pending messages.");
+          setPendingMessages(updatedPendingMessages);
+      } else {
+           console.log("[ConversasPage] Sync effect: No pending messages to remove.");
+      }
+
+  }, [messages, pendingMessages]); // Depend on fetched messages and pending messages
 
 
   // Handle send message
@@ -497,7 +532,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
       // Create a temporary message object for optimistic update
       const tempMessage: Message = {
-          id: Date.now() + Math.random(), // Unique client-side ID
+          id: Date.now() + Math.random(), // Unique client-side ID (string or number)
           remoteJid: selectedConversationId,
           nome: selectedConversationSummary?.nome || null, // Use the contact name from summary
           mensagem: messageInput,
