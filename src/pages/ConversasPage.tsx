@@ -188,7 +188,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
-        .select('remoteJid, nome, mensagem, message_timestamp, tipo_mensagem, id_instancia, url_arquivo') // Select tipo_mensagem and url_arquivo here
+        .select('remoteJid, nome, mensagem, message_timestamp, tipo_mensagem, from_me, id_instancia, url_arquivo') // Select tipo_mensagem and url_arquivo here
         .in('id_instancia', instanceIds)
         .order('message_timestamp', { ascending: false }); // Decrescente
 
@@ -471,9 +471,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           return;
       }
 
+      // Extract the number part from remoteJid (selectedConversationId)
+      const recipientNumber = selectedConversationId.split('@')[0];
+      if (!recipientNumber) {
+           showError("Não foi possível extrair o número do destinatário.");
+           return;
+      }
+
+
       const messagePayload = {
           mensagem: messageInput,
-          recipiente: selectedConversationId, // remoteJid is the recipient
+          recipiente: recipientNumber, // <-- Use only the number part here
           instancia: selectedInstanceEvolutionName, // Use the determined evolution instance name
           id_clinica: clinicData.id, // Use clinic ID
           tipo_mensagem: "CRM", // As specified
@@ -729,6 +737,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
+            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
