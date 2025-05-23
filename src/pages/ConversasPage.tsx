@@ -123,7 +123,7 @@ const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const queryClient = useQueryClient(); // Get query client instance
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(selectedConversationId); // Keep selectedConversationId state
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null); // Corrected initialization
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
   const [selectedInstanceEvolutionName, setSelectedInstanceEvolutionName] = useState<string | null>(null); // State to hold the evolution instance name
@@ -825,7 +825,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
