@@ -64,7 +64,7 @@ interface FunnelPageProps {
 
 // Placeholder for the update webhook URL - KEEP THIS IF NEEDED FOR FUTURE DRAG-AND-DROP UPDATES
 const UPDATE_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/seu-webhook-real-para-atualizar-etapa'; // Keep this if needed for future drag-and-drop updates
-const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
+// Removed LEAD_DETAILS_WEBHOOK_URL as we are no longer opening a new tab
 
 
 // Helper functions (adapted from HTML)
@@ -94,14 +94,8 @@ function formatLeadTimestamp(iso: string | null): string {
     }
 }
 
-function openLeadDetails(phone: number | string | null) {
-    if (!phone) return;
-    const clean = String(phone).replace(/\D/g, '');
-    if (clean) {
-        // Open in a new tab
-        window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
-    }
-}
+// Removed openLeadDetails function as we are no longer opening a new tab
+
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for database queries)
 const menuIdToFunnelIdMap: { [key: number]: number } = {
@@ -555,7 +549,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                         e.dataTransfer.setData('text/plain', String(lead.id)); // Set lead ID
                                                     }}
                                                     onDragEnd={() => setDragOverStageId(null)} // Clear drag over state on drag end
-                                                    onClick={() => openLeadDetails(lead.telefone)} // Open details on click
+                                                    // Removed onClick from the card itself
                                                 >
                                                     <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
                                                     <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
@@ -567,7 +561,19 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     )}
                                                     <div className="card-footer text-xs text-gray-500 border-t border-gray-200 pt-2 flex justify-between items-center">
                                                         <span className="origin truncate max-w-[70%]" title={`Origem: ${lead.origem || 'N/D'}`}>Origem: {lead.origem || 'N/D'}</span>
-                                                        <Button variant="link" size="sm" className="p-0 h-auto text-primary text-xs" onClick={(e) => { e.stopPropagation(); openLeadDetails(lead.telefone); }}>Detalhes</Button>
+                                                        {/* Modified button onClick to log data */}
+                                                        <Button
+                                                            variant="link"
+                                                            size="sm"
+                                                            className="p-0 h-auto text-primary text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation(); // Prevent card click
+                                                                console.log("Detalhes do Lead:", lead); // Log the lead data
+                                                                alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
+                                                            }}
+                                                        >
+                                                            Detalhes
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -587,8 +593,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                         return (
                                             <div
                                                 key={lead.id}
-                                                className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                                onClick={() => openLeadDetails(lead.telefone)}
+                                                className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                                                // Removed onClick from the list item itself
                                             >
                                                 <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                                 <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
@@ -613,6 +619,19 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                         </div>
                                                     </div>
                                                 )}
+                                                {/* Modified button onClick to log data */}
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="ml-4 flex-shrink-0"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Prevent list item click (though none exists now)
+                                                        console.log("Detalhes do Lead:", lead); // Log the lead data
+                                                        alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
+                                                    }}
+                                                >
+                                                    Detalhes
+                                                </Button>
                                             </div>
                                         );
                                     })}
