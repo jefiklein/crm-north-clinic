@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react'; // Added Clock and XCircle icons, ChevronDown, ChevronUp
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { cn, formatPhone } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -56,6 +57,12 @@ interface Message {
   url_arquivo: string | null; // This is the file key for the webhook
   status?: 'pending' | 'failed'; // Added status for optimistic updates
 }
+
+// Define the structure for Lead Details fetched from Supabase (using a generic type for now)
+interface LeadDetails {
+    [key: string]: any; // Allow any properties for temporary display
+}
+
 
 interface ConversasPageProps {
   clinicData: ClinicData | null;
@@ -118,7 +125,8 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -138,6 +146,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // New state for the selected sending instance ID
   const [sendingInstanceId, setSendingInstanceId] = useState<number | null>(null);
+
+  // State to toggle visibility of temporary lead details
+  const [showTemporaryLeadDetails, setShowTemporaryLeadDetails] = useState(false);
 
 
   const clinicId = clinicData?.id;
@@ -257,6 +268,41 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     staleTime: 10 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  // Fetch Lead Details for the selected conversation's remoteJid
+  const { data: leadDetails, isLoading: isLoadingLeadDetails, error: leadDetailsError } = useQuery<LeadDetails | null>({
+      queryKey: ['leadDetails', clinicId, selectedConversationId],
+      queryFn: async () => {
+          if (!clinicId || !selectedConversationId) {
+              console.log("[ConversasPage] Skipping lead details fetch: missing clinicId or selectedConversationId.");
+              return null; // Don't fetch if no clinic or conversation is selected
+          }
+          console.log(`[ConversasPage] Fetching lead details for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
+          const { data, error } = await supabase
+              .from('north_clinic_leads_API')
+              .select('*') // Select all columns for temporary display
+              .eq('id_clinica', clinicId)
+              .eq('remoteJid', selectedConversationId)
+              .single(); // Expecting a single lead per remoteJid/clinic
+
+          if (error && error.code !== 'PGRST116') { // PGRST116 means "No rows found"
+              console.error("[ConversasPage] Supabase lead details fetch error:", error);
+              throw new Error(`Erro ao buscar detalhes do lead: ${error.message}`);
+          }
+
+          if (!data) {
+              console.log("[ConversasPage] No lead details found for remoteJid:", selectedConversationId);
+              return null; // Return null if no lead is found
+          }
+
+          console.log("[ConversasPage] Lead details fetched:", data);
+          return data as LeadDetails; // Return the single lead object
+      },
+      enabled: hasPermission && !!clinicId && !!selectedConversationId && showTemporaryLeadDetails, // Only fetch if user has permission, clinicId, conversation selected, AND the temporary section is toggled open
+      staleTime: 5 * 60 * 1000, // Cache lead details for 5 minutes
+      refetchOnWindowFocus: false,
+  });
+
 
   // Find the selected conversation summary to display name in detail header
   const selectedConversationSummary = useMemo(() => {
@@ -705,23 +751,63 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
             )}
           </span>
           {selectedConversationSummary && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto text-xs h-auto py-1 px-2"
-              onClick={() => {
-                const phone = selectedConversationSummary.remoteJid;
-                if (!phone) return;
-                const clean = String(phone).replace(/\D/g, '');
-                if (clean) {
-                  window.open(`https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa?phone=${clean}`, '_blank');
-                }
-              }}
-            >
-              Ver Detalhes do Lead
-            </Button>
+            <>
+              {/* Temporary button to show/hide lead details */}
+              <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto text-xs h-auto py-1 px-2 mr-2"
+                  onClick={() => setShowTemporaryLeadDetails(prev => !prev)}
+              >
+                  {showTemporaryLeadDetails ? (
+                      <> <ChevronUp className="h-4 w-4 mr-1" /> Ocultar Detalhes Lead </>
+                  ) : (
+                      <> <ChevronDown className="h-4 w-4 mr-1" /> Ver Detalhes Lead </>
+                  )}
+              </Button>
+              {/* Original button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-auto py-1 px-2"
+                onClick={() => {
+                  const phone = selectedConversationSummary.remoteJid;
+                  if (!phone) return;
+                  const clean = String(phone).replace(/\D/g, '');
+                  if (clean) {
+                    window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
+                  }
+                }}
+              >
+                Abrir Detalhes Lead (Webhook)
+              </Button>
+            </>
           )}
         </div>
+
+        {/* Temporary Lead Details Section */}
+        {selectedConversationId && ( // Only show if a conversation is selected
+            <Collapsible open={showTemporaryLeadDetails} onOpenChange={setShowTemporaryLeadDetails}>
+                <CollapsibleContent className="border-b border-gray-200 bg-gray-100 p-4 text-sm text-gray-700">
+                    <h3 className="font-semibold mb-2">Detalhes Completos do Lead (Temporário)</h3>
+                    {isLoadingLeadDetails ? (
+                        <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Carregando detalhes...
+                        </div>
+                    ) : leadDetailsError ? (
+                        <div className="text-red-600">Erro ao carregar detalhes: {leadDetailsError.message}</div>
+                    ) : leadDetails ? (
+                        <ScrollArea className="h-40 max-h-60 w-full rounded-md border p-2 bg-white font-mono text-xs overflow-auto">
+                            <pre className="whitespace-pre-wrap break-words">{JSON.stringify(leadDetails, null, 2)}</pre>
+                        </ScrollArea>
+                    ) : (
+                        <div>Nenhum detalhe de lead encontrado para esta conversa.</div>
+                    )}
+                </CollapsibleContent>
+            </Collapsible>
+        )}
+
+
         <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
           {!selectedConversationId ? (
             <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
@@ -876,7 +962,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
