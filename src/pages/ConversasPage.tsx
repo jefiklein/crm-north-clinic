@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send } from 'lucide-react'; // Added Smile and Send icons
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,19 +40,20 @@ interface ConversationSummary {
   lastTimestamp: number | null;
 }
 
-// Message detail
+// Message detail - ADDED status property for optimistic updates
 interface Message {
-  id: number;
+  id: number | string; // Allow string for temporary client-side IDs
   remoteJid: string;
   nome: string | null;
   mensagem: string | null;
-  message_timestamp: number | null;
+  message_timestamp: number | null; // Unix timestamp in seconds
   from_me: boolean | null;
   tipo_mensagem: string | null; // e.g., 'text', 'image', 'audio', 'video', 'imageMessage', etc.
   id_whatsapp: string | null;
   transcrito: boolean | null;
   id_instancia: number | null; // This links to north_clinic_config_instancias.id
   url_arquivo: string | null; // This is the file key for the webhook
+  status?: 'pending' | 'failed'; // Added status for optimistic updates
 }
 
 interface ConversasPageProps {
@@ -130,6 +131,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // State to hold media URLs and loading/error status for each message
   const [mediaUrls, setMediaUrls] = useState<Record<number, string | null>>({});
   const [mediaStatus, setMediaStatus] = useState<Record<number, { isLoading: boolean, error: string | null }>>({});
+
+  // State for optimistic updates - holds messages sent but not yet confirmed in history
+  const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
 
 
   const clinicId = clinicData?.id;
@@ -357,7 +361,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     if (endOfMessagesRef.current) {
       endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, mediaUrls]); // Also depend on mediaUrls so it scrolls after media loads
+  }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
   // Effect to determine the instance evolution name for the selected conversation
   useEffect(() => {
@@ -453,10 +457,22 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           setShowEmojiPicker(false); // Hide emoji picker
           // Force refetch messages for the current conversation
           queryClient.invalidateQueries({ queryKey: ['conversationMessages', selectedConversationId] });
+          // Clear pending messages after successful send and query invalidation
+          // The refetch will bring the actual message from the DB
+          setPendingMessages([]);
       },
-      onError: (error: Error) => {
+      onError: (error: Error, variables) => {
           console.error("[ConversasPage] Error sending message:", error);
           showError(`Falha ao enviar mensagem: ${error.message}`);
+
+          // Find the pending message and mark it as failed
+          setPendingMessages(prev =>
+              prev.map(msg =>
+                  msg.mensagem === variables.mensagem && msg.status === 'pending' // Simple match by content and status
+                      ? { ...msg, status: 'failed' }
+                      : msg
+              )
+          );
       },
   });
 
@@ -479,6 +495,24 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            return;
       }
 
+      // Create a temporary message object for optimistic update
+      const tempMessage: Message = {
+          id: Date.now() + Math.random(), // Unique client-side ID
+          remoteJid: selectedConversationId,
+          nome: selectedConversationSummary?.nome || null, // Use the contact name from summary
+          mensagem: messageInput,
+          message_timestamp: Math.floor(Date.now() / 1000), // Client-side timestamp in seconds
+          from_me: true,
+          tipo_mensagem: 'text', // Assuming text for now
+          id_whatsapp: null,
+          transcrito: null,
+          id_instancia: instancesList?.find(inst => inst.nome_instancia_evolution === selectedInstanceEvolutionName)?.id || null, // Find the instance ID
+          url_arquivo: null,
+          status: 'pending', // Mark as pending
+      };
+
+      // Add the temporary message to the pending list
+      setPendingMessages(prev => [...prev, tempMessage]);
 
       const messagePayload = {
           mensagem: messageInput,
@@ -500,6 +534,18 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           handleSendMessage();
       }
   };
+
+  // Combine fetched messages and pending messages for display
+  const allMessages = useMemo(() => {
+      const combined = [...(messages || []), ...pendingMessages];
+      // Sort by timestamp (handle null timestamps by putting them at the end)
+      combined.sort((a, b) => {
+          const tsA = a.message_timestamp ?? 0; // Treat null as 0 for sorting
+          const tsB = b.message_timestamp ?? 0;
+          return tsA - tsB;
+      });
+      return combined;
+  }, [messages, pendingMessages]);
 
 
   // --- Permission Check ---
@@ -619,21 +665,21 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
           {!selectedConversationId ? (
             <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
-          ) : isLoadingMessages ? (
+          ) : isLoadingMessages && allMessages.length === 0 ? ( // Show loading only if no messages (initial load)
             <div className="status-message loading-message flex flex-col items-center justify-center p-8 text-primary">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <span>Carregando mensagens...</span>
             </div>
-          ) : messagesError ? (
+          ) : messagesError && allMessages.length === 0 ? ( // Show error only if no messages (initial load)
             <div className="status-message error-message flex flex-col items-center justify-center p-4 text-red-600 bg-red-100 rounded-md">
               <TriangleAlert className="h-8 w-8 mb-4" />
               <span>Erro ao carregar mensagens: {messagesError.message}</span>
             </div>
-          ) : messages.length === 0 ? (
+          ) : allMessages.length === 0 ? ( // Show no messages found if combined list is empty
             <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
           ) : (
             <>
-              {messages.map(msg => {
+              {allMessages.map(msg => { // Use allMessages (fetched + pending)
                 // Find the instance name using the instanceMap
                 const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
                     ? instanceMap.get(msg.id_instancia)
@@ -656,7 +702,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 return (
                   <div key={msg.id} className={cn(
                     "message-bubble max-w-[75%] p-3 rounded-xl mb-2 text-sm leading-tight break-words relative",
-                    msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200'
+                    msg.from_me ? 'bg-green-200 ml-auto rounded-br-md' : 'bg-white mr-auto rounded-bl-md border border-gray-200',
+                    msg.status === 'pending' && 'opacity-70', // Dim pending messages
+                    msg.status === 'failed' && 'border-red-500 border-2' // Highlight failed messages
                   )}>
                     {/* Add instance/contact name label */}
                     <div className={cn(
@@ -694,7 +742,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
 
 
-                    <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
+                    <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">
+                        {formatTimestampForBubble(msg.message_timestamp)}
+                        {msg.status === 'pending' && <Clock className="h-3 w-3 inline-block ml-1 text-gray-500" title="Pendente" />}
+                        {msg.status === 'failed' && <XCircle className="h-3 w-3 inline-block ml-1 text-red-500" title="Falhou" />}
+                    </span>
                   </div>
                 );
               })}
@@ -738,6 +790,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
+            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
