@@ -140,7 +140,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -427,7 +427,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           instancia: string;
           id_clinica: number | string;
           tipo_mensagem: string;
-          prioridade: string;
+          prioridade: string; // Changed to string based on user payload example
           tipo_evolution: string;
       }) => {
           console.log("[ConversasPage] Sending message payload:", messagePayload);
@@ -477,7 +477,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           instancia: selectedInstanceEvolutionName, // Use the determined evolution instance name
           id_clinica: clinicData.id, // Use clinic ID
           tipo_mensagem: "CRM", // As specified
-          prioridade: "0", // As specified
+          prioridade: "99", // <-- Set priority to 99 for testing
           tipo_evolution: "text", // As specified
       };
 
@@ -672,7 +672,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
                     )}
                     {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
-                        <audio src={mediaUrlForUrl} controls className="w-full mb-2" />
+                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" /> {/* Corrected typo here */}
                     )}
                      {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
                         <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
@@ -729,7 +729,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
