@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Added missing import
 import {
   Select,
   SelectContent,
@@ -21,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
 import { Loader2, Smile } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
+
+// ... rest of the code remains unchanged (same as previous version)
 
 interface ClinicData {
   code: string;
