@@ -15,6 +15,7 @@ import { EmojiPicker } from "emoji-picker-element"; // Import EmojiPicker
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible components
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -88,7 +89,7 @@ function formatTimestampForList(unixTimestampInSeconds: number | null): string {
     }
   } catch (e) {
     console.error("Error formatting timestamp for list:", unixTimestampInSeconds, e);
-    return '';
+    return 'Erro';
   }
 }
 
@@ -125,7 +126,7 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
@@ -229,7 +230,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           });
         }
       }
-      return Array.from(groupedMap.values());
+      const summaries = Array.from(groupedMap.values());
+      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome: s.nome, lastTimestamp: s.lastTimestamp }))); // Log summaries
+      return summaries;
     },
     enabled: hasPermission && !!clinicId && instanceIds.length > 0,
     staleTime: 60 * 1000,
@@ -262,6 +265,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .eq('remoteJid', selectedConversationId)
         .order('message_timestamp', { ascending: true });
       if (error) throw new Error(error.message);
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome: msg.nome, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp }))); // Log messages
       return data || [];
     },
     enabled: hasPermission && !!selectedConversationId,
@@ -715,25 +719,37 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const lastMessagePreview = conv.lastMessage || '';
 
               return (
-                <div
-                  key={conversationId}
-                  className={cn(
-                    "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
-                    selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
-                  )}
-                  onClick={() => setSelectedConversationId(conversationId)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
-                        <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
-                      </Avatar>
-                      <span className="contact-name font-semibold text-sm truncate max-w-[150px] whitespace-nowrap">{contactName}</span>
-                    </div>
-                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
-                  </div>
-                  <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
-                </div>
+                <TooltipProvider key={conversationId}> {/* Wrap each item with TooltipProvider */}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div
+                          className={cn(
+                            "conversation-list-item flex flex-col p-3 border-b border-gray-100 cursor-pointer transition-colors",
+                            selectedConversationId === conversationId ? 'bg-gray-100' : 'hover:bg-gray-50'
+                          )}
+                          onClick={() => setSelectedConversationId(conversationId)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <Avatar className="h-10 w-10 mr-3 flex-shrink-0">
+                                <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">{getInitials(contactName)}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col min-w-0"> {/* Use flex-col here */}
+                                <span className="contact-name font-semibold text-sm truncate whitespace-nowrap">{contactName || 'Sem Nome'}</span> {/* Display 'Sem Nome' if empty */}
+                                <span className="contact-phone text-xs text-gray-600 truncate whitespace-nowrap">{formatPhone(conversationId.split('@')[0])}</span> {/* Display formatted phone */}
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">{lastMessageTimestamp}</span>
+                          </div>
+                          <div className="last-message-preview text-xs text-gray-600 mt-1 truncate max-w-[150px] whitespace-nowrap">{lastMessagePreview}</div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>RemoteJid: {conv.remoteJid}</p>
+                        <p>Nome no DB: {conv.nome || 'Nulo/Vazio'}</p>
+                    </TooltipContent>
+                </Tooltip>
+                </TooltipProvider>
               );
             })
           )}
@@ -745,7 +761,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
           <span id="conversationContactName" className="text-primary">
             {selectedConversationSummary ? (
-              selectedConversationSummary.nome || ''
+              selectedConversationSummary.nome || selectedConversationSummary.remoteJid.split('@')[0] // Fallback to phone number if name is empty
             ) : (
               'Selecione uma conversa'
             )}
@@ -833,7 +849,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 const instanceName = instance?.nome_exibição || 'Instância Desconhecida';
 
                 // Determine the name to display based on from_me
-                const displayName = msg.from_me ? instanceName : (msg.nome || 'Contato Desconhecido');
+                const displayName = msg.from_me ? instanceName : (msg.nome || formatPhone(msg.remoteJid.split('@')[0]) || 'Contato Desconhecido'); // Fallback to formatted phone if name is empty
 
                 // Get media status and URL from component state
                 const mediaStatusForMsg = mediaStatus[msg.id];
@@ -962,6 +978,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
+            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
