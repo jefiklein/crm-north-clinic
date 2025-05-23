@@ -45,11 +45,11 @@ interface Message {
   mensagem: string | null;
   message_timestamp: number | null;
   from_me: boolean | null;
-  tipo_mensagem: string | null;
+  tipo_mensagem: string | null; // e.g., 'text', 'image', 'audio', 'video'
   id_whatsapp: string | null;
   transcrito: boolean | null;
   id_instancia: number | null; // This links to north_clinic_config_instancias.id
-  url_arquivo: string | null;
+  url_arquivo: string | null; // This is the file key for the webhook
 }
 
 interface ConversasPageProps {
@@ -111,6 +111,8 @@ function getInitials(name: string | null): string {
 }
 
 const REQUIRED_PERMISSION_LEVEL = 2;
+const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
+
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -381,8 +383,64 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 // Determine the name to display based on from_me
                 const displayName = msg.from_me ? instanceName : (msg.nome || 'Contato Desconhecido');
 
-                // Log the instance ID and lookup result for debugging
-                console.log(`[ConversasPage] Message ID: ${msg.id}, id_instancia: ${msg.id_instancia}, Instance lookup result:`, instance);
+                // State for media loading for THIS message
+                const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+                const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+                const [mediaError, setMediaError] = useState<string | null>(null);
+
+                // Effect to fetch media when url_arquivo or tipo_mensagem changes for THIS message
+                useEffect(() => {
+                    // Only fetch if there's a file URL and it's a media type we want to display inline
+                    if (!msg.url_arquivo || (!msg.tipo_mensagem || (msg.tipo_mensagem !== 'image' && msg.tipo_mensagem !== 'audio' && msg.tipo_mensagem !== 'video'))) {
+                        setMediaUrl(null);
+                        setIsLoadingMedia(false);
+                        setMediaError(null);
+                        return;
+                    }
+
+                    setIsLoadingMedia(true);
+                    setMediaError(null);
+                    setMediaUrl(null); // Clear previous URL
+
+                    const fetchMedia = async () => {
+                        console.log(`[ConversasPage] Fetching media for message ${msg.id} with key: ${msg.url_arquivo}`);
+                        try {
+                            const response = await fetch(MEDIA_WEBHOOK_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ arquivo_key: msg.url_arquivo })
+                            });
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error(`[ConversasPage] Failed to fetch media for ${msg.url_arquivo}: ${response.status} - ${errorText}`);
+                                throw new Error(`Erro ao carregar mídia: ${response.status}`);
+                            }
+
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            setMediaUrl(url);
+                            setIsLoadingMedia(false);
+                            setMediaError(null);
+
+                        } catch (err: any) {
+                            console.error(`[ConversasPage] Error fetching media for ${msg.url_arquivo}:`, err);
+                            setMediaUrl(null);
+                            setIsLoadingMedia(false);
+                            setMediaError(err.message || 'Erro ao carregar mídia.');
+                        }
+                    };
+
+                    fetchMedia();
+
+                    // Cleanup function to revoke the object URL
+                    return () => {
+                        if (mediaUrl) {
+                            URL.revokeObjectURL(mediaUrl);
+                        }
+                    };
+
+                }, [msg.url_arquivo, msg.tipo_mensagem]); // Re-run effect if url_arquivo or tipo_mensagem changes for THIS message
 
 
                 return (
@@ -397,7 +455,35 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}>
                         {displayName}
                     </div>
-                    <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+
+                    {/* Render media if available */}
+                    {isLoadingMedia && (
+                        <div className="flex items-center justify-center text-primary mb-2">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando mídia...
+                        </div>
+                    )}
+                    {mediaError && (
+                         <div className="text-red-600 text-xs mb-2">
+                             <TriangleAlert className="h-3 w-3 inline-block mr-1" /> {mediaError}
+                         </div>
+                    )}
+                    {mediaUrl && msg.tipo_mensagem === 'image' && (
+                        <img src={mediaUrl} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
+                    )}
+                    {mediaUrl && msg.tipo_mensagem === 'audio' && (
+                        <audio src={mediaUrl} controls className="w-full mb-2" />
+                    )}
+                     {mediaUrl && msg.tipo_mensagem === 'video' && ( // Added video support
+                        <video src={mediaUrl} controls className="max-w-full h-auto rounded-md mb-2" />
+                    )}
+
+                    {/* Render message text */}
+                    {/* Only render text if it exists OR if there's no media being loaded/displayed */}
+                    {(msg.mensagem || (!mediaUrl && !isLoadingMedia && !mediaError)) && (
+                         <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
+                    )}
+
+
                     <span className="message-timestamp text-xs text-gray-500 mt-1 block text-right">{formatTimestampForBubble(msg.message_timestamp)}</span>
                   </div>
                 );
