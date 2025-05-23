@@ -8,6 +8,8 @@ import { Search, TriangleAlert, Loader2 } from 'lucide-react';
 import { useQuery } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { format, isToday } from 'date-fns'; // Import format and isToday
+import { ptBR } from 'date-fns/locale'; // Import locale
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -78,6 +80,7 @@ function formatTimestampForList(unixTimestampInSeconds: number | null): string {
   }
 }
 
+// UPDATED: Helper function to format timestamp for message bubbles
 function formatTimestampForBubble(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
@@ -85,7 +88,12 @@ function formatTimestampForBubble(unixTimestampInSeconds: number | null): string
     if (isNaN(timestampNum)) { return ''; }
     const timestampMs = timestampNum * 1000;
     const date = new Date(timestampMs);
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    if (isToday(date)) {
+      return format(date, 'Hoje HH:mm', { locale: ptBR });
+    } else {
+      return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    }
   } catch (e) {
     console.error("Error formatting timestamp for bubble:", unixTimestampInSeconds, e);
     return '';
