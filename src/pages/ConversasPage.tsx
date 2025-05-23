@@ -86,8 +86,8 @@ function formatTimestampForBubble(unixTimestampInSeconds: number | null): string
   try {
     const timestampNum = parseInt(String(unixTimestampInSeconds), 10);
     if (isNaN(timestampNum)) { return ''; }
-    // Assuming timestamp is already in milliseconds, remove * 1000
-    const timestampMs = timestampNum; // Removed * 1000
+    // Assuming timestamp is in seconds, convert to milliseconds
+    const timestampMs = timestampNum * 1000; // Re-added * 1000
     const date = new Date(timestampMs);
 
     // Log for debugging
