@@ -176,7 +176,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
-        .select('remoteJid, nome, mensagem, message_timestamp, id_instancia') // Select id_instancia here
+        .select('remoteJid, nome, mensagem, message_timestamp, tipo_mensagem, id_instancia, url_arquivo') // Select tipo_mensagem and url_arquivo here
         .in('id_instancia', instanceIds)
         .order('message_timestamp', { ascending: false }); // Decrescente
 
@@ -295,6 +295,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               const responseData = await response.json();
               console.log(`[ConversasPage] Message ${msg.id}: Media webhook response data:`, responseData); // Log response data BEFORE format check
 
+              // --- MODIFIED: Adjust condition to check for signedUrl in the first object ---
               if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
                   console.log(`[ConversasPage] Message ${msg.id}: Signed URL received.`); // Log success
                   setMediaUrls(prev => ({ ...prev, [msg.id]: responseData[0].signedUrl })); // Use the signedUrl directly
@@ -303,6 +304,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   console.error(`[ConversasPage] Message ${msg.id}: Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData); // Log format error
                   throw new Error('Formato de resposta da mídia inesperado.');
               }
+              // --- END MODIFIED ---
 
           } catch (err: any) {
               console.error(`[ConversasPage] Message ${msg.id}: Error fetching media for ${msg.url_arquivo}:`, err); // Log catch error
@@ -316,8 +318,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            // Only trigger fetch if not already processing/loaded
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
-           } else {
-               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
