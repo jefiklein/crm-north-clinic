@@ -118,6 +118,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
+  // State to hold media URLs and loading/error status for each message
+  const [mediaUrls, setMediaUrls] = useState<Record<number, string | null>>({});
+  const [mediaStatus, setMediaStatus] = useState<Record<number, { isLoading: boolean, error: string | null }>>({});
+
+
   const clinicId = clinicData?.id;
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
   const hasPermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
@@ -235,12 +240,85 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     return conversationSummaries?.find(conv => conv.remoteJid === selectedConversationId);
   }, [conversationSummaries, selectedConversationId]);
 
+  // --- New useEffect to fetch media for messages ---
+  useEffect(() => {
+      if (!messages || messages.length === 0) {
+          setMediaUrls({});
+          setMediaStatus({});
+          return;
+      }
+
+      const fetchAndSetMedia = async (msg: Message) => {
+          // Only fetch if there's a file URL and it's a media type we want to display inline
+          if (!msg.url_arquivo || (!msg.tipo_mensagem || (msg.tipo_mensagem !== 'image' && msg.tipo_mensagem !== 'audio' && msg.tipo_mensagem !== 'video'))) {
+              setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
+              setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
+              return;
+          }
+
+          // Set loading state for this message
+          setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: true, error: null } }));
+          setMediaUrls(prev => ({ ...prev, [msg.id]: null })); // Clear previous URL
+
+          console.log(`[ConversasPage] Fetching media for message ${msg.id} with key: ${msg.url_arquivo}`);
+          try {
+              const response = await fetch(MEDIA_WEBHOOK_URL, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ arquivo_key: msg.url_arquivo })
+              });
+
+              if (!response.ok) {
+                  const errorText = await response.text();
+                  console.error(`[ConversasPage] Failed to fetch media for ${msg.url_arquivo}: ${response.status} - ${errorText}`);
+                  throw new Error(`Erro ao carregar mídia: ${response.status}`);
+              }
+
+              const responseData = await response.json();
+              console.log(`[ConversasPage] Media webhook response for ${msg.url_arquivo}:`, responseData);
+
+              if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
+                  setMediaUrls(prev => ({ ...prev, [msg.id]: responseData[0].signedUrl })); // Use the signedUrl directly
+                  setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
+              } else {
+                  console.error(`[ConversasPage] Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData);
+                  throw new Error('Formato de resposta da mídia inesperado.');
+              }
+
+          } catch (err: any) {
+              console.error(`[ConversasPage] Error fetching media for ${msg.url_arquivo}:`, err);
+              setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
+              setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: err.message || 'Erro ao carregar mídia.' } }));
+          }
+      };
+
+      // Iterate through messages and trigger fetch for each
+      messages.forEach(msg => {
+          // Only fetch if we haven't already fetched or attempted to fetch for this message ID
+          if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
+               fetchAndSetMedia(msg);
+          }
+      });
+
+      // Cleanup function (not strictly needed for signed URLs, but good practice if using createObjectURL)
+      // return () => {
+      //     // Clean up any object URLs if they were created
+      //     Object.values(mediaUrls).forEach(url => {
+      //         if (url && url.startsWith('blob:')) {
+      //             URL.revokeObjectURL(url);
+      //         }
+      //     });
+      // };
+
+  }, [messages, MEDIA_WEBHOOK_URL]); // Re-run effect when messages change
+
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
     if (endOfMessagesRef.current) {
       endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, mediaUrls]); // Also depend on mediaUrls so it scrolls after media loads
+
 
   // --- Permission Check ---
   if (!clinicData) {
@@ -383,72 +461,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 // Determine the name to display based on from_me
                 const displayName = msg.from_me ? instanceName : (msg.nome || 'Contato Desconhecido');
 
-                // State for media loading for THIS message
-                const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-                const [isLoadingMedia, setIsLoadingMedia] = useState(false);
-                const [mediaError, setMediaError] = useState<string | null>(null);
-
-                // Effect to fetch media when url_arquivo or tipo_mensagem changes for THIS message
-                useEffect(() => {
-                    // Only fetch if there's a file URL and it's a media type we want to display inline
-                    if (!msg.url_arquivo || (!msg.tipo_mensagem || (msg.tipo_mensagem !== 'image' && msg.tipo_mensagem !== 'audio' && msg.tipo_mensagem !== 'video'))) {
-                        setMediaUrl(null);
-                        setIsLoadingMedia(false);
-                        setMediaError(null);
-                        return;
-                    }
-
-                    setIsLoadingMedia(true);
-                    setMediaError(null);
-                    setMediaUrl(null); // Clear previous URL
-
-                    const fetchMedia = async () => {
-                        console.log(`[ConversasPage] Fetching media for message ${msg.id} with key: ${msg.url_arquivo}`);
-                        try {
-                            const response = await fetch(MEDIA_WEBHOOK_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ arquivo_key: msg.url_arquivo })
-                            });
-
-                            if (!response.ok) {
-                                const errorText = await response.text();
-                                console.error(`[ConversasPage] Failed to fetch media for ${msg.url_arquivo}: ${response.status} - ${errorText}`);
-                                throw new Error(`Erro ao carregar mídia: ${response.status}`);
-                            }
-
-                            // --- MODIFIED: Read response as JSON and extract signedUrl ---
-                            const responseData = await response.json();
-                            console.log(`[ConversasPage] Media webhook response for ${msg.url_arquivo}:`, responseData);
-
-                            if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
-                                setMediaUrl(responseData[0].signedUrl); // Use the signedUrl directly
-                                setIsLoadingMedia(false);
-                                setMediaError(null);
-                            } else {
-                                console.error(`[ConversasPage] Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData);
-                                throw new Error('Formato de resposta da mídia inesperado.');
-                            }
-                            // --- END MODIFIED ---
-
-                        } catch (err: any) {
-                            console.error(`[ConversasPage] Error fetching media for ${msg.url_arquivo}:`, err);
-                            setMediaUrl(null);
-                            setIsLoadingMedia(false);
-                            setMediaError(err.message || 'Erro ao carregar mídia.');
-                        }
-                    };
-
-                    fetchMedia();
-
-                    // Cleanup function is no longer needed for object URLs
-                    // return () => {
-                    //     if (mediaUrl && mediaUrl.startsWith('blob:')) {
-                    //         URL.revokeObjectURL(mediaUrl);
-                    //     }
-                    // };
-
-                }, [msg.url_arquivo, msg.tipo_mensagem]); // Re-run effect if url_arquivo or tipo_mensagem changes for THIS message
+                // Get media status and URL from component state
+                const mediaStatusForMsg = mediaStatus[msg.id];
+                const mediaUrlForMsg = mediaUrls[msg.id];
+                const isLoadingMedia = mediaStatusForMsg?.isLoading ?? false;
+                const mediaError = mediaStatusForMsg?.error ?? null;
 
 
                 return (
@@ -475,19 +492,19 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                              <TriangleAlert className="h-3 w-3 inline-block mr-1" /> {mediaError}
                          </div>
                     )}
-                    {mediaUrl && msg.tipo_mensagem === 'image' && (
-                        <img src={mediaUrl} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
+                    {mediaUrlForMsg && msg.tipo_mensagem === 'image' && (
+                        <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
                     )}
-                    {mediaUrl && msg.tipo_mensagem === 'audio' && (
-                        <audio src={mediaUrl} controls className="w-full mb-2" />
+                    {mediaUrlForMsg && msg.tipo_mensagem === 'audio' && (
+                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
                     )}
-                     {mediaUrl && msg.tipo_mensagem === 'video' && ( // Added video support
-                        <video src={mediaUrl} controls className="max-w-full h-auto rounded-md mb-2" />
+                     {mediaUrlForMsg && msg.tipo_mensagem === 'video' && ( // Added video support
+                        <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
                     )}
 
                     {/* Render message text */}
                     {/* Only render text if it exists OR if there's no media being loaded/displayed */}
-                    {(msg.mensagem || (!mediaUrl && !isLoadingMedia && !mediaError)) && (
+                    {(msg.mensagem || (!mediaUrlForMsg && !isLoadingMedia && !mediaError)) && (
                          <div dangerouslySetInnerHTML={{ __html: (msg.mensagem || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>').replace(/\\n|\n/g, '<br>') }}></div>
                     )}
 
