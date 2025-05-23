@@ -45,7 +45,7 @@ interface Message {
   mensagem: string | null;
   message_timestamp: number | null;
   from_me: boolean | null;
-  tipo_mensagem: string | null; // e.g., 'text', 'image', 'audio', 'video'
+  tipo_mensagem: string | null; // e.g., 'text', 'image', 'audio', 'video', 'imageMessage', etc.
   id_whatsapp: string | null;
   transcrito: boolean | null;
   id_instancia: number | null; // This links to north_clinic_config_instancias.id
@@ -245,15 +245,20 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   useEffect(() => {
       console.log("[ConversasPage] Media fetching useEffect triggered. Messages:", messages?.length); // Log useEffect trigger
       if (!messages || messages.length === 0) {
-          // Clear media state when messages are cleared (e.g., changing conversation)
           setMediaUrls({});
           setMediaStatus({});
           return;
       }
 
       const fetchAndSetMedia = async (msg: Message) => {
-          // Only fetch if there's a file URL and it's a media type we want to display inline
-          const isMediaType = msg.tipo_mensagem && ['image', 'audio', 'video'].includes(msg.tipo_mensagem);
+          // --- MODIFIED: Adjust condition to check if tipo_mensagem includes 'image', 'audio', or 'video' ---
+          const isMediaType = msg.tipo_mensagem && (
+              msg.tipo_mensagem.includes('image') ||
+              msg.tipo_mensagem.includes('audio') ||
+              msg.tipo_mensagem.includes('video')
+          );
+          // --- END MODIFIED ---
+
           console.log(`[ConversasPage] Message ${msg.id}: Checking media condition. url_arquivo: ${!!msg.url_arquivo}, tipo_mensagem: ${msg.tipo_mensagem}, isMediaType: ${isMediaType}`); // Log condition check
 
           if (!msg.url_arquivo || !isMediaType) {
@@ -313,15 +318,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       // Iterate through messages and trigger fetch for each
       messages.forEach(msg => {
            // Only trigger fetch if not already processing/loaded
-           // Check if the message ID is NOT already in mediaUrls or mediaStatus
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
-           } else {
-               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
-  }, [messages, MEDIA_WEBHOOK_URL]); // DEPEND ONLY ON MESSAGES AND WEBHOOK URL
+  }, [messages, MEDIA_WEBHOOK_URL]); // Removed mediaUrls and mediaStatus from dependencies
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
@@ -506,13 +508,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                              <TriangleAlert className="h-3 w-3 inline-block mr-1" /> {mediaError}
                          </div>
                     )}
-                    {mediaUrlForMsg && msg.tipo_mensagem === 'image' && (
+                    {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('image') && (
                         <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
                     )}
-                    {mediaUrlForMsg && msg.tipo_mensagem === 'audio' && (
+                    {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
                         <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
                     )}
-                     {mediaUrlForMsg && msg.tipo_mensagem === 'video' && ( // Added video support
+                     {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
                         <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
                     )}
 
