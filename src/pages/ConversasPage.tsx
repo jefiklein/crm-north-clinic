@@ -417,11 +417,19 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                                 throw new Error(`Erro ao carregar mídia: ${response.status}`);
                             }
 
-                            const blob = await response.blob();
-                            const url = URL.createObjectURL(blob);
-                            setMediaUrl(url);
-                            setIsLoadingMedia(false);
-                            setMediaError(null);
+                            // --- MODIFIED: Read response as JSON and extract signedUrl ---
+                            const responseData = await response.json();
+                            console.log(`[ConversasPage] Media webhook response for ${msg.url_arquivo}:`, responseData);
+
+                            if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
+                                setMediaUrl(responseData[0].signedUrl); // Use the signedUrl directly
+                                setIsLoadingMedia(false);
+                                setMediaError(null);
+                            } else {
+                                console.error(`[ConversasPage] Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData);
+                                throw new Error('Formato de resposta da mídia inesperado.');
+                            }
+                            // --- END MODIFIED ---
 
                         } catch (err: any) {
                             console.error(`[ConversasPage] Error fetching media for ${msg.url_arquivo}:`, err);
@@ -433,12 +441,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
                     fetchMedia();
 
-                    // Cleanup function to revoke the object URL
-                    return () => {
-                        if (mediaUrl) {
-                            URL.revokeObjectURL(mediaUrl);
-                        }
-                    };
+                    // Cleanup function is no longer needed for object URLs
+                    // return () => {
+                    //     if (mediaUrl && mediaUrl.startsWith('blob:')) {
+                    //         URL.revokeObjectURL(mediaUrl);
+                    //     }
+                    // };
 
                 }, [msg.url_arquivo, msg.tipo_mensagem]); // Re-run effect if url_arquivo or tipo_mensagem changes for THIS message
 
