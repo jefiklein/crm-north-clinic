@@ -55,14 +55,10 @@ interface FetchedMessageData {
   id_instancia: number | null;
   modelo_mensagem: string;
   ativo: boolean;
-  hora_envio: string | null;
+  hora_envio: string | null; // Can be null
   grupo: number | null;
   url_arquivo: string | null;
-  variacao_1: string | null;
-  variacao_2: string | null;
-  variacao_3: string | null;
-  variacao_4: string | null;
-  variacao_5: string | null;
+  // Removed variations from interface
   para_cliente: boolean;
   para_funcionario: boolean;
   // This will be an array of objects from the join table
@@ -128,9 +124,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
   const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
 
-  // Variations
-  const [variations, setVariations] = useState<string[]>(["", "", "", "", ""]);
-  const [showVariations, setShowVariations] = useState(false);
+  // Removed variations state
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
@@ -203,16 +197,32 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setMessageText(messageData.modelo_mensagem);
             setActive(messageData.ativo ?? true);
             setLinkedServices(fetchedLinkedServices); // Set the extracted linked services
-            setScheduledTime(messageData.hora_envio ?? "");
+
+            // --- FIX: Format hora_envio to HH:mm ---
+            const fetchedScheduledTime = messageData.hora_envio;
+            let formattedScheduledTime = "";
+            if (fetchedScheduledTime) {
+                try {
+                    // Assuming format is HH:mm:ss or HH:mm
+                    const parts = fetchedScheduledTime.split(':');
+                    if (parts.length >= 2) {
+                        formattedScheduledTime = `${parts[0]}:${parts[1]}`;
+                    } else {
+                         console.warn("Unexpected hora_envio format:", fetchedScheduledTime);
+                         formattedScheduledTime = fetchedScheduledTime; // Use as is if unexpected
+                    }
+                } catch (e) {
+                    console.error("Error formatting hora_envio:", fetchedScheduledTime, e);
+                    formattedScheduledTime = fetchedScheduledTime; // Use as is on error
+                }
+            }
+            setScheduledTime(formattedScheduledTime); // Set the formatted time
+            // --- END FIX ---
+
+
             setSelectedGroup(messageData.grupo ?? null);
             setMediaSavedUrl(messageData.url_arquivo ?? null);
-            setVariations([
-              messageData.variacao_1 ?? "",
-              messageData.variacao_2 ?? "",
-              messageData.variacao_3 ?? "",
-              messageData.variacao_4 ?? "",
-              messageData.variacao_5 ?? "",
-            ]);
+            // Removed variations state setting
             setTargetType(
               messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
             );
@@ -233,7 +243,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setScheduledTime("");
           setSelectedGroup(null);
           setMediaSavedUrl(null);
-          setVariations(["", "", "", "", ""]);
+          // Removed variations default state
           setTargetType("Grupo");
         }
       } catch (e: any) {
@@ -443,11 +453,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         url_arquivo: url_arquivo || null,
         para_cliente: targetType === "Cliente",
         para_funcionario: targetType === "Funcionário",
-        variacao_1: variations[0] || null,
-        variacao_2: variations[1] || null,
-        variacao_3: variations[2] || null,
-        variacao_4: variations[3] || null,
-        variacao_5: variations[4] || null,
+        // Removed variations from save data
       };
 
       const saveUrl = messageId
@@ -504,17 +510,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const showGroupSelect = (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
   const showTargetTypeSelect = category === "Chegou" || category === "Liberado";
 
-  // Variations count
-  const variationsCount = variations.filter((v) => v && v.trim() !== "").length; // Check for non-empty strings
+  // Removed variations count
 
-  // Handle variation change
-  const handleVariationChange = (index: number, value: string) => {
-    setVariations((prev) => {
-      const copy = [...prev];
-      copy[index] = value;
-      return copy;
-    });
-  };
+  // Handle variation change - Removed function
 
   // Cancel action: redirect back to list
   const handleCancel = () => {
@@ -810,47 +808,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </p>
               </div>
 
-              <div>
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setShowVariations((v) => !v)}
-                >
-                  Gerenciar Variações ({variationsCount}/5)
-                </Button>
-                {showVariations && (
-                  <div className="mt-4 space-y-4 border border-gray-300 rounded p-4 bg-gray-50">
-                    <h4 className="text-lg font-semibold text-primary mb-2">
-                      Variações da Mensagem
-                    </h4>
-                    <div className="mb-2 p-2 bg-white rounded border border-gray-200 whitespace-pre-wrap">
-                      <strong>Mensagem Original (Base para IA):</strong>
-                      <div>{messageText || "(Mensagem principal vazia)"}</div>
-                    </div>
-                    {variations.map((v, i) => (
-                      <div key={i} className="flex flex-col gap-1">
-                        <label
-                          htmlFor={`variation${i + 1}`}
-                          className="font-medium"
-                        >
-                          Variação {i + 1}
-                        </label>
-                        <div className="flex gap-2">
-                          <Textarea
-                            id={`variation${i + 1}`}
-                            rows={3}
-                            value={v || ""} // Ensure value is string
-                            onChange={(e) =>
-                              handleVariationChange(i, e.target.value)
-                            }
-                            placeholder={`Variação ${i + 1}...`}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Removed Variations section */}
 
               <div>
                 <label
