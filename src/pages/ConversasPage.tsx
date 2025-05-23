@@ -80,19 +80,13 @@ function formatTimestampForList(unixTimestampInSeconds: number | null): string {
   }
 }
 
-// UPDATED: Helper function to format timestamp for message bubbles
 function formatTimestampForBubble(unixTimestampInSeconds: number | null): string {
   if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return '';
   try {
     const timestampNum = parseInt(String(unixTimestampInSeconds), 10);
     if (isNaN(timestampNum)) { return ''; }
-    // Assuming timestamp is in seconds, convert to milliseconds
-    const timestampMs = timestampNum * 1000; // Re-added * 1000
+    const timestampMs = timestampNum * 1000;
     const date = new Date(timestampMs);
-
-    // Log for debugging
-    console.log(`Timestamp: ${unixTimestampInSeconds}, Date object: ${date.toISOString()}, Is Today: ${isToday(date)}`);
-
 
     if (isToday(date)) {
       return format(date, 'Hoje HH:mm', { locale: ptBR });
@@ -142,6 +136,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .eq('id_clinica', clinicId)
         .order('nome_exibição', { ascending: true });
       if (error) throw new Error(error.message);
+      console.log("[ConversasPage] Fetched instances list:", data); // Log fetched instances
       return data || [];
     },
     enabled: hasPermission && !!clinicId,
@@ -159,6 +154,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const instanceMap = useMemo(() => {
     const map = new Map<number, InstanceInfo>();
     instancesList?.forEach(instance => map.set(instance.id, instance));
+    console.log("[ConversasPage] Created instance map:", map); // Log the created map
     return map;
   }, [instancesList]);
 
@@ -172,7 +168,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       // Fetch messages with id_instancia in instanceIds
       const { data, error } = await supabase
         .from('whatsapp_historico')
-        .select('remoteJid, nome, mensagem, message_timestamp')
+        .select('remoteJid, nome, mensagem, message_timestamp, id_instancia') // Select id_instancia here
         .in('id_instancia', instanceIds)
         .order('message_timestamp', { ascending: false }); // Decrescente
 
@@ -350,7 +346,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 if (!phone) return;
                 const clean = String(phone).replace(/\D/g, '');
                 if (clean) {
-                  window.open(`https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489f4a?phone=${clean}`, '_blank');
+                  window.open(`https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa?phone=${clean}`, '_blank');
                 }
               }}
             >
@@ -384,6 +380,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
                 // Determine the name to display based on from_me
                 const displayName = msg.from_me ? instanceName : (msg.nome || 'Contato Desconhecido');
+
+                // Log the instance ID and lookup result for debugging
+                console.log(`[ConversasPage] Message ID: ${msg.id}, id_instancia: ${msg.id_instancia}, Instance lookup result:`, instance);
+
 
                 return (
                   <div key={msg.id} className={cn(
