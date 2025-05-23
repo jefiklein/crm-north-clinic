@@ -672,7 +672,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         <img src={mediaUrlForMsg} alt="Anexo de imagem" className="max-w-full h-auto rounded-md mb-2" />
                     )}
                     {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('audio') && (
-                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" /> {/* Corrected typo here */}
+                        <audio src={mediaUrlForMsg} controls className="w-full mb-2" />
                     )}
                      {mediaUrlForMsg && msg.tipo_mensagem && msg.tipo_mensagem.includes('video') && ( // Added video support
                         <video src={mediaUrlForMsg} controls className="max-w-full h-auto rounded-md mb-2" />
@@ -729,7 +729,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     )}
                 </Button>
             </div>
-            {/* Emoji Picker */}
             {showEmojiPicker && (
                 <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
                     <emoji-picker
