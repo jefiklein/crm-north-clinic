@@ -242,6 +242,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // --- New useEffect to fetch media for messages ---
   useEffect(() => {
+      console.log("[ConversasPage] Media fetching useEffect triggered. Messages:", messages?.length); // Log useEffect trigger
       if (!messages || messages.length === 0) {
           setMediaUrls({});
           setMediaStatus({});
@@ -251,16 +252,24 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const fetchAndSetMedia = async (msg: Message) => {
           // Only fetch if there's a file URL and it's a media type we want to display inline
           if (!msg.url_arquivo || (!msg.tipo_mensagem || (msg.tipo_mensagem !== 'image' && msg.tipo_mensagem !== 'audio' && msg.tipo_mensagem !== 'video'))) {
+              console.log(`[ConversasPage] Message ${msg.id}: No media URL or type for inline display. Skipping fetch.`); // Log skip
               setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
               setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
               return;
           }
 
+          // Check if we already have the URL or are already fetching/failed
+          if (mediaUrls[msg.id] !== undefined || mediaStatus[msg.id] !== undefined) {
+               console.log(`[ConversasPage] Message ${msg.id}: Media already processed or fetching. Skipping fetch.`); // Log skip if already processed
+               return;
+          }
+
+
           // Set loading state for this message
           setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: true, error: null } }));
           setMediaUrls(prev => ({ ...prev, [msg.id]: null })); // Clear previous URL
 
-          console.log(`[ConversasPage] Fetching media for message ${msg.id} with key: ${msg.url_arquivo}`);
+          console.log(`[ConversasPage] Message ${msg.id}: Attempting to fetch media with key: ${msg.url_arquivo}`); // Log fetch attempt
           try {
               const response = await fetch(MEDIA_WEBHOOK_URL, {
                   method: 'POST',
@@ -268,25 +277,28 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                   body: JSON.stringify({ arquivo_key: msg.url_arquivo })
               });
 
+              console.log(`[ConversasPage] Message ${msg.id}: Media webhook response status: ${response.status}`); // Log response status
+
               if (!response.ok) {
                   const errorText = await response.text();
-                  console.error(`[ConversasPage] Failed to fetch media for ${msg.url_arquivo}: ${response.status} - ${errorText}`);
+                  console.error(`[ConversasPage] Message ${msg.id}: Failed to fetch media for ${msg.url_arquivo}: ${response.status} - ${errorText}`); // Log fetch failure
                   throw new Error(`Erro ao carregar mídia: ${response.status}`);
               }
 
               const responseData = await response.json();
-              console.log(`[ConversasPage] Media webhook response for ${msg.url_arquivo}:`, responseData);
+              console.log(`[ConversasPage] Message ${msg.id}: Media webhook response data:`, responseData); // Log response data
 
               if (Array.isArray(responseData) && responseData.length > 0 && responseData[0]?.signedUrl) {
+                  console.log(`[ConversasPage] Message ${msg.id}: Signed URL received.`); // Log success
                   setMediaUrls(prev => ({ ...prev, [msg.id]: responseData[0].signedUrl })); // Use the signedUrl directly
                   setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: null } }));
               } else {
-                  console.error(`[ConversasPage] Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData);
+                  console.error(`[ConversasPage] Message ${msg.id}: Unexpected media webhook response format for ${msg.url_arquivo}:`, responseData); // Log format error
                   throw new Error('Formato de resposta da mídia inesperado.');
               }
 
           } catch (err: any) {
-              console.error(`[ConversasPage] Error fetching media for ${msg.url_arquivo}:`, err);
+              console.error(`[ConversasPage] Message ${msg.id}: Error fetching media for ${msg.url_arquivo}:`, err); // Log catch error
               setMediaUrls(prev => ({ ...prev, [msg.id]: null }));
               setMediaStatus(prev => ({ ...prev, [msg.id]: { isLoading: false, error: err.message || 'Erro ao carregar mídia.' } }));
           }
@@ -294,23 +306,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
       // Iterate through messages and trigger fetch for each
       messages.forEach(msg => {
-          // Only fetch if we haven't already fetched or attempted to fetch for this message ID
-          if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
+           // Only trigger fetch if not already processing/loaded
+           if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
-          }
+           }
       });
 
-      // Cleanup function (not strictly needed for signed URLs, but good practice if using createObjectURL)
-      // return () => {
-      //     // Clean up any object URLs if they were created
-      //     Object.values(mediaUrls).forEach(url => {
-      //         if (url && url.startsWith('blob:')) {
-      //             URL.revokeObjectURL(url);
-      //         }
-      //     });
-      // };
+  }, [messages, MEDIA_WEBHOOK_URL, mediaUrls, mediaStatus]); // Added mediaUrls and mediaStatus to dependencies to prevent re-fetching already processed items
 
-  }, [messages, MEDIA_WEBHOOK_URL]); // Re-run effect when messages change
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
@@ -466,6 +469,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 const mediaUrlForMsg = mediaUrls[msg.id];
                 const isLoadingMedia = mediaStatusForMsg?.isLoading ?? false;
                 const mediaError = mediaStatusForMsg?.error ?? null;
+
+                // Log the media state for this specific message during render
+                console.log(`[ConversasPage] Rendering message ${msg.id}: isLoadingMedia=${isLoadingMedia}, mediaError=${mediaError}, mediaUrlForMsg=${mediaUrlForMsg ? 'Exists' : 'Null'}`);
 
 
                 return (
