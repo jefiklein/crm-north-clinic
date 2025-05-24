@@ -526,16 +526,18 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                 ) : instancesError ? (
                                     <p className="text-sm text-red-600">Erro ao carregar instâncias.</p>
                                 ) : (instancesList?.length ?? 0) === 0 ? (
-                                    <p className="text-sm text-orange-600">Nenhuma instância disponível.</p>
+                                    <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                 ) : (
                                     <Select
                                         value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || ''}
                                         onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value ? parseInt(value, 10) : null })}
                                     >
                                         <SelectTrigger id="idInstanciaEnvioPadrao">
-                                            <SelectValue placeholder="Selecione a instância" />
+                                            <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
                                         </SelectTrigger>
                                         <SelectContent>
+                                            {/* Added option for no default instance */}
+                                            <SelectItem value="">Nenhuma instância padrão</SelectItem>
                                             {instancesList?.map(inst => (
                                                 <SelectItem key={inst.id} value={inst.id.toString()}>
                                                     {inst.nome_exibição} ({formatPhone(inst.telefone)})
@@ -544,7 +546,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         </SelectContent>
                                     </Select>
                                 )}
-                                 <p className="text-xs text-gray-500 mt-1">Esta é a instância padrão para enviar mensagens automáticas de cashback. A seleção manual por venda ainda não está disponível.</p> {/* Clarified text */}
+                                 <p className="text-xs text-gray-500 mt-1">Esta é a instância padrão para enviar mensagens automáticas de cashback. Se nenhuma for selecionada, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
                             </div>
                              {/* Add more configuration fields here as needed */}
                         </div>
