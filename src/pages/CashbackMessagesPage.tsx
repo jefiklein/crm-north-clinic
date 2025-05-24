@@ -45,6 +45,8 @@ interface MessageItem {
     created_at: string;
     updated_at: string;
     context: string | null; // Added new column
+    dias_offset: number | null; // Added new column
+    tipo_agendamento: string | null; // Added new column
 }
 
 // Define the structure for Instance Info from Supabase
@@ -74,8 +76,8 @@ const placeholderData = {
     mes_agendamento_extenso: "Abril",
     hora_agendamento: "15:30",
     // Add cashback specific placeholders if needed in the future
-    // valor_cashback: "R$ 50,00",
-    // validade_cashback: "20/05/2025"
+    valor_cashback: "R$ 50,00", // Added cashback placeholder
+    validade_cashback: "20/05/2025" // Added cashback placeholder
 };
 
 // Categories relevant to Cashback context (kept for reference, but filtering by context now)

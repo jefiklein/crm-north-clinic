@@ -45,6 +45,8 @@ interface MessageItem {
     created_at: string;
     updated_at: string;
     context: string | null; // Added new column
+    dias_offset: number | null; // Added new column
+    tipo_agendamento: string | null; // Added new column
 }
 
 // Define the structure for Instance Info from Supabase

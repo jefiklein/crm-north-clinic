@@ -67,6 +67,8 @@ interface FetchedMessageData {
   para_cliente: boolean;
   para_funcionario: boolean;
   context: string | null; // Added new column
+  dias_offset: number | null; // Added new column
+  tipo_agendamento: string | null; // Added new column
   // This will be an array of objects from the join table
   north_clinic_mensagens_servicos: { id_servico: number }[];
 }
@@ -110,6 +112,39 @@ const defaultTemplates: Record<string, string> = {
     "{primeiro_nome_cliente}, sua sessão de *{nome_servico_principal}* foi concluída. Se tiver uma próxima etapa, informaremos em breve. Obrigado!",
 };
 
+// Placeholder data for message preview (updated for cashback)
+const placeholderData = {
+    primeiro_nome_cliente: "Maria",
+    nome_completo_cliente: "Maria Souza",
+    primeiro_nome_funcionario: "Silva",
+    nome_completo_funcionario: "Dr(a). João Silva",
+    nome_servico_principal: "Consulta Inicial",
+    lista_servicos: "Consulta Inicial, Exame Simples",
+    data_agendamento: "19/04/2025",
+    dia_agendamento_num: "19",
+    dia_semana_relativo_extenso: "sábado",
+    mes_agendamento_num: "04",
+    mes_agendamento_extenso: "Abril",
+    hora_agendamento: "15:30",
+    valor_cashback: "R$ 50,00", // Added cashback placeholder
+    validade_cashback: "20/05/2025" // Added cashback placeholder
+};
+
+function simulateMessage(template: string | null, placeholders: { [key: string]: string }): string {
+    if (typeof template !== 'string' || !template) return '<i class="text-gray-500">(Modelo inválido ou vazio)</i>';
+    let text = template;
+    for (const key in placeholders) {
+        const regex = new RegExp(`\\{${key}\\}`, 'g');
+        text = text.replace(regex, `<strong>${placeholders[key]}</strong>`);
+    }
+    text = text.replace(/\{([\w_]+)\}/g, '<span class="unreplaced-token text-gray-600 bg-gray-200 px-1 rounded font-mono text-xs">{$1}</span>');
+    text = text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    text = text.replace(/_(.*?)_/g, '<em>$1</em>');
+    text = text.replace(/\\n|\n/g, '<br>');
+    return text;
+}
+
+
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
@@ -125,7 +160,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [category, setCategory] = useState<string>("");
   const [instanceId, setInstanceId] = useState<number | null>(null);
   const [messageText, setMessageText] = useState<string>("");
-  const [active, setActive] = useState<boolean>(true);
+  const [active, setActive] = useState<boolean>(true); // Always starts active for new messages
   const [services, setServices] = useState<Service[]>([]);
   const [linkedServices, setLinkedServices] = useState<number[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -138,7 +173,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
   const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
-  const [messageContext, setMessageContext] = useState<string | null>(null); // NEW: State for message context
+  const [messageContext, setMessageContext] = useState<string | null>(null); // State for message context
+
+  // NEW: State for cashback timing
+  const [diasOffset, setDiasOffset] = useState<string>(''); // Use string for input
+  const [tipoAgendamento, setTipoAgendamento] = useState<string>(''); // 'apos_venda' or 'antes_validade'
 
   // Removed variations state
 
@@ -156,7 +195,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
     const urlParams = new URLSearchParams(location.search); // Use useLocation hook
     const idParam = urlParams.get("id");
-    const contextParam = urlParams.get("context"); // NEW: Read context from URL
+    const contextParam = urlParams.get("context"); // Read context from URL
 
     const isEditing = !!idParam;
     const messageIdToEdit = idParam ? parseInt(idParam, 10) : null;
@@ -180,15 +219,20 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         if (instancesError) throw instancesError;
         setInstances(instancesData || []);
 
-        // Fetch services directly from Supabase
-        const { data: servicesData, error: servicesError } = await supabase
-          .from("north_clinic_servicos")
-          .select("id, nome") // Select only necessary fields
-          .eq("id_clinica", clinicData.id) // Filter by clinic ID
-          .order("nome", { ascending: true });
+        // Fetch services directly from Supabase (only needed for general context)
+        let servicesData: Service[] = [];
+        if (contextParam !== 'cashback') { // Only fetch services if not cashback context
+             const { data: fetchedServicesData, error: servicesError } = await supabase
+               .from("north_clinic_servicos")
+               .select("id, nome") // Select only necessary fields
+               .eq("id_clinica", clinicData.id) // Filter by clinic ID
+               .order("nome", { ascending: true });
 
-        if (servicesError) throw servicesError;
-        setServices(servicesData || []);
+             if (servicesError) throw servicesError;
+             servicesData = fetchedServicesData || [];
+        }
+        setServices(servicesData);
+
 
         if (isEditing && messageIdToEdit !== null) {
           // Fetch message details and linked services from Supabase
@@ -206,10 +250,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           if (messageDataArray) {
             const messageData: FetchedMessageData = messageDataArray; // Cast to the fetched structure
 
-            // Extract linked service IDs from the nested array
-            const fetchedLinkedServices = messageData.north_clinic_mensagens_servicos
-                .map(link => link.id_servico)
-                .filter((id): id is number => id !== null); // Ensure IDs are numbers and not null
+            // Extract linked service IDs from the nested array (only relevant for general context)
+            const fetchedLinkedServices = messageData.context !== 'cashback'
+                ? messageData.north_clinic_mensagens_servicos
+                    .map(link => link.id_servico)
+                    .filter((id): id is number => id !== null) // Ensure IDs are numbers and not null
+                : []; // Empty array if cashback context
 
             console.log("Fetched message data from Supabase:", messageData);
             console.log("Extracted linkedServices from Supabase:", fetchedLinkedServices);
@@ -221,7 +267,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setMessageText(messageData.modelo_mensagem);
             setActive(messageData.ativo ?? true);
             setLinkedServices(fetchedLinkedServices); // Set the extracted linked services
-            setMessageContext(messageData.context); // NEW: Set context from fetched data
+            setMessageContext(messageData.context); // Set context from fetched data
 
             // --- FIX: Format hora_envio to HH:mm ---
             const fetchedScheduledTime = messageData.hora_envio;
@@ -251,6 +297,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setTargetType(
               messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
             );
+
+            // NEW: Set cashback timing state
+            setDiasOffset(messageData.dias_offset?.toString() || '');
+            setTipoAgendamento(messageData.tipo_agendamento || '');
+
+
           } else {
               // Message not found for this clinic/ID
               setError("Mensagem não encontrada ou você não tem permissão para editá-la.");
@@ -270,13 +322,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setCategory("");
           setInstanceId(null);
           setMessageText("");
-          setActive(true);
+          setActive(true); // New messages start active
           setLinkedServices([]);
           setScheduledTime("");
           setSelectedGroup(null);
           setMediaSavedUrl(null);
           // Removed variations default state
-          setTargetType("Grupo");
+          setTargetType(contextParam === 'cashback' ? 'Cliente' : 'Grupo'); // Default target type based on context
+
+          // NEW: Default cashback timing
+          setDiasOffset('');
+          setTipoAgendamento('');
+
           // Context is already set from URL parameter above
         }
       } catch (e: any) {
@@ -407,43 +464,80 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
       return;
     }
-    if (
-      category !== "Aniversário" &&
-      linkedServices.length === 0 &&
-      category !== "Chegou" &&
-      category !== "Liberado"
-    ) {
-      toast({
-        title: "Erro",
-        description: "Selecione pelo menos um serviço vinculado.",
-        variant: "destructive",
-      });
-      return;
+
+    // Validation specific to General context
+    if (messageContext === 'general') {
+        if (
+          category !== "Aniversário" &&
+          linkedServices.length === 0 &&
+          category !== "Chegou" &&
+          category !== "Liberado"
+        ) {
+          toast({
+            title: "Erro",
+            description: "Selecione pelo menos um serviço vinculado.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (
+          (category === "Confirmar Agendamento" || category === "Aniversário") &&
+          !scheduledTime
+        ) {
+          toast({
+            title: "Erro",
+            description: "Selecione a hora programada.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (
+          (category === "Chegou" || category === "Liberado") &&
+          targetType === "Grupo" &&
+          !selectedGroup
+        ) {
+          toast({
+            title: "Erro",
+            description: "Selecione o grupo alvo.",
+            variant: "destructive",
+          });
+          return;
+        }
     }
-    if (
-      (category === "Confirmar Agendamento" || category === "Aniversário") &&
-      !scheduledTime
-    ) {
-      toast({
-        title: "Erro",
-        description: "Selecione a hora programada.",
-        variant: "destructive",
-      });
-      return;
+
+    // Validation specific to Cashback context
+    if (messageContext === 'cashback') {
+        const offsetNum = parseInt(diasOffset, 10);
+        if (diasOffset.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
+             toast({
+                 title: "Erro",
+                 description: "Informe um número válido de dias (>= 0).",
+                 variant: "destructive",
+             });
+             return;
+        }
+        if (!tipoAgendamento) {
+             toast({
+                 title: "Erro",
+                 description: "Selecione o tipo de agendamento (Após Venda ou Antes da Validade).",
+                 variant: "destructive",
+             });
+             return;
+        }
+         // For cashback, targetType is always Cliente and group is not used, no need to validate them
+         // scheduledTime might still be relevant for time of day, so validate if needed
+         if (showScheduledTime && !scheduledTime) { // Keep scheduled time validation if applicable
+              toast({
+                 title: "Erro",
+                 description: "Selecione a hora programada.",
+                 variant: "destructive",
+             });
+             return;
+         }
     }
-    if (
-      (category === "Chegou" || category === "Liberado") &&
-      targetType === "Grupo" &&
-      !selectedGroup
-    ) {
-      toast({
-        title: "Erro",
-        description: "Selecione o grupo alvo.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!messageContext) { // NEW: Validate that context is set
+
+
+    if (!messageContext) { // Validate that context is set (should be set from URL or fetched)
          toast({
              title: "Erro",
              description: "Contexto da mensagem não definido.",
@@ -483,22 +577,35 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
 
       // Prepare data for save webhook
-      const saveData = {
+      const saveData: any = { // Use any for now to easily add conditional fields
         id_clinica: clinicData.code, // Use clinic code for save webhook
         id: messageId, // null for new, number for edit
         categoria: category,
         id_instancia: instanceId,
         modelo_mensagem: messageText,
         ativo: active,
-        servicos_vinculados: linkedServices, // Send the array of IDs
         hora_envio: scheduledTime || null,
-        grupo: selectedGroup || null,
         url_arquivo: url_arquivo || null,
-        para_cliente: targetType === "Cliente",
-        para_funcionario: targetType === "Funcionário",
-        context: messageContext, // NEW: Include context in save data
+        prioridade: 1, // Default priority for now, can be added later
+        context: messageContext, // Include context in save data
         // Removed variations from save data
       };
+
+      // Add context-specific fields
+      if (messageContext === 'general') {
+          saveData.servicos_vinculados = linkedServices; // Send the array of IDs
+          saveData.para_cliente = targetType === "Cliente";
+          saveData.para_funcionario = targetType === "Funcionário";
+          saveData.grupo = selectedGroup || null;
+      } else if (messageContext === 'cashback') {
+          saveData.dias_offset = parseInt(diasOffset, 10);
+          saveData.tipo_agendamento = tipoAgendamento;
+          saveData.para_cliente = true; // Always send to client for cashback
+          saveData.para_funcionario = false;
+          saveData.para_grupo = false;
+          saveData.grupo = null; // Group is not used for cashback
+      }
+
 
       const saveUrl = messageId
         ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4" // Update webhook
@@ -558,11 +665,17 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
      // TODO: Add default templates for other contexts if needed
   };
 
-  // Show/hide fields based on category and targetType
-  const showScheduledTime =
-    category === "Confirmar Agendamento" || category === "Aniversário";
-  const showGroupSelect = (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
-  const showTargetTypeSelect = category === "Chegou" || category === "Liberado";
+  // Show/hide fields based on category and targetType (General context)
+  const showScheduledTimeGeneral =
+    messageContext === 'general' && (category === "Confirmar Agendamento" || category === "Aniversário");
+  const showGroupSelectGeneral = messageContext === 'general' && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
+  const showTargetTypeSelectGeneral = messageContext === 'general' && (category === "Chegou" || category === "Liberado");
+  const showServicesLinkedGeneral = messageContext === 'general' && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
+
+  // Show/hide fields specific to Cashback context
+  const showCashbackTiming = messageContext === 'cashback';
+  const showScheduledTimeCashback = messageContext === 'cashback' && (category === 'Aniversário'); // Aniversário might still need time
+
 
   // Removed variations count
 
@@ -600,35 +713,76 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             <div className="text-red-600 font-semibold">{error}</div>
           ) : (
             <>
-              <div>
-                <label
-                  htmlFor="category"
-                  className="block mb-1 font-medium text-gray-700"
-                >
-                  Categoria *
-                </label>
-                <Select
-                  value={category}
-                  onValueChange={handleCategoryChange}
-                  id="category"
-                  disabled={messageId !== null} // Disable category change when editing
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Filter categories based on context if needed */}
-                    {orderedCategories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                 {messageId !== null && (
-                     <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
-                 )}
-              </div>
+              {/* Category field (only for General context) */}
+              {messageContext === 'general' && (
+                  <div>
+                    <label
+                      htmlFor="category"
+                      className="block mb-1 font-medium text-gray-700"
+                    >
+                      Categoria *
+                    </label>
+                    <Select
+                      value={category}
+                      onValueChange={handleCategoryChange}
+                      id="category"
+                      disabled={messageId !== null} // Disable category change when editing
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Filter categories based on context if needed */}
+                        {orderedCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                     {messageId !== null && (
+                         <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                     )}
+                  </div>
+              )}
+
+              {/* Category field (only for Cashback context - maybe a fixed category or limited options?) */}
+              {messageContext === 'cashback' && (
+                   <div>
+                       <label
+                         htmlFor="category"
+                         className="block mb-1 font-medium text-gray-700"
+                       >
+                         Categoria *
+                       </label>
+                       {/* For cashback, maybe a fixed category or limited options? */}
+                       {/* For now, let's make it a simple input or display if editing */}
+                       {messageId !== null ? (
+                           <Input id="category" value={category || 'N/A'} disabled />
+                       ) : (
+                            <Select
+                                value={category}
+                                onValueChange={setCategory}
+                                id="category"
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a categoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {/* Add cashback specific categories here */}
+                                    <SelectItem value="Aniversário">Aniversário</SelectItem>
+                                    <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
+                                    <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
+                                    {/* Add other cashback categories as needed */}
+                                </SelectContent>
+                            </Select>
+                       )}
+                        {messageId !== null && (
+                            <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                        )}
+                   </div>
+              )}
+
 
               <div>
                 <label
@@ -655,7 +809,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </Select>
               </div>
 
-              {showTargetTypeSelect && (
+              {/* Target Type field (only for General context) */}
+              {showTargetTypeSelectGeneral && (
                 <div>
                   <label
                     htmlFor="targetType"
@@ -682,7 +837,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               )}
 
-              {showGroupSelect && (
+              {/* Group Select field (only for General context, when target is Grupo) */}
+              {showGroupSelectGeneral && (
                 <div>
                   <label
                     htmlFor="group"
@@ -712,7 +868,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               )}
 
-              {showScheduledTime && (
+              {/* Scheduled Time field (for specific categories in General, or maybe Aniversário in Cashback) */}
+              {(showScheduledTimeGeneral || showScheduledTimeCashback) && (
                 <div>
                   <label
                     htmlFor="scheduledTime"
@@ -759,6 +916,52 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               )}
 
+              {/* NEW: Cashback Timing fields (only for Cashback context) */}
+              {showCashbackTiming && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <label
+                            htmlFor="diasOffset"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Dias *
+                          </label>
+                          <Input
+                              id="diasOffset"
+                              type="number"
+                              placeholder="Ex: 3"
+                              value={diasOffset}
+                              onChange={(e) => setDiasOffset(e.target.value)}
+                              min="0"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
+                      </div>
+                      <div>
+                          <label
+                            htmlFor="tipoAgendamento"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Agendar Para *
+                          </label>
+                          <Select
+                              value={tipoAgendamento}
+                              onValueChange={setTipoAgendamento}
+                              id="tipoAgendamento"
+                          >
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="apos_venda">Dias após a venda</SelectItem>
+                                  <SelectItem value="antes_validade">Dias antes da validade do cashback</SelectItem>
+                              </SelectContent>
+                          </Select>
+                          <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
+                      </div>
+                  </div>
+              )}
+
+
               <div>
                 <label
                   htmlFor="messageText"
@@ -796,8 +999,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               </div>
 
-              {/* Only show Services Vinculados for relevant categories */}
-              {category !== "Aniversário" && category !== "Chegou" && category !== "Liberado" && (
+              {/* Services Vinculados (only for General context) */}
+              {showServicesLinkedGeneral && (
                 <div>
                   <label
                     htmlFor="services"
@@ -870,6 +1073,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
               {/* Removed Variations section */}
 
+              {/* Status field (always starts active for new, but editable) */}
               <div>
                 <label
                   htmlFor="active"
