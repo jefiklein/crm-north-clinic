@@ -774,6 +774,44 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                      )}
                   </div>
               )}
+               {/* For Cashback, category is selected but might not be required for save payload depending on backend */}
+               {/* Let's keep it for now as it's in the DB schema and webhook might expect it */}
+               {/* If category is truly not needed for cashback, remove this block */}
+               {isCashbackContext && (
+                    <div>
+                        <label
+                          htmlFor="category"
+                          className="block mb-1 font-medium text-gray-700"
+                        >
+                          Categoria *
+                        </label>
+                         {/* For cashback, maybe a fixed category or limited options? */}
+                         {/* For now, let's make it a simple input or display if editing */}
+                         {messageId !== null ? (
+                             <Input id="category" value={category || 'N/A'} disabled />
+                         ) : (
+                              <Select
+                                  value={category}
+                                  onValueChange={setCategory}
+                                  id="category"
+                              >
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecione a categoria" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {/* Add cashback specific categories here */}
+                                      <SelectItem value="Aniversário">Aniversário</SelectItem>
+                                      <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
+                                      <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
+                                      {/* Add other cashback categories as needed */}
+                                  </SelectContent>
+                              </Select>
+                         )}
+                          {messageId !== null && (
+                              <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                          )}
+                    </div>
+               )}
 
 
               <div>
@@ -1066,27 +1104,29 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               {/* Removed Variations section */}
 
               {/* Status field (always starts active for new, but editable) */}
-              <div>
-                <label
-                  htmlFor="active"
-                  className="block mb-1 font-medium text-gray-700"
-                >
-                  Status da Mensagem
-                </label>
-                <Select
-                  value={active ? "true" : "false"}
-                  onValueChange={(v) => setActive(v === "true")}
-                  id="active"
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Ativo (Habilitado)</SelectItem>
-                    <SelectItem value="false">Inativo (Desabilitado)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isGeneralContext && ( // <-- Only show Status for General context
+                  <div>
+                    <label
+                      htmlFor="active"
+                      className="block mb-1 font-medium text-gray-700"
+                    >
+                      Status da Mensagem
+                    </label>
+                    <Select
+                      value={active ? "true" : "false"}
+                      onValueChange={(v) => setActive(v === "true")}
+                      id="active"
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Ativo (Habilitado)</SelectItem>
+                        <SelectItem value="false">Inativo (Desabilitado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+              )}
 
               <div className="flex justify-end gap-4 pt-4 border-t">
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
