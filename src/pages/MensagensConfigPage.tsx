@@ -709,7 +709,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       ))}
                     </SelectContent>
                   </Select>
-                </Select>
+                </div>
               )}
 
               {showScheduledTime && (
