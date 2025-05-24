@@ -55,7 +55,7 @@ interface FetchedMessageData {
   id_instancia: number | null;
   modelo_mensagem: string;
   ativo: boolean;
-  hora_envio: string | null; // Can be null
+  hora_envio: string | null; // Can be null (e.g., "15:30:00" or "15:30")
   grupo: number | null;
   url_arquivo: string | null;
   variacao_1: string | null;
@@ -108,6 +108,19 @@ const defaultTemplates: Record<string, string> = {
     "{primeiro_nome_cliente}, sua sessão de *{nome_servico_principal}* foi concluída. Se tiver uma próxima etapa, informaremos em breve. Obrigado!",
 };
 
+// Predefined list of times for the select dropdown (HH:mm format)
+const predefinedTimes = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+  "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+  "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+  "20:00", "20:30", "21:00", "21:30", "22:00", "22:30",
+  "23:00", "23:30", "00:00", "00:30", "01:00", "01:30",
+  "02:00", "02:30", "03:00", "03:30", "04:00", "04:30",
+  "05:00", "05:30", "06:00", "06:30", "07:00", "07:30",
+];
+
+
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
@@ -128,7 +141,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [instances, setInstances] = useState<Instance[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
-  const [scheduledTime, setScheduledTime] = useState<string>("");
+  const [scheduledTime, setScheduledTime] = useState<string>(""); // State will hold HH:mm string
   const [targetType, setTargetType] = useState<"Grupo" | "Cliente" | "Funcionário">(
     "Grupo"
   );
@@ -460,7 +473,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         modelo_mensagem: messageText,
         ativo: active,
         servicos_vinculados: linkedServices, // Send the array of IDs
-        hora_envio: scheduledTime || null,
+        hora_envio: scheduledTime || null, // Send the HH:mm string or null
         grupo: selectedGroup || null,
         url_arquivo: url_arquivo || null,
         para_cliente: targetType === "Cliente",
@@ -469,7 +482,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       };
 
       const saveUrl = messageId
-        ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4" // Update webhook
+        ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a89daa4" // Update webhook
         : "https://n8n-n8n.sbw0pc.easypanel.host/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d"; // Create webhook
 
       const saveRes = await fetch(saveUrl, {
@@ -680,6 +693,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   >
                     Hora Programada *
                   </label>
+                  {/* Replaced Input with Select for predefined times */}
                   <Select
                     value={scheduledTime}
                     onValueChange={setScheduledTime}
@@ -689,27 +703,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       <SelectValue placeholder="Selecione a hora" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[
-                        "08:00",
-                        "08:30",
-                        "09:00",
-                        "09:30",
-                        "10:00",
-                        "10:30",
-                        "11:00",
-                        "11:30",
-                        "12:00",
-                        "12:30",
-                        "13:00",
-                        "13:30",
-                        "14:00",
-                        "14:30",
-                        "15:00",
-                        "15:30",
-                        "16:00",
-                        "16:30",
-                        "17:00",
-                      ].map((time) => (
+                      {predefinedTimes.map((time) => (
                         <SelectItem key={time} value={time}>
                           {time}
                         </SelectItem>
