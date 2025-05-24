@@ -321,26 +321,29 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             return;
         }
 
+        // --- NEW VALIDATION ---
+        const percentualNum = parseFloat(autoCashbackConfig.percentual);
+        const validadeDiasNum = parseInt(autoCashbackConfig.validadeDias, 10);
+
+        if (autoCashbackConfig.percentual.trim() === '' || isNaN(percentualNum) || percentualNum < 0) {
+            showError("Por favor, informe um Percentual de Cashback válido (número >= 0).");
+            return;
+        }
+
+        if (autoCashbackConfig.validadeDias.trim() === '' || isNaN(validadeDiasNum) || validadeDiasNum < 0) {
+             showError("Por favor, informe uma Validade em dias válida (número inteiro >= 0).");
+             return;
+        }
+        // --- END NEW VALIDATION ---
+
+
         // Prepare payload, converting string inputs to numbers
         const payload: SaveConfigPayload = {
             id_clinica: clinicId,
-            cashback_percentual: autoCashbackConfig.percentual ? parseFloat(autoCashbackConfig.percentual) : null, // Corrected payload name
-            cashback_validade: autoCashbackConfig.validadeDias ? parseInt(autoCashbackConfig.validadeDias, 10) : null, // Corrected payload name
-            default_sending_instance_id: autoCashbackConfig.idInstanciaEnvioPadrao, // Use the state value, send with webhook name
+            cashback_percentual: percentualNum, // Use parsed number
+            cashback_validade: validadeDiasNum, // Use parsed number
+            default_sending_instance_id: autoCashbackConfig.idInstanciaEnvioPadrao,
         };
-
-        // Basic validation (can be more robust in webhook)
-        if (payload.cashback_percentual !== null && (isNaN(payload.cashback_percentual) || payload.cashback_percentual < 0)) {
-             showError("Percentual de Cashback inválido.");
-             return;
-        }
-         if (payload.cashback_validade !== null && (isNaN(payload.cashback_validade) || payload.cashback_validade < 0)) {
-             showError("Validade em dias inválida.");
-             return;
-         }
-         // Note: We allow null for percentage and validity days if the user leaves them empty,
-         // meaning the automatic rule might be partially configured or inactive.
-         // The webhook should handle the logic of when to apply the rule based on these values.
 
         saveConfigMutation.mutate(payload); // Trigger the mutation
     };
@@ -492,30 +495,30 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         <div className="grid gap-4 py-4">
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
                             <div className="form-group">
-                                <Label htmlFor="cashbackPercentual">Percentual de Cashback (%)</Label> {/* Corrected label htmlFor */}
+                                <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
                                 <Input
-                                    id="cashbackPercentual" // Corrected id
+                                    id="cashbackPercentual"
                                     type="number"
                                     placeholder="Ex: 5"
-                                    value={autoCashbackConfig.percentual} // Corrected state name
-                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })} // Corrected state name
+                                    value={autoCashbackConfig.percentual}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
                                 />
                             </div>
                             {/* Changed Validity field */}
                             <div className="form-group">
-                                <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda)</Label> {/* Corrected label htmlFor */}
+                                <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda) *</Label> {/* Added asterisk */}
                                 <Input
-                                    id="cashbackValidadeDias" // Corrected id
+                                    id="cashbackValidadeDias"
                                     type="number"
                                     placeholder="Ex: 30"
-                                    value={autoCashbackConfig.validadeDias} // Corrected state name
-                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })} // Corrected state name
+                                    value={autoCashbackConfig.validadeDias}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
                             </div>
                             {/* Added Sending Instance field */}
                              <div className="form-group">
-                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão</Label> {/* Corrected htmlFor */}
+                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão</Label>
                                 {isLoadingInstances ? (
                                     <div className="flex items-center text-gray-500 text-sm">
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
@@ -526,10 +529,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     <p className="text-sm text-orange-600">Nenhuma instância disponível.</p>
                                 ) : (
                                     <Select
-                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || ''} // Use corrected state name
-                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value ? parseInt(value, 10) : null })} // Use corrected state name
+                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || ''}
+                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value ? parseInt(value, 10) : null })}
                                     >
-                                        <SelectTrigger id="idInstanciaEnvioPadrao"> {/* Corrected id */}
+                                        <SelectTrigger id="idInstanciaEnvioPadrao">
                                             <SelectValue placeholder="Selecione a instância" />
                                         </SelectTrigger>
                                         <SelectContent>
