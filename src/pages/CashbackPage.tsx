@@ -205,7 +205,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
             return data || [];
         },
-        enabled: !!clinicId,
+        enabled: !!clinicId && isAutoCashbackModalOpen, // Only fetch when clinicId is available and modal is open
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
@@ -235,59 +235,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Effect to populate modal state when existingConfig and instancesList are loaded
-    useEffect(() => {
-        console.log("[CashbackPage] useEffect [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError, instancesList, isLoadingInstances] triggered."); // <-- Updated log
-        console.log("  existingConfig:", existingConfig);
-        console.log("  isAutoCashbackModalOpen:", isAutoCashbackModalOpen);
-        console.log("  isLoadingConfig:", isLoadingConfig);
-        console.log("  configError:", configError);
-        console.log("  instancesList:", instancesList ? instancesList.length + ' items' : 'null/undefined'); // <-- Log instances list state
-        console.log("  isLoadingInstances:", isLoadingInstances); // <-- Log instances loading state
-
-
-        // Only populate if the modal is open AND the config fetch is finished without error
-        // AND the instances fetch is finished without error
-        if (isAutoCashbackModalOpen && !isLoadingConfig && !configError && !isLoadingInstances && !instancesError) { // <-- Added checks for instances loading/error
-             if (existingConfig) {
-                 console.log("[CashbackPage] useEffect: Modal is open, config fetch finished, instances fetch finished, existingConfig available. Setting state:", existingConfig);
-                 console.log("[CashbackPage] existingConfig.cashback_instancia_padrao:", existingConfig.cashback_instancia_padrao, "Type:", typeof existingConfig.cashback_instancia_padrao);
-
-                 const loadedInstanceId = existingConfig.cashback_instancia_padrao;
-                 setAutoCashbackConfig({
-                     percentual: existingConfig.cashback_percentual?.toString() || '',
-                     validadeDias: existingConfig.cashback_validade?.toString() || '',
-                     idInstanciaEnvioPadrao: loadedInstanceId,
-                 });
-                 console.log("[CashbackPage] State set to:", {
-                      percentual: existingConfig.cashback_percentual?.toString() || '',
-                      validadeDias: existingConfig.cashback_validade?.toString() || '',
-                      idInstanciaEnvioPadrao: loadedInstanceId,
-                 });
-
-             } else {
-                  // Case: Modal is open, fetch finished, no config found (new clinic or deleted config)
-                  console.log("[CashbackPage] useEffect: Modal is open, config fetch finished, instances fetch finished, no existing config found. Resetting state to empty.");
-                  setAutoCashbackConfig({
-                      percentual: '',
-                      validadeDias: '',
-                      idInstanciaEnvioPadrao: null,
-                  });
-                  console.log("[CashbackPage] State reset to:", {
-                       percentual: '',
-                       validadeDias: '',
-                       idInstanciaEnvioPadrao: null,
-                  });
-             }
-        } else if (isAutoCashbackModalOpen && (isLoadingConfig || isLoadingInstances)) {
-             console.log("[CashbackPage] useEffect: Modal is open, but config or instances are still loading. Waiting...");
-        } else if (isAutoCashbackModalOpen && (configError || instancesError)) {
-             console.error("[CashbackPage] useEffect: Modal is open, but config or instances fetch failed. Not populating state.");
-             // Optionally set an error state in the modal itself if needed
-        }
-        // If modal is closed, the other effect handles resetting.
-
-    }, [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError, instancesList, isLoadingInstances, instancesError]); // <-- Updated dependencies
+    // --- REMOVED the previous useEffect that populated state ---
+    // The state population logic is now moved to the Dialog's onOpenChange handler
 
 
     // Mutation for saving automatic cashback configuration via webhook
@@ -527,7 +476,49 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
              )}
 
             {/* Automatic Cashback Configuration Modal */}
-            <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
+            <Dialog open={isAutoCashbackModalOpen} onOpenChange={(open) => {
+                setIsAutoCashbackModalOpen(open);
+                // When opening, populate the state from fetched data
+                if (open) {
+                    // Use the current values from the queries
+                    const currentConfig = queryClient.getQueryData<FetchedConfig | null>(['cashbackConfig', clinicId]);
+                    const currentInstances = queryClient.getQueryData<InstanceDetails[] | undefined>(['instancesListCashbackPage', clinicId]);
+
+                    console.log("[CashbackPage] Dialog onOpenChange: Modal opening. Populating state.");
+                    console.log("  Current config data:", currentConfig);
+                    console.log("  Current instances data:", currentInstances);
+
+                    if (currentConfig) {
+                        const loadedInstanceId = currentConfig.cashback_instancia_padrao;
+                        setAutoCashbackConfig({
+                            percentual: currentConfig.cashback_percentual?.toString() || '',
+                            validadeDias: currentConfig.cashback_validade?.toString() || '',
+                            idInstanciaEnvioPadrao: loadedInstanceId, // This is a number or null
+                        });
+                        console.log("[CashbackPage] Dialog onOpenChange: State set from config:", {
+                             percentual: currentConfig.cashback_percentual?.toString() || '',
+                             validadeDias: currentConfig.cashback_validade?.toString() || '',
+                             idInstanciaEnvioPadrao: loadedInstanceId,
+                        });
+
+                    } else {
+                         // If no config found, reset to empty
+                         console.log("[CashbackPage] Dialog onOpenChange: No config found. Resetting state.");
+                         setAutoCashbackConfig({
+                             percentual: '',
+                             validadeDias: '',
+                             idInstanciaEnvioPadrao: null,
+                         });
+                    }
+                    // Note: We don't need to explicitly wait for instances here to set the instance ID state.
+                    // The Select component's value prop will handle matching the ID string once the SelectItems are rendered.
+                    // The instancesList query is already enabled when the modal opens, so the SelectItems will eventually render.
+
+                } else {
+                    // When closing, the useEffect handles resetting the state
+                    console.log("[CashbackPage] Dialog onOpenChange: Modal closing.");
+                }
+            }}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Configurar Regras de Cashback</DialogTitle> {/* Changed title */}
