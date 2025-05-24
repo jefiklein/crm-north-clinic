@@ -419,6 +419,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
   const onEmojiSelect = (event: CustomEvent) => {
     const emoji = event.detail.unicode;
+    console.log("MensagensConfigPage: Emoji selected:", emoji); // Log selected emoji
     if (messageTextRef.current) {
       const el = messageTextRef.current;
       const start = el.selectionStart;
@@ -476,7 +477,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       return;
     }
     // Category is required for General context, but not for Cashback
-    if (messageContext === 'general' && !category) {
+    if (isGeneralContext && !category) {
       toast({
         title: "Erro",
         description: "Selecione uma categoria.",
@@ -765,7 +766,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             <>
               {/* Category field (Conditional based on context) */}
               {/* Only show Category for General context */}
-              {isGeneralContext && (
+              {showCategoryGeneral && (
                   <div>
                     <label
                       htmlFor="category"
@@ -1002,14 +1003,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   >
                     <Smile />
                   </Button>
-                  {showEmojiPicker && (
-                    <div className="absolute z-50 top-full right-0 mt-1">
+                  {/* Render emoji picker always, but control visibility with 'hidden' */}
+                  <div className="absolute z-50 top-full right-0 mt-1" hidden={!showEmojiPicker}>
                       <emoji-picker
                         ref={emojiPickerRef}
                         style={{ width: "300px", height: "300px" }}
                       />
                     </div>
-                  )}
                 </div>
               </div>
 

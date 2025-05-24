@@ -183,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -758,7 +758,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!Array.isArray(allMessages)) {
+      if (!Arrayadaş(allMessages)) {
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
@@ -797,6 +797,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   const onEmojiSelect = (event: CustomEvent) => {
     const emoji = event.detail.unicode;
+    console.log("ConversasPage: Emoji selected:", emoji); // Log selected emoji
     if (messageTextareaRef.current) {
       const el = messageTextareaRef.current;
       const start = el.selectionStart;
@@ -1149,14 +1150,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     >
                         <Smile className="h-5 w-5" />
                     </Button>
-                    {showEmojiPicker && (
-                        <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
-                            <emoji-picker
-                                ref={emojiPickerRef}
-                                style={{ width: "300px", height: "300px" }}
-                            />
-                        </div>
-                    )}
+                    {/* Render emoji picker always, but control visibility with 'hidden' */}
+                    <div className="absolute z-50 bottom-[calc(100%+10px)] right-4" hidden={!showEmojiPicker}>
+                        <emoji-picker
+                            ref={emojiPickerRef}
+                            style={{ width: "300px", height: "300px" }}
+                        />
+                    </div>
                     <Button
                         onClick={handleSendMessage}
                         disabled={!canSend || !messageInput.trim() || sendMessageMutation.isLoading} // Disable based on canSend and message input
