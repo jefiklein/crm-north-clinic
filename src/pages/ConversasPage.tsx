@@ -1194,7 +1194,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         <Button type="button" variant="secondary">
                             Fechar
                         </Button>
-                    </DialogFooter>
+                    </DialogClose>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </TooltipProvider>
