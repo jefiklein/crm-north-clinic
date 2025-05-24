@@ -429,18 +429,33 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       el.focus();
       setMessageText(el.value);
     }
-    setShowEmojiPicker(false);
+    // Keep picker open for multiple selections
+    // setShowEmojiPicker(false);
   };
 
   // Attach emoji picker event listener
   useEffect(() => {
     const picker = emojiPickerRef.current;
-    if (!picker) return;
+    console.log("Emoji picker useEffect triggered. Picker:", picker); // Debug log
+    if (!picker) {
+        console.log("Emoji picker element not found yet."); // Debug log
+        return;
+    }
+
+    // Use a small delay or check if the element is ready if needed,
+    // but often attaching directly after ref is set works for custom elements
+    // Let's try attaching directly first.
+    console.log("Attaching emoji-click listener."); // Debug log
     picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+
     return () => {
-      picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      console.log("Removing emoji-click listener."); // Debug log
+      if (picker) {
+        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      }
     };
-  }, [emojiPickerRef.current]);
+  }, [emojiPickerRef.current]); // Depend only on the ref changing
+
 
   // Handle form submission
   const handleSave = async () => {
@@ -482,7 +497,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to General context
-    if (messageContext === 'general') {
+    if (isGeneralContext) {
         if (
           category !== "Aniversário" &&
           linkedServices.length === 0 &&
@@ -522,7 +537,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to Cashback context
-    if (messageContext === 'cashback') {
+    if (isCashbackContext) {
         const offsetNum = parseInt(diasMensagemCashback, 10); // Use correct state name
         if (diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
              toast({
@@ -608,7 +623,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       };
 
       // Add context-specific fields
-      if (messageContext === 'general') {
+      if (isGeneralContext) {
           saveData.servicos_vinculados = linkedServices; // Send the array of IDs
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
@@ -616,7 +631,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Ensure cashback fields are null for general messages
           saveData.dias_mensagem_cashback = null;
           saveData.tipo_mensagem_cashback = null;
-      } else if (messageContext === 'cashback') {
+      } else if (isCashbackContext) {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
           saveData.para_cliente = true; // Always send to client for cashback
@@ -680,9 +695,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     setCategory(value);
     // Apply default template based on context and category
     if (messageId === null) { // Only apply default template when creating
-        if (messageContext === 'general') {
+        if (isGeneralContext) {
             setMessageText(defaultTemplates[value] || "");
-        } else if (messageContext === 'cashback') {
+        } else if (isCashbackContext) {
              setMessageText(defaultTemplates[value] || ""); // Use cashback templates if available
         }
     }
@@ -700,7 +715,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const showScheduledTimeGeneral = isGeneralContext && (category === "Confirmar Agendamento" || category === "Aniversário");
 
   // Cashback context fields visibility
-  // Removed showCategoryCashback
   const showCashbackTiming = isCashbackContext;
   const showScheduledTimeCashback = isCashbackContext && (category === 'Aniversário'); // Aniversário might still need time
 
