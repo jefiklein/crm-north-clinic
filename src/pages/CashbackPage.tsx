@@ -72,7 +72,7 @@ interface FetchedConfig {
 
 
 interface CashbackPageProps {
-    clinicData: ClinicData | null;
+  clinicData: ClinicData | null;
 }
 
 // Helper function to clean salesperson name (remove leading numbers and hyphen)
@@ -628,7 +628,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
                                         onValueChange={(value) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
-                                            setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvaoPadrao: value === 'none' ? null : parseInt(value, 10) });
+                                            setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
                                         }}
                                         disabled={saveConfigMutation.isLoading} // Disable while saving
                                     >
