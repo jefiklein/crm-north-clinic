@@ -199,7 +199,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
-  const messageTextRef = useRef<HTMLTextAreaElement | null>(messageTextRef); // Corrected ref initialization
+  // Corrected ref initialization
+  const messageTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Load initial data: instances, services, message details if editing
   useEffect(() => {
