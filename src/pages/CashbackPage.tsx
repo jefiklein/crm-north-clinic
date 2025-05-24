@@ -127,6 +127,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     // New state for the "Apply to current month sales" checkbox
     const [applyToCurrentMonthSales, setApplyToCurrentMonthSales] = useState(false);
 
+    // NEW: Local state for saving loading indicator
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
+
 
     // Effect to reset form state when modal closes
     useEffect(() => {
@@ -140,6 +143,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             });
             // Reset the new checkbox state as well
             setApplyToCurrentMonthSales(false);
+            // Ensure saving state is false when modal closes
+            setIsSavingConfig(false);
         }
     }, [isAutoCashbackModalOpen]); // Depend on modal open state
 
@@ -324,6 +329,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         onError: (error: Error) => {
             showError(`Falha ao salvar configurações: ${error.message}`);
         },
+        onSettled: () => {
+            // NEW: Set local saving state to false when mutation is settled
+            setIsSavingConfig(false);
+        }
     });
 
 
@@ -375,17 +384,22 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             return;
         }
 
+        // NEW: Set local saving state to true at the start
+        setIsSavingConfig(true);
+
         // --- NEW VALIDATION ---
         const percentualNum = parseFloat(autoCashbackConfig.percentual);
         const validadeDiasNum = parseInt(autoCashbackConfig.validadeDias, 10);
 
         if (autoCashbackConfig.percentual.trim() === '' || isNaN(percentualNum) || percentualNum < 0) {
             showError("Por favor, informe um Percentual de Cashback válido (número >= 0).");
+            setIsSavingConfig(false); // NEW: Set saving state to false on validation error
             return;
         }
 
         if (autoCashbackConfig.validadeDias.trim() === '' || isNaN(validadeDiasNum) || validadeDiasNum < 0) {
              showError("Por favor, informe uma Validade em dias válida (número inteiro >= 0).");
+             setIsSavingConfig(false); // NEW: Set saving state to false on validation error
              return;
         }
         // --- END NEW VALIDATION ---
@@ -403,6 +417,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         console.log("[CashbackPage] Saving config payload:", payload); // Log the payload before sending
 
         saveConfigMutation.mutate(payload); // Trigger the mutation
+        // The onSettled callback will set isSavingConfig back to false
     };
 
     // Determine if data is ready to render the form
@@ -574,7 +589,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     ) : configError || instancesError ? ( // Show error if either config or instances failed
                          <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
                     ) : (
-                        <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
+                        // NEW: Use local isSavingConfig state for dimming and disabling pointer events
+                        <div className={cn("grid gap-4 py-4", isSavingConfig && "opacity-50 pointer-events-none")}>
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
                             <div className="form-group">
                                 <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
@@ -584,7 +600,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 5"
                                     value={autoCashbackConfig.percentual}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
-                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    disabled={isSavingConfig} // NEW: Disable while saving
                                 />
                             </div>
                             {/* Changed Validity field */}
@@ -596,7 +612,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 30"
                                     value={autoCashbackConfig.validadeDias}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
-                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    disabled={isSavingConfig} // NEW: Disable while saving
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
                             </div>
@@ -614,7 +630,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
                                             setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
                                         }}
-                                        disabled={saveConfigMutation.isLoading} // Disable while saving
+                                        disabled={isSavingConfig} // NEW: Disable while saving
                                     >
                                         <SelectTrigger id="idInstanciaEnvioPadrao">
                                             <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
@@ -639,7 +655,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     id="applyToCurrentMonthSales"
                                     checked={applyToCurrentMonthSales}
                                     onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
-                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    disabled={isSavingConfig} // NEW: Disable while saving
                                 />
                                 <Label
                                     htmlFor="applyToCurrentMonthSales"
@@ -654,11 +670,13 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </div>
                     )}
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                        {/* NEW: Disable Cancel button based on local saving state */}
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={isSavingConfig || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}>
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
-                            {saveConfigMutation.isLoading ? (
+                        {/* NEW: Use local isSavingConfig state for button loading indicator */}
+                        <Button onClick={handleSaveAutoCashbackConfig} disabled={isSavingConfig || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}>
+                            {isSavingConfig ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Salvando...
