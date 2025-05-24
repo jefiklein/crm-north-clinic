@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare } from "lucide-react"; // Added Settings and MessageSquare icons
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Label } from "@/components/ui/label"; // Import Label
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -45,6 +46,14 @@ interface InstanceDetails {
     nome_exibição: string;
     telefone: number | null;
     nome_instancia_evolution: string | null;
+}
+
+// Define the structure for the data sent to the save webhook
+interface SaveConfigPayload {
+    id_clinica: number | string;
+    cashback_percentage: number | null;
+    cashback_validity_days: number | null;
+    default_sending_instance_id: number | null;
 }
 
 
@@ -89,6 +98,7 @@ const formatDate = (dateString: string | null): string => {
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const navigate = useNavigate(); // Initialize navigate hook
+    const queryClient = useQueryClient(); // Get query client instance
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
     const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: Date | null } }>({});
@@ -179,6 +189,80 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
+    // Fetch existing automatic cashback configuration from Supabase
+    const { data: existingConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
+        queryKey: ['cashbackConfig', clinicId],
+        queryFn: async () => {
+            if (!clinicId) return null;
+            console.log(`Fetching existing cashback config for clinic ${clinicId} from Supabase`);
+            const { data, error } = await supabase
+                .from('north_clinic_config_clinicas')
+                .select('cashback_percentage, cashback_validity_days, default_sending_instance_id')
+                .eq('id', clinicId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+                console.error("Error fetching existing cashback config:", error);
+                throw new Error(error.message);
+            }
+
+            console.log("Existing cashback config fetched:", data);
+            return data || null;
+        },
+        enabled: !!clinicId && isAutoCashbackModalOpen, // Only fetch when clinicId is available and modal is open
+        staleTime: 0, // Always refetch when modal opens
+        refetchOnWindowFocus: false,
+    });
+
+    // Effect to populate modal state when existingConfig is loaded
+    useEffect(() => {
+        if (existingConfig) {
+            setAutoCashbackConfig({
+                percentage: existingConfig.cashback_percentage?.toString() || '',
+                validityDays: existingConfig.cashback_validity_days?.toString() || '',
+                sendingInstanceId: existingConfig.default_sending_instance_id || null,
+            });
+        } else {
+             // Reset state if no existing config is found (for new clinics or if config was deleted)
+             setAutoCashbackConfig({
+                 percentage: '',
+                 validityDays: '',
+                 sendingInstanceId: null,
+             });
+        }
+    }, [existingConfig]);
+
+
+    // Mutation for saving automatic cashback configuration via webhook
+    const saveConfigMutation = useMutation({
+        mutationFn: async (configData: SaveConfigPayload) => {
+            console.log("Sending cashback config to webhook:", configData);
+            const webhookUrl = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/salvar-cashback'; // Your n8n webhook URL
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configData),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao salvar configuração`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+                throw new Error(errorMsg);
+            }
+
+            return response.json(); // Assuming webhook returns some confirmation
+        },
+        onSuccess: () => {
+            showSuccess('Configurações de cashback salvas com sucesso!');
+            setIsAutoCashbackModalOpen(false);
+            // Invalidate the config query to refetch when modal is opened again
+            queryClient.invalidateQueries({ queryKey: ['cashbackConfig', clinicId] });
+        },
+        onError: (error: Error) => {
+            showError(`Falha ao salvar configurações: ${error.message}`);
+        },
+    });
+
 
     // Function to navigate months
     const goToPreviousMonth = () => {
@@ -221,12 +305,35 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         navigate(`/dashboard/11?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
-    // Handle saving automatic cashback configuration (Placeholder)
+    // Handle saving automatic cashback configuration
     const handleSaveAutoCashbackConfig = () => {
-        console.log("Configurações de Cashback Automático a serem salvas:", autoCashbackConfig);
-        // TODO: Implement actual saving logic (call webhook or Supabase insert/update)
-        alert("Configurações salvas (funcionalidade futura)");
-        setIsAutoCashbackModalOpen(false);
+        if (!clinicId) {
+            showError("ID da clínica não disponível para salvar.");
+            return;
+        }
+
+        // Prepare payload, converting string inputs to numbers
+        const payload: SaveConfigPayload = {
+            id_clinica: clinicId,
+            cashback_percentage: autoCashbackConfig.percentage ? parseFloat(autoCashbackConfig.percentage) : null,
+            cashback_validity_days: autoCashbackConfig.validityDays ? parseInt(autoCashbackConfig.validityDays, 10) : null,
+            default_sending_instance_id: autoCashbackConfig.sendingInstanceId,
+        };
+
+        // Basic validation (can be more robust in webhook)
+        if (payload.cashback_percentage !== null && (isNaN(payload.cashback_percentage) || payload.cashback_percentage < 0)) {
+             showError("Percentual de Cashback inválido.");
+             return;
+        }
+         if (payload.cashback_validity_days !== null && (isNaN(payload.cashback_validity_days) || payload.cashback_validity_days < 0)) {
+             showError("Validade em dias inválida.");
+             return;
+         }
+         // Note: We allow null for percentage and validity days if the user leaves them empty,
+         // meaning the automatic rule might be partially configured or inactive.
+         // The webhook should handle the logic of when to apply the rule based on these values.
+
+        saveConfigMutation.mutate(payload); // Trigger the mutation
     };
 
 
@@ -365,68 +472,84 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     <DialogHeader>
                         <DialogTitle>Configurar Regras de Cashback</DialogTitle> {/* Changed title */}
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
-                        <div className="form-group">
-                            <Label htmlFor="cashbackPercentage">Percentual de Cashback (%)</Label>
-                            <Input
-                                id="cashbackPercentage"
-                                type="number"
-                                placeholder="Ex: 5"
-                                value={autoCashbackConfig.percentage}
-                                onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentage: e.target.value })}
-                            />
+                    {isLoadingConfig ? (
+                         <div className="flex items-center justify-center gap-2 text-primary py-8">
+                             <Loader2 className="animate-spin" />
+                             Carregando configurações...
+                         </div>
+                    ) : configError ? (
+                         <div className="text-red-600 font-semibold py-8">{configError.message}</div>
+                    ) : (
+                        <div className="grid gap-4 py-4">
+                            <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
+                            <div className="form-group">
+                                <Label htmlFor="cashbackPercentage">Percentual de Cashback (%)</Label>
+                                <Input
+                                    id="cashbackPercentage"
+                                    type="number"
+                                    placeholder="Ex: 5"
+                                    value={autoCashbackConfig.percentage}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentage: e.target.value })}
+                                />
+                            </div>
+                            {/* Changed Validity field */}
+                            <div className="form-group">
+                                <Label htmlFor="cashbackValidityDays">Validade (dias após a venda)</Label>
+                                <Input
+                                    id="cashbackValidityDays"
+                                    type="number"
+                                    placeholder="Ex: 30"
+                                    value={autoCashbackConfig.validityDays}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validityDays: e.target.value })}
+                                />
+                                 <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
+                            </div>
+                            {/* Added Sending Instance field */}
+                             <div className="form-group">
+                                <Label htmlFor="sendingInstance">Instância de Envio Padrão</Label>
+                                {isLoadingInstances ? (
+                                    <div className="flex items-center text-gray-500 text-sm">
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
+                                    </div>
+                                ) : instancesError ? (
+                                    <p className="text-sm text-red-600">Erro ao carregar instâncias.</p>
+                                ) : (instancesList?.length ?? 0) === 0 ? (
+                                    <p className="text-sm text-orange-600">Nenhuma instância disponível.</p>
+                                ) : (
+                                    <Select
+                                        value={autoCashbackConfig.sendingInstanceId?.toString() || ''}
+                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, sendingInstanceId: value ? parseInt(value, 10) : null })}
+                                    >
+                                        <SelectTrigger id="sendingInstance">
+                                            <SelectValue placeholder="Selecione a instância" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {instancesList?.map(inst => (
+                                                <SelectItem key={inst.id} value={inst.id.toString()}>
+                                                    {inst.nome_exibição} ({formatPhone(inst.telefone)})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                 <p className="text-xs text-gray-500 mt-1">Esta é a instância padrão para enviar mensagens automáticas de cashback. A seleção manual por venda ainda não está disponível.</p> {/* Clarified text */}
+                            </div>
+                             {/* Add more configuration fields here as needed */}
                         </div>
-                        {/* Changed Validity field */}
-                        <div className="form-group">
-                            <Label htmlFor="cashbackValidityDays">Validade (dias após a venda)</Label>
-                            <Input
-                                id="cashbackValidityDays"
-                                type="number"
-                                placeholder="Ex: 30"
-                                value={autoCashbackConfig.validityDays}
-                                onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validityDays: e.target.value })}
-                            />
-                             <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
-                        </div>
-                        {/* Added Sending Instance field */}
-                         <div className="form-group">
-                            <Label htmlFor="sendingInstance">Instância de Envio Padrão</Label>
-                            {isLoadingInstances ? (
-                                <div className="flex items-center text-gray-500 text-sm">
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
-                                </div>
-                            ) : instancesError ? (
-                                <p className="text-sm text-red-600">Erro ao carregar instâncias.</p>
-                            ) : (instancesList?.length ?? 0) === 0 ? (
-                                <p className="text-sm text-orange-600">Nenhuma instância disponível.</p>
-                            ) : (
-                                <Select
-                                    value={autoCashbackConfig.sendingInstanceId?.toString() || ''}
-                                    onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, sendingInstanceId: value ? parseInt(value, 10) : null })}
-                                >
-                                    <SelectTrigger id="sendingInstance">
-                                        <SelectValue placeholder="Selecione a instância" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {instancesList?.map(inst => (
-                                            <SelectItem key={inst.id} value={inst.id.toString()}>
-                                                {inst.nome_exibição} ({formatPhone(inst.telefone)})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                             <p className="text-xs text-gray-500 mt-1">A mensagem de cashback será enviada por esta instância.</p>
-                        </div>
-                         {/* Add more configuration fields here as needed */}
-                    </div>
+                    )}
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)}>
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading}>
                             Cancelar
                         </Button>
-                        <Button type="button" onClick={handleSaveAutoCashbackConfig}>
-                            Salvar Configurações
+                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError}>
+                            {saveConfigMutation.isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Salvando...
+                                </>
+                            ) : (
+                                'Salvar Configurações'
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
