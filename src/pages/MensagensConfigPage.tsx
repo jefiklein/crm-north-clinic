@@ -441,19 +441,23 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Attach emoji picker event listener
   useEffect(() => {
     const picker = emojiPickerRef.current;
-    if (!picker) return;
+    console.log("MensagensConfigPage: Emoji picker useEffect triggered. Picker:", picker); // Debug log
+    if (!picker) {
+        console.log("MensagensConfigPage: Emoji picker element not found yet."); // Debug log
+        return;
+    }
 
-    // Wait for the custom element to be defined
+    console.log("MensagensConfigPage: Waiting for emoji-picker custom element definition."); // Debug log
     customElements.whenDefined('emoji-picker').then(() => {
-        console.log("Emoji picker custom element defined. Attaching listener."); // Debug log
+        console.log("MensagensConfigPage: Emoji picker custom element defined. Attaching listener."); // Debug log
         picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
     }).catch(err => {
-        console.error("Error waiting for emoji-picker definition:", err); // Debug log
+        console.error("MensagensConfigPage: Error waiting for emoji-picker definition:", err); // Debug log
     });
 
 
     return () => {
-      console.log("Removing emoji-click listener."); // Debug log
+      console.log("MensagensConfigPage: Removing emoji-click listener."); // Debug log
       if (picker) {
         picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
       }
@@ -792,43 +796,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                      )}
                   </div>
               )}
-               {/* For Cashback, category is selected but might not be required for save payload depending on backend */}
-               {/* Let's keep it for now as it's in the DB schema and webhook might expect it */}
-               {isCashbackContext && (
-                    <div>
-                        <label
-                          htmlFor="category"
-                          className="block mb-1 font-medium text-gray-700"
-                        >
-                          Categoria *
-                        </label>
-                         {/* For cashback, maybe a fixed category or limited options? */}
-                         {/* For now, let's make it a simple input or display if editing */}
-                         {messageId !== null ? (
-                             <Input id="category" value={category || 'N/A'} disabled />
-                         ) : (
-                              <Select
-                                  value={category}
-                                  onValueChange={setCategory}
-                                  id="category"
-                              >
-                                  <SelectTrigger>
-                                      <SelectValue placeholder="Selecione a categoria" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {/* Add cashback specific categories here */}
-                                      <SelectItem value="Aniversário">Aniversário</SelectItem>
-                                      <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
-                                      <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
-                                      {/* Add other cashback categories as needed */}
-                                  </SelectContent>
-                              </Select>
-                         )}
-                          {messageId !== null && (
-                              <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
-                          )}
-                    </div>
-               )}
 
 
               <div>
