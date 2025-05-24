@@ -423,7 +423,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const el = messageTextRef.current;
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const text = messageText; // Use state value, not ref value
+      const text = messageText; // Use state value
       const newText = text.slice(0, start) + emoji + text.slice(end);
 
       setMessageText(newText); // Update state
@@ -442,9 +442,21 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   useEffect(() => {
     const picker = emojiPickerRef.current;
     if (!picker) return;
-    picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+
+    // Wait for the custom element to be defined
+    customElements.whenDefined('emoji-picker').then(() => {
+        console.log("Emoji picker custom element defined. Attaching listener."); // Debug log
+        picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+    }).catch(err => {
+        console.error("Error waiting for emoji-picker definition:", err); // Debug log
+    });
+
+
     return () => {
-      picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      console.log("Removing emoji-click listener."); // Debug log
+      if (picker) {
+        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      }
     };
   }, [emojiPickerRef.current, messageText]); // Add messageText to dependencies because onEmojiSelect uses it
 
@@ -489,7 +501,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to General context
-    if (messageContext === 'general') {
+    if (isGeneralContext) {
         if (
           category !== "Aniversário" &&
           linkedServices.length === 0 &&
@@ -529,7 +541,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to Cashback context
-    if (messageContext === 'cashback') {
+    if (isCashbackContext) {
         const offsetNum = parseInt(diasMensagemCashback, 10); // Use correct state name
         if (diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
              toast({
@@ -615,7 +627,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       };
 
       // Add context-specific fields
-      if (messageContext === 'general') {
+      if (isGeneralContext) {
           saveData.servicos_vinculados = linkedServices; // Send the array of IDs
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
@@ -623,7 +635,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Ensure cashback fields are null for general messages
           saveData.dias_mensagem_cashback = null;
           saveData.tipo_mensagem_cashback = null;
-      } else if (messageContext === 'cashback') {
+      } else if (isCashbackContext) {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
           saveData.para_cliente = true; // Always send to client for cashback
@@ -687,9 +699,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     setCategory(value);
     // Apply default template based on context and category
     if (messageId === null) { // Only apply default template when creating
-        if (messageContext === 'general') {
+        if (isGeneralContext) {
             setMessageText(defaultTemplates[value] || "");
-        } else if (messageContext === 'cashback') {
+        } else if (isCashbackContext) {
              setMessageText(defaultTemplates[value] || ""); // Use cashback templates if available
         }
     }

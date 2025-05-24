@@ -821,12 +821,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     const picker = emojiPickerRef.current;
     if (!picker) return;
 
-    // Remove the check for customElements.get('emoji-picker')
-    // Assume the import handles registration and attach listener directly
-    picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+    // Wait for the custom element to be defined
+    customElements.whenDefined('emoji-picker').then(() => {
+        console.log("Emoji picker custom element defined. Attaching listener."); // Debug log
+        picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+    }).catch(err => {
+        console.error("Error waiting for emoji-picker definition:", err); // Debug log
+    });
 
 
     return () => {
+      console.log("Removing emoji-click listener."); // Debug log
       if (picker) {
         picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
       }

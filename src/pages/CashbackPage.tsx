@@ -222,7 +222,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             return data || [];
         },
         enabled: !!clinicId && isAutoCashbackModalOpen, // Only fetch when clinicId is available and modal is open
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0, // Always refetch when modal opens
         refetchOnWindowFocus: false,
     });
 
@@ -628,7 +628,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
                                         onValueChange={(value) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
-                                            setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
+                                            setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvaoPadrao: value === 'none' ? null : parseInt(value, 10) });
                                         }}
                                         disabled={saveConfigMutation.isLoading} // Disable while saving
                                     >
