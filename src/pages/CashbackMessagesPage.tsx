@@ -284,7 +284,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
         <div className="cashback-messages-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Mensagens de Cashback
+                    Lista de Mensagens de Cashback
                 </h1>
                 {/* Button to add a NEW message (will go to the single config page) */}
                 <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
@@ -323,7 +323,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Timing Cashback</TableHead> {/* New column */}
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Instância</TableHead>
-                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Prioridade</TableHead>
+                                {/* Removed Prioridade column */}
                                 {/* Removed Horário Prog. column */}
                                 <TableHead className="text-right text-lg font-semibold text-gray-700 px-6 py-3">Ações</TableHead>
                             </TableRow>
@@ -364,7 +364,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                                     <MessagesSquare className="h-4 w-4" /> {instanceName}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-center text-gray-900 font-semibold px-6 py-4">{message.prioridade ?? 'N/D'}</TableCell>
+                                            {/* Removed Prioridade Cell */}
                                             {/* Removed Horário Prog. Cell */}
                                             <TableCell className="text-right px-6 py-4">
                                                 <div className="message-item-actions flex gap-2 justify-end">
@@ -447,7 +447,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={5} className="p-6"> {/* Adjusted colspan */}
+                                            <TableCell colSpan={4} className="p-6"> {/* Adjusted colspan to 4 */}
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
