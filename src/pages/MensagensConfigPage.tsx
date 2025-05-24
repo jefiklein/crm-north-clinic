@@ -23,6 +23,10 @@ import { EmojiPicker } from "emoji-picker-element";
 import { Loader2, Smile } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
 import { useLocation } from "react-router-dom"; // Import useLocation
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
+import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
+
 
 interface ClinicData {
   code: string;
@@ -958,25 +962,27 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                           <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
                       </div>
                       <div>
-                          <label
+                          <Label // Use Label component
                             htmlFor="tipoMensagemCashback" // Use correct ID
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Agendar Para *
-                          </label>
-                          <Select
+                          </Label>
+                          <RadioGroup // Use RadioGroup component
                               value={tipoMensagemCashback} // Use correct state
                               onValueChange={setTipoMensagemCashback} // Use correct state setter
                               id="tipoMensagemCashback" // Use correct ID
+                              className="flex flex-col space-y-1" // Add some spacing
                           >
-                              <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o tipo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="apos_venda">Dias após a venda</SelectItem>
-                                  <SelectItem value="antes_validade">Dias antes da validade do cashback</SelectItem>
-                              </SelectContent>
-                          </Select>
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="apos_venda" id="apos_venda" />
+                                  <Label htmlFor="apos_venda">Dias após a venda</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="antes_validade" id="antes_validade" />
+                                  <Label htmlFor="antes_validade">Dias antes da validade do cashback</Label>
+                              </div>
+                          </RadioGroup>
                           <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
                       </div>
                   </div>
