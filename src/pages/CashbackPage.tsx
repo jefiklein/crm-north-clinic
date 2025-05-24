@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare } from "lucide-react"; // Added Settings and MessageSquare icons
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
@@ -11,6 +11,9 @@ import { supabase } from '@/integrations/supabase/client'; // Import Supabase cl
 import { Calendar } from "@/components/ui/calendar"; // Import shadcn/ui Calendar
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // For date picker popup
 import { formatPhone } from '@/lib/utils'; // Import formatPhone
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
+import { Label } from "@/components/ui/label"; // Import Label
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -76,9 +79,18 @@ const formatDate = (dateString: string | null): string => {
 
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
+    const navigate = useNavigate(); // Initialize navigate hook
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
     const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: Date | null } }>({});
+
+    // State for the automatic cashback configuration modal
+    const [isAutoCashbackModalOpen, setIsAutoCashbackModalOpen] = useState(false);
+    const [autoCashbackConfig, setAutoCashbackConfig] = useState({
+        percentage: '',
+        validityDate: null as Date | null,
+    });
+
 
     const clinicId = clinicData?.id;
     // Format dates for Supabase query filters
@@ -160,6 +172,17 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         }));
     };
 
+    // Handle navigation to Messages Config page
+    const handleConfigMessagesClick = () => {
+        if (!clinicData?.code) {
+            console.error("Clinic code not available for navigation.");
+            // Optionally show a toast error
+            return;
+        }
+        // Navigate to the Mensagens List page (menu item ID 11)
+        navigate(`/dashboard/11?clinic_code=${encodeURIComponent(clinicData.code)}`);
+    };
+
 
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
@@ -169,16 +192,26 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback</h1>
-                <div className="date-navigation flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={goToPreviousMonth} title="Mês Anterior">
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <strong id="monthYearDisplay" className="text-lg font-bold text-primary whitespace-nowrap">
-                        {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-                    </strong>
-                    <Button variant="outline" size="icon" onClick={goToNextMonth} disabled={isNextMonthDisabled} title="Próximo Mês">
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
+                <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for date nav and action buttons */}
+                    <div className="date-navigation flex items-center gap-4">
+                        <Button variant="outline" size="icon" onClick={goToPreviousMonth} title="Mês Anterior">
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <strong id="monthYearDisplay" className="text-lg font-bold text-primary whitespace-nowrap">
+                            {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+                        </strong>
+                        <Button variant="outline" size="icon" onClick={goToNextMonth} disabled={isNextMonthDisabled} title="Próximo Mês">
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
+                        <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
+                            <Settings className="h-4 w-4" /> Configurar Cashback Automático
+                        </Button>
+                        <Button variant="outline" onClick={handleConfigMessagesClick} className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4" /> Configurar Mensagens
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -256,7 +289,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                                 onSelect={(date) => {
                                                                     handleCashbackInputChange(saleId, 'validade', date);
                                                                 }}
-                                                                disabled={(date) => date > new Date()} // Optional: disable future dates
+                                                                disabled={(date) => date < startOfMonth(new Date())} // Disable dates before the current month
                                                                 initialFocus
                                                             />
                                                         </PopoverContent>
@@ -279,6 +312,66 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                      </Button>
                  </div>
              )}
+
+            {/* Automatic Cashback Configuration Modal */}
+            <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Configurar Cashback Automático</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
+                        <div className="form-group">
+                            <Label htmlFor="cashbackPercentage">Percentual de Cashback (%)</Label>
+                            <Input
+                                id="cashbackPercentage"
+                                type="number"
+                                placeholder="Ex: 5"
+                                value={autoCashbackConfig.percentage}
+                                onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentage: e.target.value })}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <Label htmlFor="cashbackValidity">Validade Padrão</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal"
+                                    >
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        {autoCashbackConfig.validityDate ? format(autoCashbackConfig.validityDate, 'dd/MM/yyyy') : 'Selecione a data de validade'}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={autoCashbackConfig.validityDate}
+                                        onSelect={(date) => setAutoCashbackConfig({ ...autoCashbackConfig, validityDate: date })}
+                                        disabled={(date) => date < new Date()} // Disable past dates
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                             <p className="text-xs text-gray-500 mt-1">Data até quando o cashback será válido.</p>
+                        </div>
+                         {/* Add more configuration fields here as needed */}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button type="button" onClick={() => {
+                            console.log("Configurações de Cashback Automático salvas (placeholder):", autoCashbackConfig);
+                            alert("Configurações salvas (funcionalidade futura)");
+                            setIsAutoCashbackModalOpen(false);
+                        }}>
+                            Salvar Configurações
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 };
