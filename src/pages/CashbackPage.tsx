@@ -120,6 +120,18 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         idInstanciaEnvioPadrao: null as number | null, // Corrected state name to match DB column concept
     });
 
+    // Effect to reset form state when modal closes
+    useEffect(() => {
+        if (!isAutoCashbackModalOpen) {
+            console.log("[CashbackPage] Modal closed, resetting form state.");
+            setAutoCashbackConfig({
+                percentual: '',
+                validadeDias: '',
+                idInstanciaEnvioPadrao: null,
+            });
+        }
+    }, [isAutoCashbackModalOpen]); // Depend on modal open state
+
 
     const clinicId = clinicData?.id;
     // Format dates for Supabase query filters
@@ -203,7 +215,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         queryKey: ['cashbackConfig', clinicId],
         queryFn: async () => {
             if (!clinicId) return null;
-            console.log(`Fetching existing cashback config for clinic ${clinicId} from Supabase`);
+            console.log(`[CashbackPage] Fetching existing cashback config for clinic ${clinicId} from Supabase`);
             const { data, error } = await supabase
                 .from('north_clinic_config_clinicas')
                 .select('cashback_percentual, cashback_validade, cashback_instancia_padrao') // Corrected column name here
@@ -211,11 +223,11 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                 .single();
 
             if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
-                console.error("Error fetching existing cashback config:", error);
+                console.error("[CashbackPage] Error fetching existing cashback config:", error);
                 throw new Error(error.message);
             }
 
-            console.log("Existing cashback config fetched:", data);
+            console.log("[CashbackPage] Existing cashback config fetched:", data);
             return data || null;
         },
         enabled: !!clinicId && isAutoCashbackModalOpen, // Only fetch when clinicId is available and modal is open
@@ -223,23 +235,32 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Effect to populate modal state when existingConfig is loaded
+    // Effect to populate modal state when existingConfig is loaded (only if modal is open)
     useEffect(() => {
-        if (existingConfig) {
-            setAutoCashbackConfig({
-                percentual: existingConfig.cashback_percentual?.toString() || '', // Corrected state name
-                validadeDias: existingConfig.cashback_validade?.toString() || '', // Corrected state name
-                idInstanciaEnvioPadrao: existingConfig.cashback_instancia_padrao || null, // Corrected state name and source
-            });
-        } else {
-             // Reset state if no existing config is found (for new clinics or if config was deleted)
-             setAutoCashbackConfig({
-                 percentual: '',
-                 validadeDias: '',
-                 idInstanciaEnvioPadrao: null,
-             });
+        console.log("[CashbackPage] useEffect [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError] triggered. existingConfig:", existingConfig, "isAutoCashbackModalOpen:", isAutoCashbackModalOpen, "isLoadingConfig:", isLoadingConfig, "configError:", configError);
+        // Only populate if the modal is open AND the fetch is not loading AND there's no error
+        if (isAutoCashbackModalOpen && !isLoadingConfig && !configError) {
+            if (existingConfig) {
+                console.log("[CashbackPage] useEffect: Modal is open, fetch finished, existingConfig available. Setting state:", existingConfig);
+                setAutoCashbackConfig({
+                    percentual: existingConfig.cashback_percentual?.toString() || '', // Corrected state name
+                    validadeDias: existingConfig.cashback_validade?.toString() || '', // Corrected state name
+                    idInstanciaEnvioPadrao: existingConfig.cashback_instancia_padrao || null, // Corrected state name and source
+                });
+            } else {
+                 // Case: Modal is open, fetch finished, no config found (new clinic or deleted config)
+                 console.log("[CashbackPage] useEffect: Modal is open, fetch finished, no existing config found. Resetting state to empty.");
+                 setAutoCashbackConfig({
+                     percentual: '',
+                     validadeDias: '',
+                     idInstanciaEnvioPadrao: null,
+                 });
+            }
         }
-    }, [existingConfig]);
+        // If modal is closed, the other effect handles resetting.
+        // If modal is open but existingConfig is still loading or has an error, state remains as initialized or previous.
+
+    }, [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError]); // Depend on existingConfig and modal open state
 
 
     // Mutation for saving automatic cashback configuration via webhook
