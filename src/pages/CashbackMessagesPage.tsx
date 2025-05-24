@@ -447,7 +447,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6"> {/* Adjusted colspan */}
+                                            <TableCell colSpan={5} className="p-6"> {/* Adjusted colspan */}
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
