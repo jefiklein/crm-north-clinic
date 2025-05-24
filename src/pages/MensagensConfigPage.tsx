@@ -452,7 +452,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
       return;
     }
-    if (!category) {
+    // Category is required for General context, but not for Cashback
+    if (messageContext === 'general' && !category) {
       toast({
         title: "Erro",
         description: "Selecione uma categoria.",
@@ -460,6 +461,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
       return;
     }
+     // For Cashback, category is selected but might not be required for save payload depending on backend
+     // Let's keep it required for now based on the select input being present
+
     if (!instanceId) {
       toast({
         title: "Erro",
@@ -738,7 +742,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           ) : (
             <>
               {/* Category field (Conditional based on context) */}
-              {(showCategoryGeneral || showCategoryCashback) && (
+              {/* HIDE CATEGORY FIELD ENTIRELY FOR CASHBACK CONTEXT */}
+              {isGeneralContext && (
                   <div>
                     <label
                       htmlFor="category"
@@ -757,7 +762,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       </SelectTrigger>
                       <SelectContent>
                         {/* Filter categories based on context */}
-                        {(isGeneralContext ? orderedCategoriesGeneral : orderedCategoriesCashback).map((cat) => (
+                        {orderedCategoriesGeneral.map((cat) => (
                           <SelectItem key={cat} value={cat}>
                             {cat}
                           </SelectItem>
@@ -769,6 +774,45 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                      )}
                   </div>
               )}
+               {/* For Cashback, category is selected but might not be required for save payload depending on backend */}
+               {/* Let's keep it required for now based on the select input being present */}
+               {/* If category is truly not needed for cashback, remove this block */}
+               {/* Keeping it for now as it's in the DB schema and webhook might expect it */}
+               {isCashbackContext && (
+                    <div>
+                        <label
+                          htmlFor="category"
+                          className="block mb-1 font-medium text-gray-700"
+                        >
+                          Categoria *
+                        </label>
+                         {/* For cashback, maybe a fixed category or limited options? */}
+                         {/* For now, let's make it a simple input or display if editing */}
+                         {messageId !== null ? (
+                             <Input id="category" value={category || 'N/A'} disabled />
+                         ) : (
+                              <Select
+                                  value={category}
+                                  onValueChange={setCategory}
+                                  id="category"
+                              >
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecione a categoria" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {/* Add cashback specific categories here */}
+                                      <SelectItem value="Aniversário">Aniversário</SelectItem>
+                                      <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
+                                      <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
+                                      {/* Add other cashback categories as needed */}
+                                  </SelectContent>
+                              </Select>
+                         )}
+                          {messageId !== null && (
+                              <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                          )}
+                    </div>
+               )}
 
 
               <div>
