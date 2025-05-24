@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"; // Import Label
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -55,6 +56,7 @@ interface SaveConfigPayload {
     cashback_percentual: number | null;
     cashback_validade: number | null;
     default_sending_instance_id: number | null; // Name expected by the webhook
+    apply_to_current_month_sales?: boolean; // Added new optional field
 }
 
 // Define the structure for the data fetched from Supabase config table
@@ -119,6 +121,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         validadeDias: '', // Corrected state name
         idInstanciaEnvioPadrao: null as number | null, // Corrected state name to match DB column concept
     });
+    // New state for the "Apply to current month sales" checkbox
+    const [applyToCurrentMonthSales, setApplyToCurrentMonthSales] = useState(false);
+
 
     // Effect to reset form state when modal closes
     useEffect(() => {
@@ -130,6 +135,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                 validadeDias: '',
                 idInstanciaEnvioPadrao: null,
             });
+            // Reset the new checkbox state as well
+            setApplyToCurrentMonthSales(false);
         }
     }, [isAutoCashbackModalOpen]); // Depend on modal open state
 
@@ -383,18 +390,16 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             cashback_percentual: percentualNum, // Use parsed number
             cashback_validade: validadeDiasNum, // Use parsed number
             default_sending_instance_id: autoCashbackConfig.idInstanciaEnvioPadrao,
+            apply_to_current_month_sales: applyToCurrentMonthSales, // Include the new checkbox state
         };
+
+        console.log("[CashbackPage] Saving config payload:", payload); // Log the payload before sending
 
         saveConfigMutation.mutate(payload); // Trigger the mutation
     };
 
     // Determine if data is ready to render the form
     const isDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
-
-    // Log the state value being passed to the Select
-    console.log("[CashbackPage] State value for Select (autoCashbackConfig.idInstanciaEnvioPadrao):", autoCashbackConfig.idInstanciaEnvioPadrao, "Type:", typeof autoCashbackConfig.idInstanciaEnvioPadrao);
-    console.log("[CashbackPage] Value prop for Select:", autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none');
-    console.log("[CashbackPage] Instances list for Select:", instancesList ? instancesList.length + ' items' : 'null/undefined');
 
 
     if (!clinicData) {
@@ -527,55 +532,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
              )}
 
             {/* Automatic Cashback Configuration Modal */}
-            <Dialog open={isAutoCashbackModalOpen} onOpenChange={(open) => {
-                setIsAutoCashbackModalOpen(open);
-                // When opening, populate the state from fetched data
-                if (open) {
-                    // Use the current values from the queries
-                    const currentConfig = queryClient.getQueryData<FetchedConfig | null>(['cashbackConfig', clinicId]);
-                    const currentInstances = queryClient.getQueryData<InstanceDetails[] | undefined>(['instancesListCashbackPage', clinicId]);
-
-                    console.log("[CashbackPage] Dialog onOpenChange: Modal opening. Populating state.");
-                    console.log("  Current config data:", currentConfig);
-                    console.log("  Current instances data:", currentInstances);
-
-                    if (currentConfig) {
-                        const loadedInstanceId = currentConfig.cashback_instancia_padrao;
-                        console.log("[CashbackPage] Dialog onOpenChange: Config found. Loaded Instance ID:", loadedInstanceId, "Type:", typeof loadedInstanceId);
-                        setAutoCashbackConfig({
-                            percentual: currentConfig.cashback_percentual?.toString() || '',
-                            validadeDias: currentConfig.cashback_validade?.toString() || '',
-                            idInstanciaEnvioPadrao: loadedInstanceId, // This is a number or null
-                        });
-                        console.log("[CashbackPage] Dialog onOpenChange: State set from config:", {
-                             percentual: currentConfig.cashback_percentual?.toString() || '',
-                             validadeDias: currentConfig.validadeDias?.toString() || '', // Corrected log here
-                             idInstanciaEnvioPadrao: loadedInstanceId,
-                        });
-
-                    } else {
-                         // If no config found, reset to empty
-                         console.log("[CashbackPage] Dialog onOpenChange: No config found. Resetting state.");
-                         setAutoCashbackConfig({
-                             percentual: '',
-                             validadeDias: '',
-                             idInstanciaEnvioPadrao: null,
-                         });
-                         console.log("[CashbackPage] Dialog onOpenChange: State reset to:", {
-                              percentual: '',
-                              validadeDias: '',
-                              idInstanciaEnvioPadrao: null,
-                         });
-                    }
-                    // Note: We don't need to explicitly wait for instances here to set the instance ID state.
-                    // The Select component's value prop will handle matching the ID string once the SelectItems are rendered.
-                    // The instancesList query is already enabled when the modal opens, so the SelectItems will eventually render.
-
-                } else {
-                    // When closing, the useEffect handles resetting the state
-                    console.log("[CashbackPage] Dialog onOpenChange: Modal closing.");
-                }
-            }}>
+            <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Configurar Regras de Cashback</DialogTitle> {/* Changed title */}
@@ -633,19 +590,33 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         <SelectContent>
                                             {/* Added option for no default instance */}
                                             <SelectItem value="none">Nenhuma instância padrão</SelectItem> {/* Use 'none' as value */}
-                                            {instancesList?.map(inst => {
-                                                console.log("[CashbackPage] Rendering SelectItem for instance:", inst.id, inst.nome_exibição);
-                                                return (
-                                                    <SelectItem key={inst.id} value={inst.id.toString()}>
-                                                        {inst.nome_exibição} ({formatPhone(inst.telefone)})
-                                                    </SelectItem>
-                                                );
-                                            })}
+                                            {instancesList?.map(inst => (
+                                                <SelectItem key={inst.id} value={inst.id.toString()}>
+                                                    {inst.nome_exibição} ({formatPhone(inst.telefone)})
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 )}
                                  <p className="text-xs text-gray-500 mt-1">Esta é a instância padrão para enviar mensagens automáticas de cashback. Se nenhuma for selecionada, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
                             </div>
+
+                            {/* NEW: Checkbox to apply to current month sales */}
+                            <div className="flex items-center space-x-2 mt-4">
+                                <Checkbox
+                                    id="applyToCurrentMonthSales"
+                                    checked={applyToCurrentMonthSales}
+                                    onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
+                                />
+                                <Label
+                                    htmlFor="applyToCurrentMonthSales"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    Aplicar esta regra para todas as vendas do mês atual
+                                </Label>
+                            </div>
+                             <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p> {/* Clarified text */}
+
                              {/* Add more configuration fields here as needed */}
                         </div>
                     )}
