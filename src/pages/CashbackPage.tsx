@@ -36,6 +36,8 @@ interface SupabaseSale {
     cod_funcionario_north: number | null;
     nome_funcionario_north: string | null;
     valor_venda: number | null;
+    valor_cashback: number | null; // Added new column
+    validade_cashback: string | null; // Added new column (assuming ISO date string)
     // The client name comes from the joined table
     north_clinic_clientes: { nome_north: string | null } | null; // Nested client data
     // Add other fields if needed from the Supabase query
@@ -112,7 +114,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient(); // Get query client instance
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
-    const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor: string, validade: Date | null } }>({});
+    const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor?: string, validade?: Date | null } }>({}); // Made properties optional
 
     // State for the automatic cashback configuration modal
     const [isAutoCashbackModalOpen, setIsAutoCashbackModalOpen] = useState(false);
@@ -160,7 +162,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             try {
                 const { data, error } = await supabase
                     .from('north_clinic_vendas')
-                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, north_clinic_clientes(nome_north)') // Select sales data and join client name
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, north_clinic_clientes(nome_north)') // Select sales data and join client name - ADDED NEW COLUMNS
                     .eq('id_clinica', clinicId) // Filter by clinic ID
                     .gte('data_venda', startDate) // Filter by start date of the month
                     .lte('data_venda', endDate) // Filter by end date of the month
@@ -313,6 +315,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             setIsAutoCashbackModalOpen(false);
             // Invalidate the config query to refetch when modal is opened again
             queryClient.invalidateQueries({ queryKey: ['cashbackConfig', clinicId] });
+            // Also refetch sales data for the current month if the checkbox was checked
+            if (applyToCurrentMonthSales) {
+                 queryClient.invalidateQueries({ queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate] });
+            }
         },
         onError: (error: Error) => {
             showError(`Falha ao salvar configurações: ${error.message}`);
@@ -466,8 +472,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                 <TableBody>
                                     {salesData?.map(sale => {
                                         const saleId = sale.id_north; // Use id_north as unique key
-                                        const cashbackValue = manualCashbackData[saleId]?.valor || '';
-                                        const cashbackValidity = manualCashbackData[saleId]?.validade || null;
+                                        // Prioritize manual input state, fallback to fetched data
+                                        const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toString() ?? '';
+                                        const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
+
 
                                         return (
                                             <TableRow key={saleId}>
@@ -485,7 +493,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                     <Input
                                                         type="number" // Use number type for value
                                                         placeholder="R$ 0.00"
-                                                        value={cashbackValue}
+                                                        value={currentCashbackValue} // Use current value
                                                         onChange={(e) => handleCashbackInputChange(saleId, 'valor', e.target.value)}
                                                         className="h-8 text-right" // Smaller input, right align text
                                                     />
@@ -497,13 +505,13 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                                 variant="outline"
                                                                 className="w-full h-8 text-left"
                                                             >
-                                                                {cashbackValidity ? format(cashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'}
+                                                                {currentCashbackValidity ? format(currentCashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'} {/* Use current value */}
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto p-0" align="start">
                                                             <Calendar
                                                                 mode="single"
-                                                                selected={cashbackValidity}
+                                                                selected={currentCashbackValidity ?? undefined} // Use current value, handle null/undefined
                                                                 onSelect={(date) => {
                                                                     handleCashbackInputChange(saleId, 'validade', date);
                                                                 }}
