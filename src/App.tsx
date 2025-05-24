@@ -16,6 +16,7 @@ import ConversasPage from "./pages/ConversasPage"; // Import the correct Convers
 import WhatsappInstancesPage from "./pages/WhatsappInstancesPage"; // Import the new WhatsappInstancesPage
 import MensagensListPage from "./pages/MensagensListPage"; // Import the new MensagensListPage
 import MensagensConfigPage from "./pages/MensagensConfigPage"; // Import the new MensagensConfigPage
+import CashbackMessagesPage from "./pages/CashbackMessagesPage"; // Import the new CashbackMessagesPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -102,8 +103,12 @@ const App = () => {
               {/* Route for the All Leads page - Using menu item ID 3 */}
               <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
 
-              {/* Route for the Cashback page - Using menu item ID 14 */}
+              {/* Route for the main Cashback page - Using menu item ID 14 */}
               <Route path="14" element={<CashbackPage clinicData={clinicData} />} />
+
+              {/* NEW: Nested route for Cashback Messages page under the Cashback menu item (14) */}
+              <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
+
 
               {/* Route for the Conversas page - Using menu item ID 2 */}
               <Route path="2" element={<ConversasPage clinicData={clinicData} />} />
@@ -111,10 +116,11 @@ const App = () => {
               {/* Route for the Whatsapp Instances page - Using menu item ID 10 */}
               <Route path="10" element={<WhatsappInstancesPage clinicData={clinicData} />} />
 
-              {/* Route for the Mensagens List page - Using menu item ID 11 */}
+              {/* Route for the Mensagens List page (General) - Using menu item ID 11 */}
               <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
 
               {/* Route for the Message Config/Edit page (moved inside layout) */}
+              {/* This route is used by *all* message list pages (General, Cashback, etc.) */}
               <Route path="config-mensagem" element={<MensagensConfigPage clinicData={clinicData} />} />
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}

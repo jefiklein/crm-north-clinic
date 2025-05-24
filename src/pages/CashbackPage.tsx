@@ -373,8 +373,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             // Optionally show a toast error
             return;
         }
-        // Navigate to the Mensagens List page (menu item ID 11)
-        navigate(`/dashboard/11?clinic_code=${encodeURIComponent(clinicData.code)}`);
+        // Navigate to the new Cashback Messages List page
+        navigate(`/dashboard/14/messages?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
     // Handle saving automatic cashback configuration
@@ -590,7 +590,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                          <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
                     ) : (
                         // NEW: Use local isSavingConfig state for dimming and disabling pointer events
-                        <div className={cn("grid gap-4 py-4", isSavingConfig && "opacity-50 pointer-events-none")}>
+                        <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
                             <div className="form-group">
                                 <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
@@ -600,7 +600,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 5"
                                     value={autoCashbackConfig.percentual}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
-                                    disabled={isSavingConfig} // NEW: Disable while saving
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                             </div>
                             {/* Changed Validity field */}
@@ -612,7 +612,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 30"
                                     value={autoCashbackConfig.validadeDias}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
-                                    disabled={isSavingConfig} // NEW: Disable while saving
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
                             </div>
@@ -630,7 +630,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
                                             setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
                                         }}
-                                        disabled={isSavingConfig} // NEW: Disable while saving
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
                                     >
                                         <SelectTrigger id="idInstanciaEnvioPadrao">
                                             <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
@@ -655,7 +655,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     id="applyToCurrentMonthSales"
                                     checked={applyToCurrentMonthSales}
                                     onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
-                                    disabled={isSavingConfig} // NEW: Disable while saving
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                                 <Label
                                     htmlFor="applyToCurrentMonthSales"
@@ -671,12 +671,12 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     )}
                     <DialogFooter>
                         {/* NEW: Disable Cancel button based on local saving state */}
-                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={isSavingConfig || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}>
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
                             Cancelar
                         </Button>
                         {/* NEW: Use local isSavingConfig state for button loading indicator */}
-                        <Button onClick={handleSaveAutoCashbackConfig} disabled={isSavingConfig || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}>
-                            {isSavingConfig ? (
+                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                            {saveConfigMutation.isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Salvando...
