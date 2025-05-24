@@ -235,32 +235,59 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Effect to populate modal state when existingConfig is loaded (only if modal is open)
+    // Effect to populate modal state when existingConfig and instancesList are loaded
     useEffect(() => {
-        console.log("[CashbackPage] useEffect [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError] triggered. existingConfig:", existingConfig, "isAutoCashbackModalOpen:", isAutoCashbackModalOpen, "isLoadingConfig:", isLoadingConfig, "configError:", configError);
-        // Only populate if the modal is open AND the fetch is not loading AND there's no error
-        if (isAutoCashbackModalOpen && !isLoadingConfig && !configError) {
-            if (existingConfig) {
-                console.log("[CashbackPage] useEffect: Modal is open, fetch finished, existingConfig available. Setting state:", existingConfig);
-                setAutoCashbackConfig({
-                    percentual: existingConfig.cashback_percentual?.toString() || '', // Corrected state name
-                    validadeDias: existingConfig.cashback_validade?.toString() || '', // Corrected state name
-                    idInstanciaEnvioPadrao: existingConfig.cashback_instancia_padrao || null, // Corrected state name and source
-                });
-            } else {
-                 // Case: Modal is open, fetch finished, no config found (new clinic or deleted config)
-                 console.log("[CashbackPage] useEffect: Modal is open, fetch finished, no existing config found. Resetting state to empty.");
+        console.log("[CashbackPage] useEffect [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError, instancesList, isLoadingInstances] triggered."); // <-- Updated log
+        console.log("  existingConfig:", existingConfig);
+        console.log("  isAutoCashbackModalOpen:", isAutoCashbackModalOpen);
+        console.log("  isLoadingConfig:", isLoadingConfig);
+        console.log("  configError:", configError);
+        console.log("  instancesList:", instancesList ? instancesList.length + ' items' : 'null/undefined'); // <-- Log instances list state
+        console.log("  isLoadingInstances:", isLoadingInstances); // <-- Log instances loading state
+
+
+        // Only populate if the modal is open AND the config fetch is finished without error
+        // AND the instances fetch is finished without error
+        if (isAutoCashbackModalOpen && !isLoadingConfig && !configError && !isLoadingInstances && !instancesError) { // <-- Added checks for instances loading/error
+             if (existingConfig) {
+                 console.log("[CashbackPage] useEffect: Modal is open, config fetch finished, instances fetch finished, existingConfig available. Setting state:", existingConfig);
+                 console.log("[CashbackPage] existingConfig.cashback_instancia_padrao:", existingConfig.cashback_instancia_padrao, "Type:", typeof existingConfig.cashback_instancia_padrao);
+
+                 const loadedInstanceId = existingConfig.cashback_instancia_padrao;
                  setAutoCashbackConfig({
-                     percentual: '',
-                     validadeDias: '',
-                     idInstanciaEnvioPadrao: null,
+                     percentual: existingConfig.cashback_percentual?.toString() || '',
+                     validadeDias: existingConfig.cashback_validade?.toString() || '',
+                     idInstanciaEnvioPadrao: loadedInstanceId,
                  });
-            }
+                 console.log("[CashbackPage] State set to:", {
+                      percentual: existingConfig.cashback_percentual?.toString() || '',
+                      validadeDias: existingConfig.cashback_validade?.toString() || '',
+                      idInstanciaEnvioPadrao: loadedInstanceId,
+                 });
+
+             } else {
+                  // Case: Modal is open, fetch finished, no config found (new clinic or deleted config)
+                  console.log("[CashbackPage] useEffect: Modal is open, config fetch finished, instances fetch finished, no existing config found. Resetting state to empty.");
+                  setAutoCashbackConfig({
+                      percentual: '',
+                      validadeDias: '',
+                      idInstanciaEnvioPadrao: null,
+                  });
+                  console.log("[CashbackPage] State reset to:", {
+                       percentual: '',
+                       validadeDias: '',
+                       idInstanciaEnvioPadrao: null,
+                  });
+             }
+        } else if (isAutoCashbackModalOpen && (isLoadingConfig || isLoadingInstances)) {
+             console.log("[CashbackPage] useEffect: Modal is open, but config or instances are still loading. Waiting...");
+        } else if (isAutoCashbackModalOpen && (configError || instancesError)) {
+             console.error("[CashbackPage] useEffect: Modal is open, but config or instances fetch failed. Not populating state.");
+             // Optionally set an error state in the modal itself if needed
         }
         // If modal is closed, the other effect handles resetting.
-        // If modal is open but existingConfig is still loading or has an error, state remains as initialized or previous.
 
-    }, [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError]); // Depend on existingConfig and modal open state
+    }, [existingConfig, isAutoCashbackModalOpen, isLoadingConfig, configError, instancesList, isLoadingInstances, instancesError]); // <-- Updated dependencies
 
 
     // Mutation for saving automatic cashback configuration via webhook
@@ -505,13 +532,13 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     <DialogHeader>
                         <DialogTitle>Configurar Regras de Cashback</DialogTitle> {/* Changed title */}
                     </DialogHeader>
-                    {isLoadingConfig ? (
+                    {isLoadingConfig || isLoadingInstances ? ( // Show loading if either config or instances are loading
                          <div className="flex items-center justify-center gap-2 text-primary py-8">
                              <Loader2 className="animate-spin" />
                              Carregando configurações...
                          </div>
-                    ) : configError ? (
-                         <div className="text-red-600 font-semibold py-8">{configError.message}</div>
+                    ) : configError || instancesError ? ( // Show error if either config or instances failed
+                         <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
                     ) : (
                         <div className="grid gap-4 py-4">
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
@@ -540,13 +567,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                             {/* Added Sending Instance field */}
                              <div className="form-group">
                                 <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão</Label>
-                                {isLoadingInstances ? (
-                                    <div className="flex items-center text-gray-500 text-sm">
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
-                                    </div>
-                                ) : instancesError ? (
-                                    <p className="text-sm text-red-600">Erro ao carregar instâncias.</p>
-                                ) : (instancesList?.length ?? 0) === 0 ? (
+                                {(instancesList?.length ?? 0) === 0 ? (
                                     <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                 ) : (
                                     <Select
@@ -573,10 +594,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </div>
                     )}
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError}>
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError}>
+                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
                             {saveConfigMutation.isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
