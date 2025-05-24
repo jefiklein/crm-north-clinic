@@ -49,10 +49,19 @@ interface InstanceDetails {
 }
 
 // Define the structure for the data sent to the save webhook
+// Using Portuguese names to match the database columns
 interface SaveConfigPayload {
     id_clinica: number | string;
-    cashback_percentage: number | null;
-    cashback_validity_days: number | null;
+    cashback_percentual: number | null; // Corrected name
+    cashback_validade: number | null; // Corrected name
+    default_sending_instance_id: number | null;
+}
+
+// Define the structure for the data fetched from Supabase config table
+// Using Portuguese names to match the database columns
+interface FetchedConfig {
+    cashback_percentual: number | null; // Corrected name
+    cashback_validade: number | null; // Corrected name
     default_sending_instance_id: number | null;
 }
 
@@ -106,9 +115,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     // State for the automatic cashback configuration modal
     const [isAutoCashbackModalOpen, setIsAutoCashbackModalOpen] = useState(false);
     const [autoCashbackConfig, setAutoCashbackConfig] = useState({
-        percentage: '',
-        validityDays: '', // Changed to validityDays (string for input)
-        sendingInstanceId: null as number | null, // Added sendingInstanceId
+        percentual: '', // Corrected state name
+        validadeDias: '', // Corrected state name
+        sendingInstanceId: null as number | null,
     });
 
 
@@ -190,14 +199,14 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     });
 
     // Fetch existing automatic cashback configuration from Supabase
-    const { data: existingConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
+    const { data: existingConfig, isLoading: isLoadingConfig, error: configError } = useQuery<FetchedConfig | null>({
         queryKey: ['cashbackConfig', clinicId],
         queryFn: async () => {
             if (!clinicId) return null;
             console.log(`Fetching existing cashback config for clinic ${clinicId} from Supabase`);
             const { data, error } = await supabase
                 .from('north_clinic_config_clinicas')
-                .select('cashback_percentage, cashback_validity_days, default_sending_instance_id')
+                .select('cashback_percentual, cashback_validade, default_sending_instance_id') // Corrected column names
                 .eq('id', clinicId)
                 .single();
 
@@ -218,15 +227,15 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     useEffect(() => {
         if (existingConfig) {
             setAutoCashbackConfig({
-                percentage: existingConfig.cashback_percentage?.toString() || '',
-                validityDays: existingConfig.cashback_validity_days?.toString() || '',
+                percentual: existingConfig.cashback_percentual?.toString() || '', // Corrected state name
+                validadeDias: existingConfig.cashback_validade?.toString() || '', // Corrected state name
                 sendingInstanceId: existingConfig.default_sending_instance_id || null,
             });
         } else {
              // Reset state if no existing config is found (for new clinics or if config was deleted)
              setAutoCashbackConfig({
-                 percentage: '',
-                 validityDays: '',
+                 percentual: '',
+                 validadeDias: '',
                  sendingInstanceId: null,
              });
         }
@@ -315,17 +324,17 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         // Prepare payload, converting string inputs to numbers
         const payload: SaveConfigPayload = {
             id_clinica: clinicId,
-            cashback_percentage: autoCashbackConfig.percentage ? parseFloat(autoCashbackConfig.percentage) : null,
-            cashback_validity_days: autoCashbackConfig.validityDays ? parseInt(autoCashbackConfig.validityDays, 10) : null,
+            cashback_percentual: autoCashbackConfig.percentual ? parseFloat(autoCashbackConfig.percentual) : null, // Corrected payload name
+            cashback_validade: autoCashbackConfig.validadeDias ? parseInt(autoCashbackConfig.validadeDias, 10) : null, // Corrected payload name
             default_sending_instance_id: autoCashbackConfig.sendingInstanceId,
         };
 
         // Basic validation (can be more robust in webhook)
-        if (payload.cashback_percentage !== null && (isNaN(payload.cashback_percentage) || payload.cashback_percentage < 0)) {
+        if (payload.cashback_percentual !== null && (isNaN(payload.cashback_percentual) || payload.cashback_percentual < 0)) {
              showError("Percentual de Cashback inválido.");
              return;
         }
-         if (payload.cashback_validity_days !== null && (isNaN(payload.cashback_validity_days) || payload.cashback_validity_days < 0)) {
+         if (payload.cashback_validade !== null && (isNaN(payload.cashback_validade) || payload.cashback_validade < 0)) {
              showError("Validade em dias inválida.");
              return;
          }
@@ -483,24 +492,24 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         <div className="grid gap-4 py-4">
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
                             <div className="form-group">
-                                <Label htmlFor="cashbackPercentage">Percentual de Cashback (%)</Label>
+                                <Label htmlFor="cashbackPercentual">Percentual de Cashback (%)</Label> {/* Corrected label htmlFor */}
                                 <Input
-                                    id="cashbackPercentage"
+                                    id="cashbackPercentual" // Corrected id
                                     type="number"
                                     placeholder="Ex: 5"
-                                    value={autoCashbackConfig.percentage}
-                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentage: e.target.value })}
+                                    value={autoCashbackConfig.percentual} // Corrected state name
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })} // Corrected state name
                                 />
                             </div>
                             {/* Changed Validity field */}
                             <div className="form-group">
-                                <Label htmlFor="cashbackValidityDays">Validade (dias após a venda)</Label>
+                                <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda)</Label> {/* Corrected label htmlFor */}
                                 <Input
-                                    id="cashbackValidityDays"
+                                    id="cashbackValidadeDias" // Corrected id
                                     type="number"
                                     placeholder="Ex: 30"
-                                    value={autoCashbackConfig.validityDays}
-                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validityDays: e.target.value })}
+                                    value={autoCashbackConfig.validadeDias} // Corrected state name
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })} // Corrected state name
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
                             </div>
@@ -538,7 +547,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </div>
                     )}
                     <DialogFooter>
-                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading}>
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError}>
                             Cancelar
                         </Button>
                         <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError}>
