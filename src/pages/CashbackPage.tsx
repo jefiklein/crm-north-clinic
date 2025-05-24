@@ -529,15 +529,15 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                 ) : (
                                     <Select
-                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || ''}
-                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value ? parseInt(value, 10) : null })}
+                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
+                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) })} // Convert 'none' to null
                                     >
                                         <SelectTrigger id="idInstanciaEnvioPadrao">
                                             <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
                                         </SelectTrigger>
                                         <SelectContent>
                                             {/* Added option for no default instance */}
-                                            <SelectItem value="">Nenhuma instância padrão</SelectItem>
+                                            <SelectItem value="none">Nenhuma instância padrão</SelectItem> {/* Use 'none' as value */}
                                             {instancesList?.map(inst => (
                                                 <SelectItem key={inst.id} value={inst.id.toString()}>
                                                     {inst.nome_exibição} ({formatPhone(inst.telefone)})
