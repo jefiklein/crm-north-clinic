@@ -473,7 +473,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     {salesData?.map(sale => {
                                         const saleId = sale.id_north; // Use id_north as unique key
                                         // Prioritize manual input state, fallback to fetched data
-                                        const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toString() ?? '';
+                                        const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toFixed(2).replace('.', ',') ?? ''; // Format fetched number for display
                                         const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
 
 
@@ -491,10 +491,27 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                 </TableCell>
                                                 <TableCell className="w-[150px]"> {/* Fixed width for input */}
                                                     <Input
-                                                        type="number" // Use number type for value
-                                                        placeholder="R$ 0.00"
-                                                        value={currentCashbackValue} // Use current value
-                                                        onChange={(e) => handleCashbackInputChange(saleId, 'valor', e.target.value)}
+                                                        type="text" // Changed to text
+                                                        placeholder="R$ 0,00" // Updated placeholder
+                                                        value={currentCashbackValue} // Use current value (string)
+                                                        onChange={(e) => {
+                                                            const rawValue = e.target.value;
+                                                            // Allow empty string
+                                                            if (rawValue === '') {
+                                                                 handleCashbackInputChange(saleId, 'valor', '');
+                                                                 return;
+                                                            }
+                                                            // Replace comma with dot for internal processing
+                                                            const valueWithDot = rawValue.replace(',', '.');
+                                                            // Regex to allow digits, at most one dot, and at most two digits after the dot
+                                                            // Also handle cases where the user types '.' first
+                                                            const validRegex = /^\d*\.?\d{0,2}$/;
+                                                            if (validRegex.test(valueWithDot)) {
+                                                                 // Convert dot back to comma for display in the input field
+                                                                 handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
+                                                            }
+                                                            // If invalid, the state is not updated, keeping the last valid value
+                                                        }}
                                                         className="h-8 text-right" // Smaller input, right align text
                                                     />
                                                 </TableCell>
