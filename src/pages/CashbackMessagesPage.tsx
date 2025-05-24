@@ -44,6 +44,7 @@ interface MessageItem {
     prioridade: number;
     created_at: string;
     updated_at: string;
+    context: string | null; // Added new column
 }
 
 // Define the structure for Instance Info from Supabase
@@ -77,7 +78,7 @@ const placeholderData = {
     // validade_cashback: "20/05/2025"
 };
 
-// Categories relevant to Cashback context
+// Categories relevant to Cashback context (kept for reference, but filtering by context now)
 const cashbackCategories = [
     "Aniversário",
     // Add other cashback-specific categories here if they are created in the DB
@@ -118,7 +119,8 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                 .from('north_clinic_config_mensagens')
                 .select('*')
                 .eq('id_clinica', clinicId)
-                .in('categoria', cashbackCategories) // Filter by relevant categories
+                .eq('context', 'cashback') // <-- Filter by context 'cashback'
+                // Removed .in('categoria', cashbackCategories) filter
                 .order('categoria', { ascending: true })
                 .order('prioridade', { ascending: true });
             if (error) {
@@ -223,9 +225,8 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Navigate to the config page without an ID, indicating a new message
-        // Optionally pass a default category or context hint if needed by config page
-        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}`);
+        // Navigate to the config page, passing the context 'cashback'
+        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=cashback`);
     };
 
     // Handle navigation to the *single* MensagensConfigPage for editing

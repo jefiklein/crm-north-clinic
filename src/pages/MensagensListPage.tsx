@@ -44,6 +44,7 @@ interface MessageItem {
     prioridade: number;
     created_at: string;
     updated_at: string;
+    context: string | null; // Added new column
 }
 
 // Define the structure for Instance Info from Supabase
@@ -102,6 +103,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                 .from('north_clinic_config_mensagens')
                 .select('*')
                 .eq('id_clinica', clinicId)
+                .eq('context', 'general') // <-- Filter by context 'general'
                 .order('categoria', { ascending: true })
                 .order('prioridade', { ascending: true });
             if (error) throw new Error(error.message);
@@ -188,7 +190,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}`);
+        // Navigate to the config page, passing the context 'general'
+        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=general`);
     };
 
     const handleEditMessage = (messageId: number) => {
@@ -196,6 +199,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             showError("Erro: Código da clínica não disponível.");
             return;
         }
+        // Navigate to the config page with the message ID
         navigate(`/dashboard/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
@@ -212,10 +216,11 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
     const handlePreviewToggle = (messageId: number) => {
         setExpandedPreviews(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(messageId)) {
-                newSet.delete(messageId);
+            const itemIdString = String(messageId); // Ensure consistent key type
+            if (newSet.has(itemIdString)) {
+                newSet.delete(itemIdString);
             } else {
-                newSet.add(messageId);
+                newSet.add(itemIdString);
             }
             return newSet;
         });
@@ -232,7 +237,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Mensagens Automáticas
+                    {clinicData?.nome} | Mensagens Gerais
                 </h1>
                 <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
                     <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem
@@ -281,6 +286,14 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                 const instance = instanceMap.get(instanceIdStr);
                                 const instanceName = instance ? (instance.nome_exibição || `ID ${instance.id}`) : "Não definida";
                                 const instanceClass = instance ? '' : 'not-set';
+
+                                // Determine if expansion is needed (same logic as MensagensListPage)
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = simulateMessage(message.modelo_mensagem, placeholderData);
+                                const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                                const formattedMessage = simulateMessage(message.modelo_mensagem, placeholderData); // Re-simulate for full content
+                                const needsExpansion = plainText.length > 150 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
+
 
                                 return (
                                     <React.Fragment key={message.id}>
@@ -384,6 +397,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                 </div>
                                             </TableCell>
                                         </TableRow>
+                                        {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
                                             <TableCell colSpan={6} className="p-6">
                                                 <div

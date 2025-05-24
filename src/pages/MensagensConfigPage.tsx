@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
 import { Loader2, Smile } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
+import { useLocation } from "react-router-dom"; // Import useLocation
 
 interface ClinicData {
   code: string;
@@ -65,6 +66,7 @@ interface FetchedMessageData {
   variacao_5: string | null;
   para_cliente: boolean;
   para_funcionario: boolean;
+  context: string | null; // Added new column
   // This will be an array of objects from the join table
   north_clinic_mensagens_servicos: { id_servico: number }[];
 }
@@ -112,6 +114,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
   const { toast } = useToast();
+  const location = useLocation(); // Hook to get URL parameters
 
   // Form state
   const [loading, setLoading] = useState(true);
@@ -135,6 +138,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
   const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
+  const [messageContext, setMessageContext] = useState<string | null>(null); // NEW: State for message context
 
   // Removed variations state
 
@@ -150,10 +154,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       return;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(location.search); // Use useLocation hook
     const idParam = urlParams.get("id");
+    const contextParam = urlParams.get("context"); // NEW: Read context from URL
+
     const isEditing = !!idParam;
     const messageIdToEdit = idParam ? parseInt(idParam, 10) : null;
+
+    // Set context from URL if creating a new message, or it will be loaded if editing
+    if (!isEditing && contextParam) {
+        setMessageContext(contextParam);
+    }
+
 
     async function fetchData() {
       setLoading(true);
@@ -209,6 +221,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setMessageText(messageData.modelo_mensagem);
             setActive(messageData.ativo ?? true);
             setLinkedServices(fetchedLinkedServices); // Set the extracted linked services
+            setMessageContext(messageData.context); // NEW: Set context from fetched data
 
             // --- FIX: Format hora_envio to HH:mm ---
             const fetchedScheduledTime = messageData.hora_envio;
@@ -242,11 +255,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               // Message not found for this clinic/ID
               setError("Mensagem não encontrada ou você não tem permissão para editá-la.");
               setMessageId(null); // Ensure messageId is null if not found
+              // If message not found, but context was in URL, keep the context
+              if (contextParam) {
+                  setMessageContext(contextParam);
+              } else {
+                  setMessageContext(null); // Clear context if not found and not in URL
+              }
           }
 
         } else {
           // New message defaults
           setMessageId(null);
+          // Category might be pre-filled by context later if needed
           setCategory("");
           setInstanceId(null);
           setMessageText("");
@@ -257,17 +277,19 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setMediaSavedUrl(null);
           // Removed variations default state
           setTargetType("Grupo");
+          // Context is already set from URL parameter above
         }
       } catch (e: any) {
         console.error("Error fetching initial data:", e);
         setError(e.message || "Erro ao carregar dados iniciais");
+        setMessageContext(contextParam); // Ensure context is kept on error if present in URL
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
-  }, [clinicData?.id]); // Depend on clinicData.id
+  }, [clinicData?.id, location.search]); // Depend on clinicData.id and location.search to re-fetch on URL changes
 
   // Load groups when instance or targetType changes and targetType is 'Grupo'
   useEffect(() => {
@@ -421,6 +443,15 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
       return;
     }
+    if (!messageContext) { // NEW: Validate that context is set
+         toast({
+             title: "Erro",
+             description: "Contexto da mensagem não definido.",
+             variant: "destructive",
+         });
+         return;
+    }
+
 
     setSaving(true);
     setError(null);
@@ -465,6 +496,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         url_arquivo: url_arquivo || null,
         para_cliente: targetType === "Cliente",
         para_funcionario: targetType === "Funcionário",
+        context: messageContext, // NEW: Include context in save data
         // Removed variations from save data
       };
 
@@ -497,8 +529,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
       // Redirect or reset form after save
       setTimeout(() => {
-        // Redirect back to the list page
-        window.location.href = `/dashboard/11?clinic_code=${encodeURIComponent(
+        // Redirect back to the correct list page based on context
+        const redirectPath = messageContext === 'cashback' ? '/dashboard/14/messages' : '/dashboard/11';
+        window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
           clinicData.code
         )}&status=${messageId ? "updated" : "created"}`;
       }, 1500);
@@ -518,10 +551,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Handlers for form fields
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    // Only apply default template if creating a new message
-    if (messageId === null) {
+    // Only apply default template if creating a new message AND context is general
+    if (messageId === null && messageContext === 'general') {
       setMessageText(defaultTemplates[value] || "");
     }
+     // TODO: Add default templates for other contexts if needed
   };
 
   // Show/hide fields based on category and targetType
@@ -537,19 +571,24 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Cancel action: redirect back to list
   const handleCancel = () => {
     if (!clinicData?.code) return;
-    // Redirect back to the list page
-    window.location.href = `/dashboard/11?clinic_code=${encodeURIComponent(
+    // Redirect back to the correct list page based on context
+    const redirectPath = messageContext === 'cashback' ? '/dashboard/14/messages' : '/dashboard/11';
+    window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
       clinicData.code
     )}`;
   };
+
+  // Determine page title based on context and whether editing or creating
+  const pageTitle = messageId
+    ? `Editar Mensagem (${messageContext === 'cashback' ? 'Cashback' : 'Geral'})`
+    : `Configurar Nova Mensagem (${messageContext === 'cashback' ? 'Cashback' : 'Geral'})`;
+
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
       <Card className="max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle>
-            {messageId ? "Editar Mensagem" : "Configurar Nova Mensagem"}
-          </CardTitle>
+          <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {loading ? (
@@ -578,6 +617,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Filter categories based on context if needed */}
                     {orderedCategories.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
@@ -669,7 +709,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Select>
               )}
 
               {showScheduledTime && (
