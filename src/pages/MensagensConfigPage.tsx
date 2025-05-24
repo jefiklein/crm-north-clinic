@@ -56,7 +56,7 @@ interface Group {
 // Updated interface to match Supabase join structure and new column names
 interface FetchedMessageData {
   id: number;
-  categoria: string;
+  categoria: string | null; // Allow null based on DB schema change
   id_instancia: number | null;
   modelo_mensagem: string;
   ativo: boolean;
@@ -278,7 +278,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
 
             setMessageId(messageData.id);
-            setCategory(messageData.categoria);
+            setCategory(messageData.categoria || ""); // Handle null category
             setInstanceId(messageData.id_instancia);
             setMessageText(messageData.modelo_mensagem);
             setActive(messageData.ativo ?? true);
@@ -630,7 +630,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const saveData: any = { // Use any for now to easily add conditional fields
         id_clinica: clinicData.code, // Use clinic code for save webhook
         id: messageId, // null for new, number for edit
-        categoria: category,
+        categoria: category || null, // Send category, allow null
         id_instancia: instanceId,
         modelo_mensagem: messageText,
         ativo: active, // Keep active status editable
@@ -736,7 +736,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Cashback context fields visibility
   const showCashbackTiming = isCashbackContext;
   // UPDATED: Show scheduled time for Aniversário in Cashback context
-  const showScheduledTimeCashback = isCashbackContext && (category === 'Aniversário');
+  // REMOVED: Check for category === 'Aniversário' for cashback scheduled time
+  const showScheduledTimeCashback = isCashbackContext;
 
 
   // Removed variations count
