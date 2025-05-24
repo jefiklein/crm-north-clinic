@@ -105,7 +105,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                 .from('north_clinic_config_mensagens')
                 .select('*')
                 .eq('id_clinica', clinicId)
-                .eq('context', 'general') // <-- Filter by context 'general'
+                .eq('context', 'clientes') // <-- Filter by context 'clientes'
                 .order('categoria', { ascending: true })
                 .order('prioridade', { ascending: true });
             if (error) throw new Error(error.message);
@@ -192,8 +192,8 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             showError("Erro: Código da clínica não disponível.");
             return;
         }
-        // Navigate to the config page, passing the context 'general'
-        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=general`);
+        // Navigate to the config page, passing the context 'clientes'
+        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=clientes`);
     };
 
     const handleEditMessage = (messageId: number) => {
@@ -239,10 +239,10 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Mensagens Gerais
+                    Lista de Mensagens de Clientes {/* Updated title */}
                 </h1>
                 <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
-                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem
+                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem de Cliente {/* Updated button text */}
                 </Button>
             </div>
 
@@ -266,7 +266,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             {!isLoading && !fetchError && (messagesList?.length ?? 0) === 0 ? (
                 <div id="noMessagesFound" className="text-center text-gray-600 p-12 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
                     <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
-                    <p className="text-2xl font-semibold">Nenhuma mensagem automática configurada encontrada.</p>
+                    <p className="text-2xl font-semibold">Nenhuma mensagem automática configurada encontrada para clientes.</p> {/* Updated text */}
                 </div>
             ) : (
                 <div id="messageListContainer" className="overflow-x-auto rounded-lg border border-gray-300 shadow-md">
@@ -401,7 +401,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6">
+                                            <TableCell colSpan={6} className="p-6"> {/* Adjusted colspan to 6 */}
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
