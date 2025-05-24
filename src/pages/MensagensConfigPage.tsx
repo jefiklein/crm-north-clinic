@@ -735,7 +735,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Cashback context fields visibility
   const showCashbackTiming = isCashbackContext;
-  const showScheduledTimeCashback = isCashbackContext && (category === 'Aniversário'); // Aniversário might still need time
+  // UPDATED: Show scheduled time for Aniversário in Cashback context
+  const showScheduledTimeCashback = isCashbackContext && (category === 'Aniversário');
 
 
   // Removed variations count
