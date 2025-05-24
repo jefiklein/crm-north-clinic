@@ -193,6 +193,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     queryKey: ['instancesList', clinicId],
     queryFn: async () => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
+      console.log("[ConversasPage] Fetching instance list...");
       const { data, error } = await supabase
         .from('north_clinic_config_instancias')
         .select('id, nome_exibição, telefone, nome_instancia_evolution')
@@ -203,7 +204,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       console.log("[ConversasPage] Fetched instances list:", data); // Log fetched instances
       return data || [];
     },
-    enabled: hasPermission && !!clinicId,
+    enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -525,7 +526,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
            if (mediaUrls[msg.id] === undefined && mediaStatus[msg.id] === undefined) {
                fetchAndSetMedia(msg);
            } else {
-               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'No URL'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
+               console.log(`[ConversasPage] Message ${msg.id}: Media state already exists (${mediaUrls[msg.id] ? 'URL' : 'Null'}, ${mediaStatus[msg.id]?.isLoading ? 'Loading' : 'Not Loading'}, ${mediaStatus[msg.id]?.error ? 'Error' : 'No Error'}). Skipping fetch.`);
            }
       });
 
@@ -715,6 +716,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       };
 
       sendMessageMutation.mutate(messagePayload); // Trigger the mutation
+      // The sync effect will handle clearing pending messages once they appear in fetched messages.
   };
 
   // Allow sending with Enter key
@@ -799,11 +801,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const el = messageTextareaRef.current;
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const text = el.value;
-      el.value = text.slice(0, start) + emoji + text.slice(end);
+      const text = messageInput; // Use state value
+      const newText = text.slice(0, start) + emoji + text.slice(end);
+
+      setMessageInput(newText); // Update state
+      // Restore cursor position after state update (requires a slight delay or nextTick)
+      // A common pattern is to manage cursor position in state, but for simplicity,
+      // we can try setting it directly after the state update, though it might not be perfect.
+      // Let's try setting it directly first.
       el.selectionStart = el.selectionEnd = start + emoji.length;
-      el.focus();
-      setMessageInput(el.value); // Update state after modifying textarea value
+      el.focus(); // Keep focus on the textarea
     }
     // Optionally close picker after selection
     // setShowEmojiPicker(false);
@@ -824,7 +831,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
       }
     };
-  }, [emojiPickerRef.current, onEmojiSelect]); // Add onEmojiSelect to dependencies
+  }, [emojiPickerRef.current, messageInput]); // Add messageInput to dependencies
 
 
   // --- Permission Check ---
@@ -1133,6 +1140,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                     >
                         <Smile className="h-5 w-5" />
                     </Button>
+                    {showEmojiPicker && (
+                        <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
+                            <emoji-picker
+                                ref={emojiPickerRef}
+                                style={{ width: "300px", height: "300px" }}
+                            />
+                        </div>
+                    )}
                     <Button
                         onClick={handleSendMessage}
                         disabled={!canSend || !messageInput.trim() || sendMessageMutation.isLoading} // Disable based on canSend and message input
@@ -1146,15 +1161,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                         )}
                     </Button>
                 </div>
-                {/* Emoji Picker */}
-                {showEmojiPicker && (
-                    <div className="absolute z-50 bottom-[calc(100%+10px)] right-4"> {/* Position above the input area */}
-                        <emoji-picker
-                            ref={emojiPickerRef}
-                            style={{ width: "300px", height: "300px" }}
-                        />
-                    </div>
-                )}
             </div>
           </div>
         </div>

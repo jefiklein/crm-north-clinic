@@ -423,11 +423,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const el = messageTextRef.current;
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const text = el.value;
-      el.value = text.slice(0, start) + emoji + text.slice(end);
+      const text = messageText; // Use state value, not ref value
+      const newText = text.slice(0, start) + emoji + text.slice(end);
+
+      setMessageText(newText); // Update state
+      // Restore cursor position after state update (requires a slight delay or nextTick)
+      // A common pattern is to manage cursor position in state, but for simplicity,
+      // we can try setting it directly after the state update, though it might not be perfect.
+      // Let's try setting it directly first.
       el.selectionStart = el.selectionEnd = start + emoji.length;
-      el.focus();
-      setMessageText(el.value);
+      el.focus(); // Keep focus on the textarea
     }
     // Keep picker open for multiple selections
     // setShowEmojiPicker(false);
@@ -436,25 +441,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Attach emoji picker event listener
   useEffect(() => {
     const picker = emojiPickerRef.current;
-    console.log("Emoji picker useEffect triggered. Picker:", picker); // Debug log
-    if (!picker) {
-        console.log("Emoji picker element not found yet."); // Debug log
-        return;
-    }
-
-    // Use a small delay or check if the element is ready if needed,
-    // but often attaching directly after ref is set works for custom elements
-    // Let's try attaching directly first.
-    console.log("Attaching emoji-click listener."); // Debug log
+    if (!picker) return;
     picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
-
     return () => {
-      console.log("Removing emoji-click listener."); // Debug log
-      if (picker) {
-        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
-      }
+      picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
     };
-  }, [emojiPickerRef.current]); // Depend only on the ref changing
+  }, [emojiPickerRef.current, messageText]); // Add messageText to dependencies because onEmojiSelect uses it
 
 
   // Handle form submission
@@ -497,7 +489,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to General context
-    if (isGeneralContext) {
+    if (messageContext === 'general') {
         if (
           category !== "Aniversário" &&
           linkedServices.length === 0 &&
@@ -537,7 +529,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     // Validation specific to Cashback context
-    if (isCashbackContext) {
+    if (messageContext === 'cashback') {
         const offsetNum = parseInt(diasMensagemCashback, 10); // Use correct state name
         if (diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
              toast({
@@ -623,7 +615,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       };
 
       // Add context-specific fields
-      if (isGeneralContext) {
+      if (messageContext === 'general') {
           saveData.servicos_vinculados = linkedServices; // Send the array of IDs
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
@@ -631,7 +623,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Ensure cashback fields are null for general messages
           saveData.dias_mensagem_cashback = null;
           saveData.tipo_mensagem_cashback = null;
-      } else if (isCashbackContext) {
+      } else if (messageContext === 'cashback') {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
           saveData.para_cliente = true; // Always send to client for cashback
@@ -695,9 +687,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     setCategory(value);
     // Apply default template based on context and category
     if (messageId === null) { // Only apply default template when creating
-        if (isGeneralContext) {
+        if (messageContext === 'general') {
             setMessageText(defaultTemplates[value] || "");
-        } else if (isCashbackContext) {
+        } else if (messageContext === 'cashback') {
              setMessageText(defaultTemplates[value] || ""); // Use cashback templates if available
         }
     }
@@ -788,6 +780,43 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                      )}
                   </div>
               )}
+               {/* For Cashback, category is selected but might not be required for save payload depending on backend */}
+               {/* Let's keep it for now as it's in the DB schema and webhook might expect it */}
+               {isCashbackContext && (
+                    <div>
+                        <label
+                          htmlFor="category"
+                          className="block mb-1 font-medium text-gray-700"
+                        >
+                          Categoria *
+                        </label>
+                         {/* For cashback, maybe a fixed category or limited options? */}
+                         {/* For now, let's make it a simple input or display if editing */}
+                         {messageId !== null ? (
+                             <Input id="category" value={category || 'N/A'} disabled />
+                         ) : (
+                              <Select
+                                  value={category}
+                                  onValueChange={setCategory}
+                                  id="category"
+                              >
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecione a categoria" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {/* Add cashback specific categories here */}
+                                      <SelectItem value="Aniversário">Aniversário</SelectItem>
+                                      <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
+                                      <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
+                                      {/* Add other cashback categories as needed */}
+                                  </SelectContent>
+                              </Select>
+                         )}
+                          {messageId !== null && (
+                              <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                          )}
+                    </div>
+               )}
 
 
               <div>
