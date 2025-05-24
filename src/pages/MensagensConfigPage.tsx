@@ -360,6 +360,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     fetchData();
   }, [clinicData?.id, location.search]); // Depend on clinicData.id and location.search to re-fetch on URL changes
 
+  // Log the messageContext state whenever it changes
+  useEffect(() => {
+      console.log("MensagensConfigPage: messageContext state changed to:", messageContext);
+  }, [messageContext]);
+
+
   // Load groups when instance or targetType changes and targetType is 'Grupo'
   useEffect(() => {
     async function fetchGroups() {
@@ -450,7 +456,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
     console.log("MensagensConfigPage: Waiting for emoji-picker custom element definition."); // Debug log
     customElements.whenDefined('emoji-picker').then(() => {
-        console.log("MensagensConfigPage: Emoji picker custom element defined. Attaching listener."); // Debug log
+        console.log("MensagensConfigPage: Emoji picker custom element defined. Attaching listener directly."); // Debug log
+        // Attach the listener directly to the element
         picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
     }).catch(err => {
         console.error("MensagensConfigPage: Error waiting for emoji-picker definition:", err); // Debug log
@@ -460,6 +467,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     return () => {
       console.log("MensagensConfigPage: Removing emoji-click listener."); // Debug log
       if (picker) {
+        // Remove the listener attached directly
         picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
       }
     };

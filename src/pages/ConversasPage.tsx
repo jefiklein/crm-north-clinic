@@ -183,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -758,7 +758,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!Arrayadaş(allMessages)) {
+      if (!Array.isArray(allMessages)) {
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
@@ -828,7 +828,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
     console.log("ConversasPage: Waiting for emoji-picker custom element definition."); // Debug log
     customElements.whenDefined('emoji-picker').then(() => {
-        console.log("ConversasPage: Emoji picker custom element defined. Attaching listener."); // Debug log
+        console.log("ConversasPage: Emoji picker custom element defined. Attaching listener directly."); // Debug log
+        // Attach the listener directly to the element
         picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
     }).catch(err => {
         console.error("ConversasPage: Error waiting for emoji-picker definition:", err); // Debug log
@@ -838,6 +839,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     return () => {
       console.log("ConversasPage: Removing emoji-click listener."); // Debug log
       if (picker) {
+        // Remove the listener attached directly
         picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
       }
     };
