@@ -45,8 +45,8 @@ interface MessageItem {
     created_at: string;
     updated_at: string;
     context: string | null; // Added new column
-    dias_offset: number | null; // Added new column
-    tipo_agendamento: string | null; // Added new column
+    dias_mensagem_cashback: number | null; // Added new column (renamed)
+    tipo_mensagem_cashback: string | null; // Added new column (renamed)
 }
 
 // Define the structure for Instance Info from Supabase
@@ -264,6 +264,14 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
         });
     };
 
+    // Helper to display cashback timing
+    const formatCashbackTiming = (dias: number | null, tipo: string | null): string => {
+        if (dias === null || tipo === null) return 'Não configurado';
+        if (tipo === 'apos_venda') return `${dias} dias após a venda`;
+        if (tipo === 'antes_validade') return `${dias} dias antes da validade`;
+        return 'Configuração inválida';
+    };
+
 
     const isLoading = isLoadingMessages || isLoadingInstances || toggleMessageMutation.isLoading || deleteMessageMutation.isLoading;
     const fetchError = messagesError || instancesError;
@@ -311,11 +319,12 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                     <Table className="message-table min-w-full">
                         <TableHeader className="bg-gray-100 border-b border-gray-300">
                             <TableRow>
-                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Categoria</TableHead>
+                                {/* Removed Categoria column */}
+                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Timing Cashback</TableHead> {/* New column */}
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Instância</TableHead>
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Prioridade</TableHead>
-                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Horário Prog.</TableHead>
+                                {/* Removed Horário Prog. column */}
                                 <TableHead className="text-right text-lg font-semibold text-gray-700 px-6 py-3">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -338,7 +347,10 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                 return (
                                     <React.Fragment key={message.id}>
                                         <TableRow data-message-id={message.id} data-category={message.categoria} className="hover:bg-gray-50 cursor-pointer transition-colors">
-                                            <TableCell className="font-medium text-gray-900 px-6 py-4">{message.categoria || 'N/A'}</TableCell>
+                                            {/* Removed Categoria Cell */}
+                                            <TableCell className="font-medium text-gray-900 px-6 py-4 whitespace-nowrap"> {/* New Cell */}
+                                                {formatCashbackTiming(message.dias_mensagem_cashback, message.tipo_mensagem_cashback)}
+                                            </TableCell>
                                             <TableCell className="text-center">
                                                 <span className={cn(
                                                     "inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold transition-colors",
@@ -353,11 +365,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-center text-gray-900 font-semibold px-6 py-4">{message.prioridade ?? 'N/D'}</TableCell>
-                                            <TableCell className="text-center text-gray-700 px-6 py-4">
-                                                {(message.categoria === 'Confirmar Agendamento' || message.categoria === 'Aniversário') && message.hora_envio ?
-                                                    message.hora_envio : '-'
-                                                }
-                                            </TableCell>
+                                            {/* Removed Horário Prog. Cell */}
                                             <TableCell className="text-right px-6 py-4">
                                                 <div className="message-item-actions flex gap-2 justify-end">
                                                     <TooltipProvider>
@@ -439,7 +447,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6">
+                                            <TableCell colSpan={6} className="p-6"> {/* Adjusted colspan */}
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}

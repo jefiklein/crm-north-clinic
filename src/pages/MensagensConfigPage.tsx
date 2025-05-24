@@ -49,7 +49,7 @@ interface Group {
   nome_grupo: string;
 }
 
-// Updated interface to match Supabase join structure for fetching
+// Updated interface to match Supabase join structure and new column names
 interface FetchedMessageData {
   id: number;
   categoria: string;
@@ -67,8 +67,8 @@ interface FetchedMessageData {
   para_cliente: boolean;
   para_funcionario: boolean;
   context: string | null; // Added new column
-  dias_offset: number | null; // Added new column
-  tipo_agendamento: string | null; // Added new column
+  dias_mensagem_cashback: number | null; // Added new column (renamed)
+  tipo_mensagem_cashback: string | null; // Added new column (renamed)
   // This will be an array of objects from the join table
   north_clinic_mensagens_servicos: { id_servico: number }[];
 }
@@ -82,7 +82,7 @@ interface WebhookResponse {
 }
 
 
-const orderedCategories = [
+const orderedCategoriesGeneral = [
   "Agendou",
   "Confirmar Agendamento",
   "Responder Confirmar Agendamento",
@@ -92,6 +92,14 @@ const orderedCategories = [
   "Chegou",
   "Liberado",
 ];
+
+const orderedCategoriesCashback = [
+    "Aniversário", // Aniversário can also be a cashback message
+    "Cashback Concedido",
+    "Cashback Próximo a Expirar",
+    // Add other cashback categories as needed
+];
+
 
 const defaultTemplates: Record<string, string> = {
   Agendou:
@@ -110,6 +118,10 @@ const defaultTemplates: Record<string, string> = {
     "Olá {primeiro_nome_cliente}, que bom que você chegou! Por favor, aguarde um momento, em breve {primeiro_nome_funcionario} irá te chamar.",
   Liberado:
     "{primeiro_nome_cliente}, sua sessão de *{nome_servico_principal}* foi concluída. Se tiver uma próxima etapa, informaremos em breve. Obrigado!",
+  "Cashback Concedido":
+    "Olá {primeiro_nome_cliente}! Você recebeu R$ {valor_cashback} de cashback na sua última compra! Use até {validade_cashback}. Aproveite!", // Example cashback template
+  "Cashback Próximo a Expirar":
+    "Olá {primeiro_nome_cliente}! Seu cashback de R$ {valor_cashback} está perto de expirar ({validade_cashback}). Não perca a chance de usar!", // Example cashback template
 };
 
 // Placeholder data for message preview (updated for cashback)
@@ -175,9 +187,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
   const [messageContext, setMessageContext] = useState<string | null>(null); // State for message context
 
-  // NEW: State for cashback timing
-  const [diasOffset, setDiasOffset] = useState<string>(''); // Use string for input
-  const [tipoAgendamento, setTipoAgendamento] = useState<string>(''); // 'apos_venda' or 'antes_validade'
+  // NEW: State for cashback timing (using correct column names)
+  const [diasMensagemCashback, setDiasMensagemCashback] = useState<string>(''); // Use string for input
+  const [tipoMensagemCashback, setTipoMensagemCashback] = useState<string>(''); // 'apos_venda' or 'antes_validade'
 
   // Removed variations state
 
@@ -298,9 +310,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
             );
 
-            // NEW: Set cashback timing state
-            setDiasOffset(messageData.dias_offset?.toString() || '');
-            setTipoAgendamento(messageData.tipo_agendamento || '');
+            // NEW: Set cashback timing state (using correct column names)
+            setDiasMensagemCashback(messageData.dias_mensagem_cashback?.toString() || '');
+            setTipoMensagemCashback(messageData.tipo_mensagem_cashback || '');
 
 
           } else {
@@ -331,8 +343,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setTargetType(contextParam === 'cashback' ? 'Cliente' : 'Grupo'); // Default target type based on context
 
           // NEW: Default cashback timing
-          setDiasOffset('');
-          setTipoAgendamento('');
+          setDiasMensagemCashback('');
+          setTipoMensagemCashback('');
 
           // Context is already set from URL parameter above
         }
@@ -507,8 +519,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
     // Validation specific to Cashback context
     if (messageContext === 'cashback') {
-        const offsetNum = parseInt(diasOffset, 10);
-        if (diasOffset.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
+        const offsetNum = parseInt(diasMensagemCashback, 10); // Use correct state name
+        if (diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
              toast({
                  title: "Erro",
                  description: "Informe um número válido de dias (>= 0).",
@@ -516,7 +528,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
              });
              return;
         }
-        if (!tipoAgendamento) {
+        if (!tipoMensagemCashback) { // Use correct state name
              toast({
                  title: "Erro",
                  description: "Selecione o tipo de agendamento (Após Venda ou Antes da Validade).",
@@ -526,7 +538,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         }
          // For cashback, targetType is always Cliente and group is not used, no need to validate them
          // scheduledTime might still be relevant for time of day, so validate if needed
-         if (showScheduledTime && !scheduledTime) { // Keep scheduled time validation if applicable
+         if (showScheduledTimeCashback && !scheduledTime) { // Use correct conditional
               toast({
                  title: "Erro",
                  description: "Selecione a hora programada.",
@@ -583,7 +595,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         categoria: category,
         id_instancia: instanceId,
         modelo_mensagem: messageText,
-        ativo: active,
+        ativo: active, // Keep active status editable
         hora_envio: scheduledTime || null,
         url_arquivo: url_arquivo || null,
         prioridade: 1, // Default priority for now, can be added later
@@ -597,13 +609,17 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
           saveData.grupo = selectedGroup || null;
+          // Ensure cashback fields are null for general messages
+          saveData.dias_mensagem_cashback = null;
+          saveData.tipo_mensagem_cashback = null;
       } else if (messageContext === 'cashback') {
-          saveData.dias_offset = parseInt(diasOffset, 10);
-          saveData.tipo_agendamento = tipoAgendamento;
+          saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
+          saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
           saveData.para_cliente = true; // Always send to client for cashback
           saveData.para_funcionario = false;
           saveData.para_grupo = false;
           saveData.grupo = null; // Group is not used for cashback
+          saveData.servicos_vinculados = []; // Services are not linked for cashback
       }
 
 
@@ -658,23 +674,31 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Handlers for form fields
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    // Only apply default template if creating a new message AND context is general
-    if (messageId === null && messageContext === 'general') {
-      setMessageText(defaultTemplates[value] || "");
+    // Apply default template based on context and category
+    if (messageId === null) { // Only apply default template when creating
+        if (messageContext === 'general') {
+            setMessageText(defaultTemplates[value] || "");
+        } else if (messageContext === 'cashback') {
+             setMessageText(defaultTemplates[value] || ""); // Use cashback templates if available
+        }
     }
-     // TODO: Add default templates for other contexts if needed
   };
 
-  // Show/hide fields based on category and targetType (General context)
-  const showScheduledTimeGeneral =
-    messageContext === 'general' && (category === "Confirmar Agendamento" || category === "Aniversário");
-  const showGroupSelectGeneral = messageContext === 'general' && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
-  const showTargetTypeSelectGeneral = messageContext === 'general' && (category === "Chegou" || category === "Liberado");
-  const showServicesLinkedGeneral = messageContext === 'general' && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
+  // Show/hide fields based on context and category
+  const isGeneralContext = messageContext === 'general';
+  const isCashbackContext = messageContext === 'cashback';
 
-  // Show/hide fields specific to Cashback context
-  const showCashbackTiming = messageContext === 'cashback';
-  const showScheduledTimeCashback = messageContext === 'cashback' && (category === 'Aniversário'); // Aniversário might still need time
+  // General context fields visibility
+  const showCategoryGeneral = isGeneralContext;
+  const showTargetTypeSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado");
+  const showGroupSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
+  const showServicesLinkedGeneral = isGeneralContext && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
+  const showScheduledTimeGeneral = isGeneralContext && (category === "Confirmar Agendamento" || category === "Aniversário");
+
+  // Cashback context fields visibility
+  const showCategoryCashback = isCashbackContext; // Keep category for cashback, but maybe with limited options
+  const showCashbackTiming = isCashbackContext;
+  const showScheduledTimeCashback = isCashbackContext && (category === 'Aniversário'); // Aniversário might still need time
 
 
   // Removed variations count
@@ -713,8 +737,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             <div className="text-red-600 font-semibold">{error}</div>
           ) : (
             <>
-              {/* Category field (only for General context) */}
-              {messageContext === 'general' && (
+              {/* Category field (Conditional based on context) */}
+              {(showCategoryGeneral || showCategoryCashback) && (
                   <div>
                     <label
                       htmlFor="category"
@@ -732,8 +756,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                         <SelectValue placeholder="Selecione a categoria" />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Filter categories based on context if needed */}
-                        {orderedCategories.map((cat) => (
+                        {/* Filter categories based on context */}
+                        {(isGeneralContext ? orderedCategoriesGeneral : orderedCategoriesCashback).map((cat) => (
                           <SelectItem key={cat} value={cat}>
                             {cat}
                           </SelectItem>
@@ -744,43 +768,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                          <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
                      )}
                   </div>
-              )}
-
-              {/* Category field (only for Cashback context - maybe a fixed category or limited options?) */}
-              {messageContext === 'cashback' && (
-                   <div>
-                       <label
-                         htmlFor="category"
-                         className="block mb-1 font-medium text-gray-700"
-                       >
-                         Categoria *
-                       </label>
-                       {/* For cashback, maybe a fixed category or limited options? */}
-                       {/* For now, let's make it a simple input or display if editing */}
-                       {messageId !== null ? (
-                           <Input id="category" value={category || 'N/A'} disabled />
-                       ) : (
-                            <Select
-                                value={category}
-                                onValueChange={setCategory}
-                                id="category"
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecione a categoria" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {/* Add cashback specific categories here */}
-                                    <SelectItem value="Aniversário">Aniversário</SelectItem>
-                                    <SelectItem value="Cashback Concedido">Cashback Concedido</SelectItem>
-                                    <SelectItem value="Cashback Próximo a Expirar">Cashback Próximo a Expirar</SelectItem>
-                                    {/* Add other cashback categories as needed */}
-                                </SelectContent>
-                            </Select>
-                       )}
-                        {messageId !== null && (
-                            <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
-                        )}
-                   </div>
               )}
 
 
@@ -921,32 +908,32 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                           <label
-                            htmlFor="diasOffset"
+                            htmlFor="diasMensagemCashback" // Use correct ID
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Dias *
                           </label>
                           <Input
-                              id="diasOffset"
+                              id="diasMensagemCashback" // Use correct ID
                               type="number"
                               placeholder="Ex: 3"
-                              value={diasOffset}
-                              onChange={(e) => setDiasOffset(e.target.value)}
+                              value={diasMensagemCashback} // Use correct state
+                              onChange={(e) => setDiasMensagemCashback(e.target.value)} // Use correct state setter
                               min="0"
                           />
                           <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
                       </div>
                       <div>
                           <label
-                            htmlFor="tipoAgendamento"
+                            htmlFor="tipoMensagemCashback" // Use correct ID
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Agendar Para *
                           </label>
                           <Select
-                              value={tipoAgendamento}
-                              onValueChange={setTipoAgendamento}
-                              id="tipoAgendamento"
+                              value={tipoMensagemCashback} // Use correct state
+                              onValueChange={setTipoMensagemCashback} // Use correct state setter
+                              id="tipoMensagemCashback" // Use correct ID
                           >
                               <SelectTrigger>
                                   <SelectValue placeholder="Selecione o tipo" />
