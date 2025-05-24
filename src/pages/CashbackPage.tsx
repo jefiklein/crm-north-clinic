@@ -49,20 +49,20 @@ interface InstanceDetails {
 }
 
 // Define the structure for the data sent to the save webhook
-// Using Portuguese names to match the database columns
+// Using Portuguese names to match the database columns for the webhook payload
 interface SaveConfigPayload {
     id_clinica: number | string;
-    cashback_percentual: number | null; // Corrected name
-    cashback_validade: number | null; // Corrected name
-    default_sending_instance_id: number | null;
+    cashback_percentual: number | null;
+    cashback_validade: number | null;
+    default_sending_instance_id: number | null; // Name expected by the webhook
 }
 
 // Define the structure for the data fetched from Supabase config table
 // Using Portuguese names to match the database columns
 interface FetchedConfig {
-    cashback_percentual: number | null; // Corrected name
-    cashback_validade: number | null; // Corrected name
-    default_sending_instance_id: number | null;
+    cashback_percentual: number | null;
+    cashback_validade: number | null;
+    cashback_instancia_padrao: number | null; // Corrected name to match DB
 }
 
 
@@ -117,7 +117,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const [autoCashbackConfig, setAutoCashbackConfig] = useState({
         percentual: '', // Corrected state name
         validadeDias: '', // Corrected state name
-        sendingInstanceId: null as number | null,
+        idInstanciaEnvioPadrao: null as number | null, // Corrected state name to match DB column concept
     });
 
 
@@ -206,7 +206,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             console.log(`Fetching existing cashback config for clinic ${clinicId} from Supabase`);
             const { data, error } = await supabase
                 .from('north_clinic_config_clinicas')
-                .select('cashback_percentual, cashback_validade, default_sending_instance_id') // Corrected column names
+                .select('cashback_percentual, cashback_validade, cashback_instancia_padrao') // Corrected column name here
                 .eq('id', clinicId)
                 .single();
 
@@ -229,14 +229,14 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             setAutoCashbackConfig({
                 percentual: existingConfig.cashback_percentual?.toString() || '', // Corrected state name
                 validadeDias: existingConfig.cashback_validade?.toString() || '', // Corrected state name
-                sendingInstanceId: existingConfig.default_sending_instance_id || null,
+                idInstanciaEnvioPadrao: existingConfig.cashback_instancia_padrao || null, // Corrected state name and source
             });
         } else {
              // Reset state if no existing config is found (for new clinics or if config was deleted)
              setAutoCashbackConfig({
                  percentual: '',
                  validadeDias: '',
-                 sendingInstanceId: null,
+                 idInstanciaEnvioPadrao: null,
              });
         }
     }, [existingConfig]);
@@ -326,7 +326,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             id_clinica: clinicId,
             cashback_percentual: autoCashbackConfig.percentual ? parseFloat(autoCashbackConfig.percentual) : null, // Corrected payload name
             cashback_validade: autoCashbackConfig.validadeDias ? parseInt(autoCashbackConfig.validadeDias, 10) : null, // Corrected payload name
-            default_sending_instance_id: autoCashbackConfig.sendingInstanceId,
+            default_sending_instance_id: autoCashbackConfig.idInstanciaEnvioPadrao, // Use the state value, send with webhook name
         };
 
         // Basic validation (can be more robust in webhook)
@@ -515,7 +515,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                             </div>
                             {/* Added Sending Instance field */}
                              <div className="form-group">
-                                <Label htmlFor="sendingInstance">Instância de Envio Padrão</Label>
+                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão</Label> {/* Corrected htmlFor */}
                                 {isLoadingInstances ? (
                                     <div className="flex items-center text-gray-500 text-sm">
                                         <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando instâncias...
@@ -526,10 +526,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     <p className="text-sm text-orange-600">Nenhuma instância disponível.</p>
                                 ) : (
                                     <Select
-                                        value={autoCashbackConfig.sendingInstanceId?.toString() || ''}
-                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, sendingInstanceId: value ? parseInt(value, 10) : null })}
+                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || ''} // Use corrected state name
+                                        onValueChange={(value) => setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value ? parseInt(value, 10) : null })} // Use corrected state name
                                     >
-                                        <SelectTrigger id="sendingInstance">
+                                        <SelectTrigger id="idInstanciaEnvioPadrao"> {/* Corrected id */}
                                             <SelectValue placeholder="Selecione a instância" />
                                         </SelectTrigger>
                                         <SelectContent>
