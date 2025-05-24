@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -490,30 +491,33 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                     }
                                                 </TableCell>
                                                 <TableCell className="w-[150px]"> {/* Fixed width for input */}
-                                                    <Input
-                                                        type="text" // Changed to text
-                                                        placeholder="R$ 0,00" // Updated placeholder
-                                                        value={currentCashbackValue} // Use current value (string)
-                                                        onChange={(e) => {
-                                                            const rawValue = e.target.value;
-                                                            // Allow empty string
-                                                            if (rawValue === '') {
-                                                                 handleCashbackInputChange(saleId, 'valor', '');
-                                                                 return;
-                                                            }
-                                                            // Replace comma with dot for internal processing
-                                                            const valueWithDot = rawValue.replace(',', '.');
-                                                            // Regex to allow digits, at most one dot, and at most two digits after the dot
-                                                            // Also handle cases where the user types '.' first
-                                                            const validRegex = /^\d*\.?\d{0,2}$/;
-                                                            if (validRegex.test(valueWithDot)) {
-                                                                 // Convert dot back to comma for display in the input field
-                                                                 handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
-                                                            }
-                                                            // If invalid, the state is not updated, keeping the last valid value
-                                                        }}
-                                                        className="h-8 text-right" // Smaller input, right align text
-                                                    />
+                                                    <div className="flex items-center"> {/* Wrap input for R$ prefix */}
+                                                        <span className="mr-1 text-gray-600 text-sm">R$</span> {/* R$ prefix */}
+                                                        <Input
+                                                            type="text" // Changed to text
+                                                            placeholder="0,00" // Updated placeholder
+                                                            value={currentCashbackValue} // Use current value (string)
+                                                            onChange={(e) => {
+                                                                const rawValue = e.target.value;
+                                                                // Allow empty string
+                                                                if (rawValue === '') {
+                                                                     handleCashbackInputChange(saleId, 'valor', '');
+                                                                     return;
+                                                                }
+                                                                // Replace comma with dot for internal processing
+                                                                const valueWithDot = rawValue.replace(',', '.');
+                                                                // Regex to allow digits, at most one dot, and at most two digits after the dot
+                                                                // Also handle cases where the user types '.' first
+                                                                const validRegex = /^\d*\.?\d{0,2}$/;
+                                                                if (validRegex.test(valueWithDot)) {
+                                                                     // Convert dot back to comma for display in the input field
+                                                                     handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
+                                                                }
+                                                                // If invalid, the state is not updated, keeping the last valid value
+                                                            }}
+                                                            className="h-8 text-right flex-grow" // Smaller input, right align text, flex-grow
+                                                        />
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="w-[150px]"> {/* Fixed width for date picker */}
                                                     <Popover>
@@ -570,7 +574,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     ) : configError || instancesError ? ( // Show error if either config or instances failed
                          <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
                     ) : (
-                        <div className="grid gap-4 py-4">
+                        <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
                             <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
                             <div className="form-group">
                                 <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
@@ -580,6 +584,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 5"
                                     value={autoCashbackConfig.percentual}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                             </div>
                             {/* Changed Validity field */}
@@ -591,6 +596,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 30"
                                     value={autoCashbackConfig.validadeDias}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
                             </div>
@@ -608,6 +614,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
                                             setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
                                         }}
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
                                     >
                                         <SelectTrigger id="idInstanciaEnvioPadrao">
                                             <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
@@ -632,6 +639,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     id="applyToCurrentMonthSales"
                                     checked={applyToCurrentMonthSales}
                                     onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                                 <Label
                                     htmlFor="applyToCurrentMonthSales"
