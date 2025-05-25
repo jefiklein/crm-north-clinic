@@ -17,6 +17,7 @@ import WhatsappInstancesPage from "./pages/WhatsappInstancesPage"; // Import the
 import MensagensListPage from "./pages/MensagensListPage"; // Import the new MensagensListPage
 import MensagensConfigPage from "./pages/MensagensConfigPage"; // Import the new MensagensConfigPage
 import CashbackMessagesPage from "./pages/CashbackMessagesPage"; // Import the new CashbackMessagesPage
+import LeadsMessagesPage from "./pages/LeadsMessagesPage"; // Import the new LeadsMessagesPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -106,8 +107,11 @@ const App = () => {
               {/* Route for the main Cashback page - Using menu item ID 14 */}
               <Route path="14" element={<CashbackPage clinicData={clinicData} />} />
 
-              {/* NEW: Nested route for Cashback Messages page under the Cashback menu item (14) */}
+              {/* Nested route for Cashback Messages page under the Cashback menu item (14) */}
               <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
+
+              {/* NEW: Route for the Leads Messages page - Using placeholder menu item ID 15 */}
+              <Route path="15" element={<LeadsMessagesPage clinicData={clinicData} />} />
 
 
               {/* Route for the Conversas page - Using menu item ID 2 */}
@@ -125,7 +129,7 @@ const App = () => {
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14 */}
+              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14, /dashboard/15 */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
               {/* Catch-all for any other path under /dashboard */}
