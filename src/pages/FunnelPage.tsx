@@ -533,7 +533,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
                 <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                     <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                        {clinicData?.nome} | {funnelName} {/* Use optional chaining for clinicData */}
+                        {funnelName} {/* Removed clinicData?.nome */}
                     </h1>
                     <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
                         <div className="relative flex-grow max-w-sm">
@@ -627,7 +627,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 onDragOver={(e) => e.preventDefault()} // Allow dropping
                                                 onDrop={(e) => handleDrop(e, stage.id)} // Handle drop
                                                 onDragEnter={(e) => { e.preventDefault(); setDragOverStageId(stage.id); }} // Set drag over state
-                                                onDragLeave={() => setDragOverStageId(null)} // Clear drag over state
+                                                onDragLeave={() => setDragOverStageId(null)} // Clear drag over state on drag end
                                             >
                                                 <CardHeader className="py-3 px-4 border-b-2 border-gray-300 bg-gray-300 rounded-t-md flex flex-row items-center justify-between">
                                                     <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
@@ -723,7 +723,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                     <CardContent className="p-0 flex-grow overflow-y-auto">
                                         {leadsToDisplay.map(lead => {
                                              // Get stage and funnel info for list view
-                                            const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
+                                            const stageInfo = getStageName(lead.id_etapa); // Use getStageName helper
                                             // Find message linked to this lead's stage
                                             const stageMessage = lead.id_etapa !== null ? stageMessagesMap.get(lead.id_etapa) : undefined;
                                             const hasMessage = !!stageMessage;
@@ -749,7 +749,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
                                                         {/* Funnel name is not directly available per lead in this query */}
                                                         {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
-                                                        <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo.etapa}</span> {/* Display stage name */}
+                                                        <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo}</span> {/* Display stage name */}
                                                         {/* Display Timing Info for the stage message */}
                                                         {hasMessage && (
                                                             <Tooltip>
