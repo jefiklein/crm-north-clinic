@@ -957,8 +957,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     : `Configurar Nova Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`;
 
   // Determine if data is ready to render the form (include funnel/stage loading for leads context)
-  const isDataReady = !loading && !error &&
-                      (!isLeadsContext || (!isLoadingFunnels && !funnelsError && !isLoadingStages && !stagesError));
+  const isLoadingData = loading || (isLeadsContext && (isLoadingFunnels || isLoadingStages));
+  const fetchError = error || (isLeadsContext && (funnelsError || stagesError));
 
 
   return (
@@ -968,15 +968,15 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {loading || (isLeadsContext && (isLoadingFunnels || isLoadingStages)) ? ( // Show loading if initial load or funnel/stage data is loading for leads context
+          {isLoadingData ? ( // Show loading if initial load or funnel/stage data is loading for leads context
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="animate-spin" />
               Carregando dados...
             </div>
-          ) : error || (isLeadsContext && (funnelsError || stagesError)) ? ( // Show error if initial load error or funnel/stage error for leads context
+          ) : fetchError ? ( // Show error if initial load error or funnel/stage error for leads context
             <div className="text-red-600 font-semibold flex items-center gap-2">
                 <TriangleAlert className="h-5 w-5" />
-                {error || funnelsError?.message || stagesError?.message || "Erro ao carregar dados."}
+                {fetchError.message || funnelsError?.message || stagesError?.message || "Erro ao carregar dados."}
             </div>
           ) : (
             <>
@@ -1415,7 +1415,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={saving || isLoadingData || !!error || (isLeadsContext && (isLoadingFunnels || !!funnelsError || isLoadingStages || !!stagesError))}>
+                <Button onClick={handleSave} disabled={saving || isLoadingData || !!fetchError}>
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
