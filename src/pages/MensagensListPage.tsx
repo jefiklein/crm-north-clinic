@@ -94,7 +94,7 @@ function simulateMessage(template: string | null, placeholders: { [key: string]:
 const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const [expandedPreviews, setExpandedPreviews] = useState<Set<number>>(new Set());
+    // Removed expandedPreviews state
 
     const clinicId = clinicData?.id;
 
@@ -216,18 +216,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         }
     };
 
-    const handlePreviewToggle = (messageId: number) => {
-        setExpandedPreviews(prev => {
-            const newSet = new Set(prev);
-            const itemIdString = String(messageId); // Ensure consistent key type
-            if (newSet.has(itemIdString)) {
-                newSet.delete(itemIdString);
-            } else {
-                newSet.add(itemIdString);
-            }
-            return newSet;
-        });
-    };
+    // Removed handlePreviewToggle function
 
     const isLoading = isLoadingMessages || isLoadingInstances || toggleMessageMutation.isLoading || deleteMessageMutation.isLoading;
     const fetchError = messagesError || instancesError;
@@ -284,18 +273,13 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                         </TableHeader>
                         <TableBody id="messageTableBody" className="divide-y divide-gray-200">
                             {messagesList?.map(message => {
-                                const isExpanded = expandedPreviews.has(message.id);
+                                // Removed isExpanded variable
                                 const instanceIdStr = message.id_instancia !== null && message.id_instancia !== undefined ? String(message.id_instancia) : '';
                                 const instance = instanceMap.get(instanceIdStr);
                                 const instanceName = instance ? (instance.nome_exibição || `ID ${instance.id}`) : "Não definida";
                                 const instanceClass = instance ? '' : 'not-set';
 
-                                // Determine if expansion is needed (same logic as MensagensListPage)
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = simulateMessage(message.modelo_mensagem, placeholderData);
-                                const plainText = tempDiv.textContent || tempDiv.innerText || '';
-                                const formattedMessage = simulateMessage(message.modelo_mensagem, placeholderData); // Re-simulate for full content
-                                const needsExpansion = plainText.length > 150 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
+                                // Removed preview related variables and logic
 
 
                                 return (
@@ -324,21 +308,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                             <TableCell className="text-right px-6 py-4">
                                                 <div className="message-item-actions flex gap-2 justify-end">
                                                     <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => handlePreviewToggle(message.id)}
-                                                                    className="preview-toggle-btn p-1"
-                                                                >
-                                                                    {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{isExpanded ? 'Ocultar Preview' : 'Ver Preview'}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                        {/* Removed Preview Toggle Button */}
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <Button
@@ -400,15 +370,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                        {/* Preview Row */}
-                                        <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6">
-                                                <div
-                                                    className="preview-content whitespace-pre-wrap leading-relaxed"
-                                                    dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
-                                                ></div>
-                                            </TableCell>
-                                        </TableRow>
+                                        {/* Removed Preview Row */}
                                     </React.Fragment>
                                 );
                             })}
