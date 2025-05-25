@@ -238,7 +238,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
       queryKey: ['allFunnelsConfigPage', clinicData?.id],
       queryFn: async () => {
-          if (!clinicData?.id) return [];
+          const currentClinicId = clinicData?.id; // Capture clinicId
+          if (!currentClinicId) return [];
           console.log(`[MensagensConfigPage] Fetching all funnels from Supabase...`);
           const { data, error } = await supabase
               .from('north_clinic_crm_funil')
@@ -259,7 +260,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
       queryKey: ['stagesForFunnelConfigPage', clinicData?.id, selectedFunnelId],
       queryFn: async () => {
-          if (!clinicId || selectedFunnelId === null) return [];
+          const currentClinicId = clinicData?.id; // Capture clinicId
+          if (!currentClinicId || selectedFunnelId === null) return [];
           console.log(`[MensagensConfigPage] Fetching stages for funnel ${selectedFunnelId} from Supabase...`);
           const { data, error } = await supabase
               .from('north_clinic_crm_etapa')
@@ -272,7 +274,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           }
           return data || [];
       },
-      enabled: !!clinicId && isLeadsContext && selectedFunnelId !== null, // Enabled only if clinicId, context is 'leads', and a funnel is selected
+      enabled: !!clinicData?.id && isLeadsContext && selectedFunnelId !== null, // Enabled only if clinicId, context is 'leads', and a funnel is selected
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false,
   });
@@ -280,7 +282,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Load initial data: instances, services, message details if editing
   useEffect(() => {
-    if (!clinicData?.id) { // Use clinicData.id for Supabase queries
+    // Capture clinicData at the start of the effect
+    const currentClinicData = clinicData;
+
+    if (!currentClinicData?.id) { // Use captured clinicData
       setError("ID da clínica não disponível.");
       setLoading(false);
       return;
@@ -298,6 +303,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
 
     async function fetchData() {
+      // Capture clinicData again inside the async function for safety
+      const clinicDataInFetch = currentClinicData;
+      if (!clinicDataInFetch?.id) { // Use captured clinicData
+           console.error("[MensagensConfigPage] fetchData: clinicDataInFetch is null or undefined.");
+           setError("ID da clínica não disponível.");
+           setLoading(false);
+           return;
+      }
+
+
       setLoading(true);
       setError(null);
       try {
@@ -305,7 +320,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const { data: instancesData, error: instancesError } = await supabase
           .from("north_clinic_config_instancias")
           .select("id, nome_exibição, nome_instancia_evolution") // Select only necessary fields
-          .eq("id_clinica", clinicData.id); // Filter by clinic ID
+          .eq("id_clinica", clinicDataInFetch.id); // Filter by clinic ID - Use captured clinicData
 
         if (instancesError) throw instancesError;
         setInstances(instancesData || []);
@@ -316,8 +331,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
              const { data: fetchedServicesData, error: servicesError } = await supabase
                .from("north_clinic_servicos")
                .select("id, nome") // Select only necessary fields
-               .eq("id_clinica", clinicData.id) // Filter by clinic ID
-               .order("nome", { ascending: true });
+               .eq("id_clinica", clinicDataInFetch.id) // Filter by clinic ID - Use captured clinicData
+               .order("nome", { ascending: true }); // <-- Line 275:17 is here
 
              if (servicesError) throw servicesError;
              servicesData = fetchedServicesData || [];
@@ -331,7 +346,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             .from('north_clinic_config_mensagens')
             .select('*, north_clinic_mensagens_servicos(id_servico)') // Select message fields and join linked service IDs
             .eq('id', messageIdToEdit) // Filter by message ID
-            .eq('id_clinica', clinicData.id) // Filter by clinic ID
+            .eq('id_clinica', clinicDataInFetch.id) // Filter by clinic ID - Use captured clinicData
             .single(); // Expecting a single message
 
           if (messageError && messageError.code !== 'PGRST116') { // PGRST116 is "No rows found"
@@ -471,7 +486,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // Load groups when instance or targetType changes and targetType is 'Grupo'
   useEffect(() => {
     async function fetchGroups() {
-      if (!instanceId || targetType !== "Grupo") {
+      const currentClinicId = clinicData?.id; // Capture clinicId
+      if (!instanceId || targetType !== "Grupo" || !currentClinicId) { // Add clinicId check
         setGroups([]);
         setSelectedGroup(null);
         return;
@@ -507,7 +523,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
     }
     fetchGroups();
-  }, [instanceId, targetType, instances]); // Depend on instanceId, targetType, and instances
+  }, [instanceId, targetType, instances, clinicData?.id]); // Depend on instanceId, targetType, instances, and clinicData.id
 
   // Handle media file selection and preview
   useEffect(() => {
@@ -576,7 +592,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Handle form submission
   const handleSave = async () => {
-    if (!clinicData?.code || !clinicData?.id) {
+    // Capture clinicCode and clinicId at the start
+    const currentClinicCode = clinicData?.code;
+    const currentClinicId = clinicData?.id;
+
+    if (!currentClinicCode || !currentClinicId) {
       toast({
         title: "Erro",
         description: "Dados da clínica não disponíveis.",
@@ -741,7 +761,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const formData = new FormData();
         formData.append("data", mediaFile, mediaFile.name);
         formData.append("fileName", mediaFile.name);
-        formData.append("clinicId", clinicData.code); // Use clinic code for upload webhook
+        formData.append("clinicId", currentClinicCode); // Use captured clinic code for upload webhook
         const uploadRes = await fetch(
           "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
           {
@@ -762,7 +782,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
       // Prepare data for save webhook
       const saveData: any = { // Use any for now to easily add conditional fields
-        id_clinica: clinicData.code, // Use clinic code for save webhook
+        id_clinica: currentClinicCode, // Use captured clinic code for save webhook
         id: messageId, // null for new, number for edit
         categoria: category || null, // Send category, allow null
         id_instancia: instanceId,
@@ -862,7 +882,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         else if (messageContext === 'leads') redirectPath = '/dashboard/9'; // Redirect to Leads Messages page
 
         window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
-          clinicData.code
+          currentClinicCode
         )}&status=${messageId ? "updated" : "created"}`;
       }, 1500);
     } catch (e: any) {
