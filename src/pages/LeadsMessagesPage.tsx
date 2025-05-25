@@ -10,6 +10,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Label } from "@/components/ui/label"; // Import Label component
 
 // Define the structure for clinic data
 interface ClinicData {
