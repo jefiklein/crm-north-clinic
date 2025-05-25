@@ -1005,7 +1005,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
-      <Card className="max-w-4xl mx-auto">
+      <Card className="w-full"> {/* Removed max-w-4xl and mx-auto */}
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
