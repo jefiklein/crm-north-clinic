@@ -90,6 +90,9 @@ interface FetchedMessageData {
   tipo_mensagem_cashback: string | null;
   id_funil?: number | null;
   id_etapa?: number | null;
+  timing_type?: string | null; // Added new column
+  delay_value?: number | null; // Added new column
+  delay_unit?: string | null; // Added new column
   sending_order: string | null; // <-- Added new column
   north_clinic_mensagens_servicos: { id_servico: number }[];
 }
@@ -215,6 +218,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [selectedFunnelId, setSelectedFunnelId] = useState<number | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
 
+  // NEW: State for timing configuration for Leads context
+  const [timingType, setTimingType] = useState<string>('immediate'); // 'immediate' or 'delay'
+  const [delayValue, setDelayValue] = useState<string>(''); // Use string for input
+  const [delayUnit, setDelayUnit] = useState<string>('hours'); // 'minutes', 'hours', 'days'
+
+
   // NEW: State for sending order
   const [sendingOrder, setSendingOrder] = useState<string>('both'); // Default to 'both'
 
@@ -332,7 +341,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                .from("north_clinic_servicos")
                .select("id, nome") // Select only necessary fields
                .eq("id_clinica", clinicDataInFetch.id) // Filter by clinic ID - Use captured clinicData
-               .order("nome", { ascending: true }); // <-- Line 275:17 is here
+               .order("nome", { ascending: true });
 
              if (servicesError) throw servicesError;
              servicesData = fetchedServicesData || [];
@@ -412,6 +421,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             if (messageData.context === 'leads') {
                  setSelectedFunnelId(messageData.id_funil ?? null);
                  setSelectedStageId(messageData.id_etapa ?? null);
+                 // Set Leads timing state
+                 setTimingType(messageData.timing_type || 'immediate');
+                 setDelayValue(messageData.delay_value?.toString() || '');
+                 setDelayUnit(messageData.delay_unit || 'hours');
             }
 
             // NEW: Set sending order state
@@ -451,8 +464,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setTipoMensagemCashback('');
 
           // Default Leads context state
-          setSelectedFunnelId(null);
-          setSelectedStageId(null);
+          setSelectedFunnelId(urlParams.get('funnelId') ? parseInt(urlParams.get('funnelId')!, 10) : null); // Get funnelId from URL
+          setSelectedStageId(urlParams.get('stageId') ? parseInt(urlParams.get('stageId')!, 10) : null); // Get stageId from URL
+
+          // Default Leads timing state
+          setTimingType('immediate');
+          setDelayValue('');
+          setDelayUnit('hours');
+
 
           // NEW: Default sending order
           setSendingOrder('both');
@@ -718,16 +737,24 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
              });
              return;
          }
-         // For leads, targetType is always Cliente and group/services are not used, no need to validate them
-         // scheduledTime might still be relevant for time of day, so validate if needed
-         if (showScheduledTimeLeads && !scheduledTime) { // Use correct conditional
-              toast({
-                 title: "Erro",
-                 description: "Selecione a hora programada.",
-                 variant: "destructive",
-             });
-             return;
+         // Validate timing fields for Leads context
+         if (!timingType) {
+              toast({ title: "Erro", description: "Selecione o tipo de agendamento.", variant: "destructive" });
+              return;
          }
+         if (timingType === 'delay') {
+             const delayNum = parseInt(delayValue, 10);
+             if (delayValue.trim() === '' || isNaN(delayNum) || delayNum < 0) {
+                  toast({ title: "Erro", description: "Informe um valor de atraso válido (número >= 0).", variant: "destructive" });
+                  return;
+             }
+             if (!delayUnit) {
+                  toast({ title: "Erro", description: "Selecione a unidade do atraso (minutos, horas, dias).", variant: "destructive" });
+                  return;
+             }
+         }
+         // For leads, targetType is always Cliente and group/services are not used, no need to validate them
+         // scheduledTime is NOT used for leads context, no need to validate it
     }
 
 
@@ -788,7 +815,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         id_instancia: instanceId,
         modelo_mensagem: messageText,
         ativo: active, // Keep active status editable
-        hora_envio: scheduledTime || null,
+        hora_envio: scheduledTime || null, // Keep hora_envio for general/cashback, will be null for leads
         url_arquivo: url_arquivo || null,
         prioridade: 1, // Default priority for now, can be added later
         context: messageContext, // Include context in save data
@@ -804,6 +831,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         tipo_mensagem_cashback: null,
         id_funil: null, // Default to null
         id_etapa: null, // Default to null
+        timing_type: null, // Default to null
+        delay_value: null, // Default to null
+        delay_unit: null, // Default to null
         sending_order: sendingOrder, // <-- Include sending order
       };
 
@@ -819,6 +849,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.tipo_mensagem_cashback = null;
           saveData.id_funil = null;
           saveData.id_etapa = null;
+          saveData.timing_type = null;
+          saveData.delay_value = null;
+          saveData.delay_unit = null;
       } else if (isCashbackContext) {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
@@ -830,6 +863,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Ensure leads fields are null for cashback messages
           saveData.id_funil = null;
           saveData.id_etapa = null;
+          saveData.timing_type = null;
+          saveData.delay_value = null;
+          saveData.delay_unit = null;
       } else if (isLeadsContext) { // Add Leads context fields
           saveData.id_funil = selectedFunnelId;
           saveData.id_etapa = selectedStageId;
@@ -843,6 +879,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.tipo_mensagem_cashback = null;
           // Category is not used for leads context, send null or default if needed by backend
           saveData.categoria = null; // Or a default like "Lead" if backend requires non-null
+          // Add Leads timing fields
+          saveData.timing_type = timingType;
+          saveData.delay_value = timingType === 'delay' ? parseInt(delayValue, 10) : null;
+          saveData.delay_unit = timingType === 'delay' ? delayUnit : null;
+          saveData.hora_envio = null; // Hora Programada is not used for delay timing
       }
 
 
@@ -926,6 +967,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Leads context fields visibility
   const showFunnelStageSelectLeads = isLeadsContext;
+  const showTimingFieldsLeads = isLeadsContext; // Show new timing fields for Leads context
   // Corrected condition: Hora Programada is NOT shown for Leads context
   const showScheduledTimeLeads = false; // Always false for Leads context
 
@@ -1243,6 +1285,75 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                           </RadioGroup>
                           <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
                       </div>
+                  </div>
+              )}
+
+              {/* Leads Timing fields (only for Leads context) */}
+              {showTimingFieldsLeads && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                          <label
+                            htmlFor="timingType"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Agendar Envio *
+                          </label>
+                          <Select
+                              value={timingType}
+                              onValueChange={setTimingType}
+                              id="timingType"
+                          >
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="immediate">Imediatamente ao entrar na etapa</SelectItem>
+                                  <SelectItem value="delay">Com atraso após entrar na etapa</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      {timingType === 'delay' && (
+                          <>
+                              <div>
+                                  <label
+                                    htmlFor="delayValue"
+                                    className="block mb-1 font-medium text-gray-700"
+                                  >
+                                    Valor do Atraso *
+                                  </label>
+                                  <Input
+                                      id="delayValue"
+                                      type="number"
+                                      placeholder="Ex: 2"
+                                      value={delayValue}
+                                      onChange={(e) => setDelayValue(e.target.value)}
+                                      min="0"
+                                  />
+                              </div>
+                              <div>
+                                  <label
+                                    htmlFor="delayUnit"
+                                    className="block mb-1 font-medium text-gray-700"
+                                  >
+                                    Unidade do Atraso *
+                                  </label>
+                                  <Select
+                                      value={delayUnit}
+                                      onValueChange={setDelayUnit}
+                                      id="delayUnit"
+                                  >
+                                      <SelectTrigger>
+                                          <SelectValue placeholder="Selecione a unidade" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="minutes">Minutos</SelectItem>
+                                          <SelectItem value="hours">Horas</SelectItem>
+                                          <SelectItem value="days">Dias</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                          </>
+                      )}
                   </div>
               )}
 

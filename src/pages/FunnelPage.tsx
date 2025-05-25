@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert } from "lucide-react";
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass } from "lucide-react"; // Added MessageSquarePlus, Clock, Hourglass
 import { useQuery, useQueryClient } from "@tanstack/react-query"; // Import useQueryClient
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -50,6 +51,18 @@ interface FunnelDetails {
     id: number;
     nome_funil: string;
 }
+
+// Define the structure for a Message linked to a stage (fetched from Supabase)
+interface StageMessage {
+    id: number;
+    modelo_mensagem: string | null;
+    timing_type: string | null; // 'immediate' or 'delay'
+    delay_value: number | null;
+    delay_unit: string | null; // 'minutes', 'hours', 'days'
+    id_etapa: number; // Link back to the stage
+    // Add other message fields if needed for display (e.g., url_arquivo)
+}
+
 
 // Define the return type for the leads query
 interface LeadsQueryData {
@@ -110,6 +123,7 @@ const menuIdToFunnelIdMap: { [key: number]: number } = {
 
 const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient(); // Get query client instance
+    const navigate = useNavigate(); // Initialize navigate hook
     const { funnelId: menuIdParam } = useParams<{ funnelId: string }>(); // Get menu item ID from URL
     const menuId = parseInt(menuIdParam || '0', 10);
 
@@ -126,6 +140,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const ITEMS_PER_PAGE = 15;
 
     const clinicId = clinicData?.id;
+    const clinicCode = clinicData?.code;
+
 
     // --- Debugging Logs ---
     console.log("FunnelPage: Rendering");
@@ -244,6 +260,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
+                // Removed 'interesses' from the select list
                 .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Request exact count only for list view
                 .eq('id_clinica', currentClinicId) // Filter by clinic ID - KEEP THIS
                 .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
@@ -313,10 +330,62 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
+    // NEW: Fetch Messages linked to stages in this funnel
+    const { data: stageMessages, isLoading: isLoadingStageMessages, error: stageMessagesError } = useQuery<StageMessage[]>({
+        queryKey: ['stageMessages', clinicId, funnelIdForQuery, stagesData?.map(s => s.id).join(',')], // Depend on clinicId, funnelId, and stage IDs
+        queryFn: async ({ queryKey }) => {
+            const [, currentClinicId, currentFunnelIdForQuery, stagesDependency] = queryKey;
 
-    // Combine loading states and errors
-    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads;
-    const fetchError = stagesError || funnelDetailsError || leadsError;
+            if (!currentClinicId || isNaN(currentFunnelIdForQuery) || !stagesData || stagesData.length === 0) {
+                 console.warn("FunnelPage: Skipping stage messages fetch due to missing clinicId, invalid funnelId, or no stages.");
+                 return [];
+            }
+
+            const stageIds = stagesData.map(stage => stage.id);
+             if (stageIds.length === 0) {
+                 console.warn("FunnelPage: Skipping stage messages fetch because no stage IDs found for the funnel.");
+                 return [];
+             }
+
+            console.log(`FunnelPage: Fetching stage messages for clinic ${currentClinicId}, funnel ${currentFunnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase...`);
+
+            const { data, error } = await supabase
+                .from('north_clinic_config_mensagens')
+                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa') // Select relevant message fields
+                .eq('id_clinica', currentClinicId) // Filter by clinic ID
+                .eq('context', 'leads') // Filter for leads context messages
+                .eq('id_funil', currentFunnelIdForQuery) // Filter by the current funnel ID
+                .in('id_etapa', stageIds); // Filter by stages belonging to this funnel
+
+            console.log('FunnelPage: Supabase stage messages fetch result:', { data, error });
+
+            if (error) {
+                console.error("FunnelPage: Supabase stage messages fetch error:", error);
+                throw new Error(`Erro ao buscar mensagens das etapas: ${error.message}`);
+            }
+
+            return data || [];
+        },
+        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData && (stagesData?.length ?? 0) > 0, // Enable only if clinicId, valid funnelId, stagesData exist (and not empty), and not invalid overall
+        staleTime: 60 * 1000, // 1 minute for messages
+        refetchOnWindowFocus: false,
+    });
+
+    // Map stage messages by stage ID for quick lookup
+    const stageMessagesMap = useMemo(() => {
+        const map = new Map<number, StageMessage>();
+        stageMessages?.forEach(msg => {
+            // Assuming only one message per stage for now
+            map.set(msg.id_etapa, msg);
+        });
+        console.log("FunnelPage: Created stage messages map:", map);
+        return map;
+    }, [stageMessages]);
+
+
+    // Combine loading states and errors (include stage messages)
+    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads || isLoadingStageMessages;
+    const fetchError = stagesError || funnelDetailsError || leadsError || stageMessagesError;
 
     // Data for rendering is now directly from leadsQueryData
     const leadsToDisplay = leadsQueryData?.leads || [];
@@ -424,6 +493,28 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         console.log(`Placeholder: Call webhook to update lead ${leadIdNum} to stage ${targetStageId}`);
     };
 
+    // Handle navigation to message config page
+    const handleConfigureMessage = (stageId: number, messageId?: number) => {
+        if (!clinicCode || funnelIdForQuery === undefined) {
+            console.error("Clinic code or funnel ID not available for navigation.");
+            return;
+        }
+        // Navigate to the config page, passing context, funnelId, stageId, and messageId (if editing)
+        const url = `/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicCode)}&context=leads&funnelId=${funnelIdForQuery}&stageId=${stageId}${messageId ? `&id=${messageId}` : ''}`;
+        navigate(url);
+    };
+
+    // Helper to format timing display
+    const formatTiming = (message: StageMessage): string => {
+        if (message.timing_type === 'immediate') {
+            return 'Imediata';
+        }
+        if (message.timing_type === 'delay' && message.delay_value !== null && message.delay_unit) {
+            return `+${message.delay_value}${message.delay_unit.charAt(0)}`; // e.g., +2h, +30m, +1d
+        }
+        return 'N/D';
+    };
+
 
     // Display UnderConstructionPage if the funnel is invalid
     if (isInvalidFunnel) {
@@ -438,238 +529,302 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
 
     return (
-        <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
-            <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
-                <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | {funnelName} {/* Use optional chaining for clinicData */}
-                </h1>
-                <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
-                    <div className="relative flex-grow max-w-sm">
-                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                         <Input
-                            type="text"
-                            placeholder="Buscar leads..."
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                            className="pl-9"
-                         />
-                    </div>
-                    <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoading ? 'Carregando...' : `${totalItems} leads`} {/* Use totalItems here */}
-                    </span>
-                    {currentView === 'list' && ( // Only show sort for list view
-                        <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Ordenar por..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="created_at_desc">Cadastro Recente</SelectItem>
-                                <SelectItem value="created_at_asc">Cadastro Antigo</SelectItem>
-                                <SelectItem value="name_asc">Nome A-Z</SelectItem>
-                                <SelectItem value="name_desc">Nome Z-A</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    )}
-                </div>
-                <div className="view-toggle flex gap-2 ml-auto flex-shrink-0">
-                    <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'kanban' | 'list')}>
-                        <TabsList>
-                            <TabsTrigger value="kanban" title="Visão Kanban">
-                                <Kanban className="h-4 w-4 mr-2" /> Kanban
-                            </TabsTrigger>
-                            <TabsTrigger value="list" title="Visão Lista">
-                                <List className="h-4 w-4 mr-2" /> Lista
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </div>
-                <Button onClick={() => alert('Funcionalidade "Novo Lead" ainda não implementada.')} className="flex-shrink-0">
-                    <User className="h-4 w-4 mr-2" /> Novo Lead
-                </Button>
-            </div>
-
-            <div className="view-container flex-grow overflow-hidden">
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-primary">
-                        <Loader2 className="h-12 w-12 animate-spin mb-4" />
-                        <span className="text-lg">Carregando dados do funil...</span>
-                    </div>
-                ) : fetchError ? (
-                    <div className="flex flex-col items-center justify-center h-full text-red-600 p-4 bg-red-50 rounded-md">
-                        <TriangleAlert className="h-12 w-12 mb-4" />
-                        <span className="text-lg text-center">Erro ao carregar dados do funil: {fetchError.message}</span>
-                        {/* Add a retry button if needed */}
-                    </div>
-                ) : (stagesData?.length ?? 0) === 0 ? (
-                     <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
-                        <Info className="h-12 w-12 mb-4" />
-                        <span className="text-lg text-center">Nenhuma etapa configurada para este funil ou nenhum dado retornado.</span>
-                    </div>
-                ) : totalItems === 0 && searchTerm !== '' ? (
-                     <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
-                        <Info className="h-12 w-12 mb-4" />
-                        <span className="text-lg text-center">Nenhum lead encontrado com o filtro "{searchTerm}".</span>
-                    </div>
-                ) : totalItems === 0 ? (
-                     <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
-                        <Info className="h-12 w-12 mb-4" />
-                        <span className="text-lg text-center">Nenhum lead encontrado neste funil.</span>
-                    </div>
-                ) : (
-                    <>
-                        {/* Kanban View */}
-                        {currentView === 'kanban' && (
-                            <div className="kanban-board flex gap-4 h-full overflow-x-auto pb-4">
-                                {stagesData?.map(stage => (
-                                    <Card
-                                        key={stage.id}
-                                        className={cn(
-                                            "kanban-column flex flex-col flex-shrink-0 w-80 bg-gray-200 h-full",
-                                            dragOverStageId === stage.id && "border-2 border-primary" // Add border when dragging over
-                                        )}
-                                        onDragOver={(e) => e.preventDefault()} // Allow dropping
-                                        onDrop={(e) => handleDrop(e, stage.id)} // Handle drop
-                                        onDragEnter={(e) => { e.preventDefault(); setDragOverStageId(stage.id); }} // Set drag over state
-                                        onDragLeave={() => setDragOverStageId(null)} // Clear drag over state
-                                    >
-                                        <CardHeader className="py-3 px-4 border-b-2 border-gray-300 bg-gray-300 rounded-t-md flex flex-row items-center justify-between">
-                                            <CardTitle className="text-base font-semibold text-gray-800">{stage.nome_etapa || 'S/Nome'}</CardTitle>
-                                            <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm">
-                                                {leadsByStage[stage.id]?.length || 0}
-                                            </span>
-                                        </CardHeader>
-                                        <CardContent className="flex-grow overflow-y-auto p-3 flex flex-col gap-3">
-                                            {leadsByStage[stage.id]?.map(lead => (
-                                                <div
-                                                    key={lead.id}
-                                                    className="kanban-card bg-white rounded-md p-3 shadow-sm border border-gray-200 cursor-grab hover:shadow-md hover:border-l-4 hover:border-primary transition-all duration-200"
-                                                    draggable // Make cards draggable
-                                                    onDragStart={(e) => {
-                                                        console.log('Drag started for lead:', lead.id);
-                                                        e.dataTransfer.setData('text/plain', String(lead.id)); // Set lead ID
-                                                    }}
-                                                    onDragEnd={() => setDragOverStageId(null)} // Clear drag over state on drag end
-                                                    // Removed onClick from the card itself
-                                                >
-                                                    <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
-                                                    <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
-                                                    {/* Removed rendering of interests */}
-                                                    {lead.lead_score !== null && (
-                                                        <div className="lead-score flex items-center gap-1 mb-2">
-                                                            {renderStars(lead.lead_score)}
-                                                        </div>
-                                                    )}
-                                                    <div className="card-footer text-xs text-gray-500 border-t border-gray-200 pt-2 flex justify-between items-center">
-                                                        <span className="origin truncate max-w-[70%]" title={`Origem: ${lead.origem || 'N/D'}`}>Origem: {lead.origem || 'N/D'}</span>
-                                                        {/* Modified button onClick to log data */}
-                                                        <Button
-                                                            variant="link"
-                                                            size="sm"
-                                                            className="p-0 h-auto text-primary text-xs"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation(); // Prevent card click
-                                                                console.log("Detalhes do Lead:", lead); // Log the lead data
-                                                                alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
-                                                            }}
-                                                        >
-                                                            Detalhes
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
+        <TooltipProvider>
+            <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
+                <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
+                    <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
+                        {clinicData?.nome} | {funnelName} {/* Use optional chaining for clinicData */}
+                    </h1>
+                    <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
+                        <div className="relative flex-grow max-w-sm">
+                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                             <Input
+                                type="text"
+                                placeholder="Buscar leads..."
+                                value={searchTerm}
+                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                className="pl-9"
+                             />
+                        </div>
+                        <span className="text-sm text-gray-600 whitespace-nowrap">
+                            {isLoading ? 'Carregando...' : `${totalItems} leads`} {/* Use totalItems here */}
+                        </span>
+                        {currentView === 'list' && ( // Only show sort for list view
+                            <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Ordenar por..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="created_at_desc">Cadastro Recente</SelectItem>
+                                    <SelectItem value="created_at_asc">Cadastro Antigo</SelectItem>
+                                    <SelectItem value="name_asc">Nome A-Z</SelectItem>
+                                    <SelectItem value="name_desc">Nome Z-A</SelectItem>
+                                </SelectContent>
+                            </Select>
                         )}
+                    </div>
+                    <div className="view-toggle flex gap-2 ml-auto flex-shrink-0">
+                        <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'kanban' | 'list')}>
+                            <TabsList>
+                                <TabsTrigger value="kanban" title="Visão Kanban">
+                                    <Kanban className="h-4 w-4 mr-2" /> Kanban
+                                </TabsTrigger>
+                                <TabsTrigger value="list" title="Visão Lista">
+                                    <List className="h-4 w-4 mr-2" /> Lista
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                    <Button onClick={() => alert('Funcionalidade "Novo Lead" ainda não implementada.')} className="flex-shrink-0">
+                        <User className="h-4 w-4 mr-2" /> Novo Lead
+                    </Button>
+                </div>
 
-                        {/* List View */}
-                        {currentView === 'list' && (
-                            <Card className="leads-list-container h-full flex flex-col">
-                                <CardContent className="p-0 flex-grow overflow-y-auto">
-                                    {leadsToDisplay.map(lead => {
-                                         // Get stage and funnel info for list view
-                                        const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
+                <div className="view-container flex-grow overflow-hidden">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-primary">
+                            <Loader2 className="h-12 w-12 animate-spin mb-4" />
+                            <span className="text-lg">Carregando dados do funil...</span>
+                        </div>
+                    ) : fetchError ? (
+                        <div className="flex flex-col items-center justify-center h-full text-red-600 p-4 bg-red-50 rounded-md">
+                            <TriangleAlert className="h-12 w-12 mb-4" />
+                            <span className="text-lg text-center">Erro ao carregar dados do funil: {fetchError.message}</span>
+                            {/* Add a retry button if needed */}
+                        </div>
+                    ) : (stagesData?.length ?? 0) === 0 ? (
+                         <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
+                            <Info className="h-12 w-12 mb-4" />
+                            <span className="text-lg text-center">Nenhuma etapa configurada para este funil ou nenhum dado retornado.</span>
+                        </div>
+                    ) : totalItems === 0 && searchTerm !== '' ? (
+                         <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
+                            <Info className="h-12 w-12 mb-4" />
+                            <span className="text-lg text-center">Nenhum lead encontrado com o filtro "{searchTerm}".</span>
+                        </div>
+                    ) : totalItems === 0 ? (
+                         <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
+                            <Info className="h-12 w-12 mb-4" />
+                            <span className="text-lg text-center">Nenhum lead encontrado neste funil.</span>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Kanban View */}
+                            {currentView === 'kanban' && (
+                                <div className="kanban-board flex gap-4 h-full overflow-x-auto pb-4">
+                                    {stagesData?.map(stage => {
+                                        const stageMessage = stageMessagesMap.get(stage.id);
+                                        const hasMessage = !!stageMessage;
+                                        const messageTiming = hasMessage ? formatTiming(stageMessage!) : ''; // Format timing if message exists
+
                                         return (
-                                            <div
-                                                key={lead.id}
-                                                className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
-                                                // Removed onClick from the list item itself
-                                            >
-                                                <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
-                                                <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
-                                                    <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                                    <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
-                                                    {/* Removed rendering of interests */}
-                                                </div>
-                                                <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
-                                                    {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
-                                                    {lead.sourceUrl && <div className="lead-source truncate">Anúncio: <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Ver link</a></div>}
-                                                    <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.created_at)}</div>
-                                                </div>
-                                                <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
-                                                    {/* Funnel name is not directly available per lead in this query */}
-                                                    {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
-                                                    <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo.etapa}</span> {/* Display stage name */}
-                                                </div>
-                                                {lead.lead_score !== null && (
-                                                    <div className="lead-score flex items-center ml-4">
-                                                        <div className="stars flex gap-0.5" title={`Lead Score: ${lead.lead_score}`}>
-                                                            {renderStars(lead.lead_score)}
-                                                        </div>
-                                                    </div>
+                                            <Card
+                                                key={stage.id}
+                                                className={cn(
+                                                    "kanban-column flex flex-col flex-shrink-0 w-80 bg-gray-200 h-full",
+                                                    dragOverStageId === stage.id && "border-2 border-primary" // Add border when dragging over
                                                 )}
-                                                {/* Modified button onClick to log data */}
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="ml-4 flex-shrink-0"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation(); // Prevent list item click (though none exists now)
-                                                        console.log("Detalhes do Lead:", lead); // Log the lead data
-                                                        alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
-                                                    }}
-                                                >
-                                                    Detalhes
-                                                </Button>
-                                            </div>
+                                                onDragOver={(e) => e.preventDefault()} // Allow dropping
+                                                onDrop={(e) => handleDrop(e, stage.id)} // Handle drop
+                                                onDragEnter={(e) => { e.preventDefault(); setDragOverStageId(stage.id); }} // Set drag over state
+                                                onDragLeave={() => setDragOverStageId(null)} // Clear drag over state
+                                            >
+                                                <CardHeader className="py-3 px-4 border-b-2 border-gray-300 bg-gray-300 rounded-t-md flex flex-row items-center justify-between">
+                                                    <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                                                        {stage.nome_etapa || 'S/Nome'}
+                                                        {/* Message Indicator and Config Button */}
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className={cn("h-6 w-6 p-0", hasMessage ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-600')}
+                                                                    onClick={() => handleConfigureMessage(stage.id, stageMessage?.id)}
+                                                                    aria-label={hasMessage ? 'Editar Mensagem Automática' : 'Configurar Mensagem Automática'}
+                                                                >
+                                                                    <MessageSquarePlus className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>{hasMessage ? 'Editar Mensagem Automática' : 'Configurar Mensagem Automática'}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </CardTitle>
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Display Timing Info */}
+                                                        {hasMessage && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+                                                                        {stageMessage?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
+                                                                        {messageTiming}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Agendamento: {messageTiming}</p>
+                                                                    {stageMessage?.modelo_mensagem && <p>Mensagem: {stageMessage.modelo_mensagem.substring(0, 50)}...</p>}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm">
+                                                            {leadsByStage[stage.id]?.length || 0}
+                                                        </span>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="flex-grow overflow-y-auto p-3 flex flex-col gap-3">
+                                                    {leadsByStage[stage.id]?.map(lead => (
+                                                        <div
+                                                            key={lead.id}
+                                                            className="kanban-card bg-white rounded-md p-3 shadow-sm border border-gray-200 cursor-grab hover:shadow-md hover:border-l-4 hover:border-primary transition-all duration-200"
+                                                            draggable // Make cards draggable
+                                                            onDragStart={(e) => {
+                                                                console.log('Drag started for lead:', lead.id);
+                                                                e.dataTransfer.setData('text/plain', String(lead.id)); // Set lead ID
+                                                            }}
+                                                            onDragEnd={() => setDragOverStageId(null)} // Clear drag over state on drag end
+                                                            // Removed onClick from the card itself
+                                                        >
+                                                            <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
+                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
+                                                            {/* Removed rendering of interests */}
+                                                            {lead.lead_score !== null && (
+                                                                <div className="lead-score flex items-center gap-1 mb-2">
+                                                                    {renderStars(lead.lead_score)}
+                                                                </div>
+                                                            )}
+                                                            <div className="card-footer text-xs text-gray-500 border-t border-gray-200 pt-2 flex justify-between items-center">
+                                                                <span className="origin truncate max-w-[70%]" title={`Origem: ${lead.origem || 'N/D'}`}>Origem: {lead.origem || 'N/D'}</span>
+                                                                {/* Modified button onClick to log data */}
+                                                                <Button
+                                                                    variant="link"
+                                                                    size="sm"
+                                                                    className="p-0 h-auto text-primary text-xs"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent card click
+                                                                        console.log("Detalhes do Lead:", lead); // Log the lead data
+                                                                        alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
+                                                                    }}
+                                                                >
+                                                                    Detalhes
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </CardContent>
+                                            </Card>
                                         );
                                     })}
-                                </CardContent>
-                                {totalItems > 0 && ( // Only show pagination for list view if there are items
-                                    <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
-                                        <div className="pagination-info text-sm text-gray-600">
-                                            Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} leads
+                                </div>
+                            )}
+
+                            {/* List View */}
+                            {currentView === 'list' && (
+                                <Card className="leads-list-container h-full flex flex-col">
+                                    <CardContent className="p-0 flex-grow overflow-y-auto">
+                                        {leadsToDisplay.map(lead => {
+                                             // Get stage and funnel info for list view
+                                            const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
+                                            // Find message linked to this lead's stage
+                                            const stageMessage = lead.id_etapa !== null ? stageMessagesMap.get(lead.id_etapa) : undefined;
+                                            const hasMessage = !!stageMessage;
+                                            const messageTiming = hasMessage ? formatTiming(stageMessage!) : ''; // Format timing if message exists
+
+                                            return (
+                                                <div
+                                                    key={lead.id}
+                                                    className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                                                    // Removed onClick from the list item itself
+                                                >
+                                                    <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
+                                                    <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
+                                                        <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
+                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
+                                                        {/* Removed rendering of interests */}
+                                                    </div>
+                                                    <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
+                                                        {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
+                                                        {lead.sourceUrl && <div className="lead-source truncate">Anúncio: <a href={lead.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Ver link</a></div>}
+                                                        <div className="lead-creation-date text-xs text-gray-500">Cadastro: {formatLeadTimestamp(lead.created_at)}</div>
+                                                    </div>
+                                                    <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
+                                                        {/* Funnel name is not directly available per lead in this query */}
+                                                        {/* <span className={cn("funnel px-2 py-1 rounded-md mt-1", stageInfo.funnelClass)}>{stageInfo.funil}</span> */}
+                                                        <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo.etapa}</span> {/* Display stage name */}
+                                                        {/* Display Timing Info for the stage message */}
+                                                        {hasMessage && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1 mt-1">
+                                                                        {stageMessage?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
+                                                                        {messageTiming}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Agendamento: {messageTiming}</p>
+                                                                    {stageMessage?.modelo_mensagem && <p>Mensagem: {stageMessage.modelo_mensagem.substring(0, 50)}...</p>}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
+                                                    {lead.lead_score !== null && (
+                                                        <div className="lead-score flex items-center ml-4">
+                                                            <div className="stars flex gap-0.5" title={`Lead Score: ${lead.lead_score}`}>
+                                                                {renderStars(lead.lead_score)}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* Modified button onClick to log data */}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="ml-4 flex-shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Prevent list item click (though none exists now)
+                                                            console.log("Detalhes do Lead:", lead); // Log the lead data
+                                                            alert("Detalhes do Lead logados no console do navegador."); // Optional: provide visual feedback
+                                                        }}
+                                                    >
+                                                        Detalhes
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                    </CardContent>
+                                    {totalItems > 0 && ( // Only show pagination for list view if there are items
+                                        <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
+                                            <div className="pagination-info text-sm text-gray-600">
+                                                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                                                {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} leads
+                                            </div>
+                                            <Pagination>
+                                                <PaginationContent>
+                                                    <PaginationItem>
+                                                        <PaginationPrevious
+                                                            onClick={() => handlePageChange(currentPage - 1)}
+                                                            disabled={currentPage <= 1}
+                                                        />
+                                                    </PaginationItem>
+                                                    {/* Simple page number display - could be enhanced */}
+                                                    <PaginationItem>
+                                                        <PaginationLink isActive>{currentPage}</PaginationLink>
+                                                    </PaginationItem>
+                                                    <PaginationItem>
+                                                        <PaginationNext
+                                                            onClick={() => handlePageChange(currentPage + 1)}
+                                                            disabled={currentPage >= totalPages}
+                                                        />
+                                                    </PaginationItem>
+                                                </PaginationContent>
+                                            </Pagination>
                                         </div>
-                                        <Pagination>
-                                            <PaginationContent>
-                                                <PaginationItem>
-                                                    <PaginationPrevious
-                                                        onClick={() => handlePageChange(currentPage - 1)}
-                                                        disabled={currentPage <= 1}
-                                                    />
-                                                </PaginationItem>
-                                                {/* Simple page number display - could be enhanced */}
-                                                <PaginationItem>
-                                                    <PaginationLink isActive>{currentPage}</PaginationLink>
-                                                </PaginationItem>
-                                                <PaginationItem>
-                                                    <PaginationNext
-                                                        onClick={() => handlePageChange(currentPage + 1)}
-                                                        disabled={currentPage >= totalPages}
-                                                    />
-                                                </PaginationItem>
-                                            </PaginationContent>
-                                        </Pagination>
-                                    </div>
-                                )}
-                            </Card>
-                        )}
-                    </>
-                )}
+                                    )}
+                                </Card>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 };
 
