@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // <-- Added this import
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -261,7 +261,11 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
 
   // Handle form submission (Save)
   const handleSave = async () => {
-    if (!clinicCode || !clinicId) {
+    // Capture clinicCode and clinicId at the start
+    const currentClinicCode = clinicData?.code;
+    const currentClinicId = clinicData?.id;
+
+    if (!currentClinicCode || !currentClinicId) {
       toast({
         title: "Erro",
         description: "Dados da clínica não disponíveis.",
@@ -335,7 +339,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
-              formData.append("clinicId", clinicCode); // Use clinic code for upload webhook
+              formData.append("clinicId", currentClinicCode); // Use captured clinic code for upload webhook
               const uploadRes = await fetch(
                 "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
                 {
@@ -372,7 +376,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       // This requires a new webhook endpoint and database structure
       const saveSequenceData = {
           id: isEditing ? sequenceIdToEdit : null, // Include ID if editing
-          id_clinica: clinicCode, // Use clinic code
+          id_clinica: currentClinicCode, // Use captured clinic code
           id_funil: selectedFunnelId,
           id_etapa: selectedStageId,
           id_instancia: selectedInstanceId,
@@ -414,12 +418,12 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       console.warn("[MensagensSequenciaConfigPage] Simulating webhook save. Replace with actual fetch.");
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
       const responseData = { success: true, message: "Sequência salva com sucesso (simulado)!" };
-      // const responseData = { success: false, error: "Erro simulado ao salvar sequência." };
+      // const responseData = { success: false, error: "Erro simulado ao salvar." };
       const saveRes = { ok: responseData.success, json: async () => responseData, text: async () => JSON.stringify(responseData) }; // Simulate response object
       // --- END Simulate Webhook Call ---
 
 
-      if (!saveRes.ok || responseData.error || (responseData.success === false)) {
+      if (!saveRes.ok || responseData.error || (responseData.success === false)) { // <-- This is line 467
           const errorMessage = responseData.error || responseData.message || `Erro desconhecido (Status: ${saveRes.status})`;
           console.error("Webhook save error:", responseData);
           throw new Error(errorMessage);
@@ -433,7 +437,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       // Redirect after save
       setTimeout(() => {
         // Redirect back to the Leads Messages list page
-        navigate(`/dashboard/9?clinic_code=${encodeURIComponent(clinicCode)}&status=${isEditing ? "updated" : "created"}`);
+        navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated" : "created"}`);
       }, 1500);
 
     } catch (e: any) {
