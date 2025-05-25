@@ -20,13 +20,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
-import { Loader2, Smile } from "lucide-react";
+import { Loader2, Smile, TriangleAlert } from "lucide-react"; // Added TriangleAlert
 import MultiSelectServices from "@/components/MultiSelectServices";
 import { useLocation } from "react-router-dom"; // Import useLocation
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
 import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
-
+import { useQuery } from "@tanstack/react-query"; // Import useQuery
 
 interface ClinicData {
   code: string;
@@ -53,6 +53,21 @@ interface Group {
   nome_grupo: string;
 }
 
+// Define the structure for Funnel Details (from Supabase)
+interface FunnelDetails {
+    id: number;
+    nome_funil: string;
+}
+
+// Define the structure for Funnel Stages (from Supabase)
+interface FunnelStage {
+    id: number;
+    nome_etapa: string;
+    id_funil: number;
+    ordem: number | null; // Added ordem for sorting stages
+}
+
+
 // Updated interface to match Supabase join structure and new column names
 interface FetchedMessageData {
   id: number;
@@ -75,6 +90,9 @@ interface FetchedMessageData {
   tipo_mensagem_cashback: string | null; // Added new column (renamed)
   // This will be an array of objects from the join table
   north_clinic_mensagens_servicos: { id_servico: number }[];
+  // NEW: Add funnel and stage IDs (assuming these columns will exist)
+  id_funil?: number | null;
+  id_etapa?: number | null;
 }
 
 // Interface for webhook response (assuming it might return success/error flags)
@@ -195,12 +213,69 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [diasMensagemCashback, setDiasMensagemCashback] = useState<string>(''); // Use string for input
   const [tipoMensagemCashback, setTipoMensagemCashback] = useState<string>(''); // 'apos_venda' or 'antes_validade'
 
+  // NEW: State for Leads context - Funnel and Stage
+  const [selectedFunnelId, setSelectedFunnelId] = useState<number | null>(null);
+  const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
+
+
   // Removed variations state
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
   // Corrected ref initialization
   const messageTextRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Determine context based on URL parameter
+  const urlParams = new URLSearchParams(location.search); // Use useLocation hook
+  const contextParam = urlParams.get("context");
+  const isGeneralContext = messageContext === 'clientes'; // Renamed from 'general' to 'clientes'
+  const isCashbackContext = messageContext === 'cashback';
+  const isLeadsContext = messageContext === 'leads';
+
+
+  // Fetch All Funnels (for Leads context filter)
+  const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
+      queryKey: ['allFunnelsConfigPage', clinicData?.id],
+      queryFn: async () => {
+          if (!clinicData?.id) return [];
+          console.log(`[MensagensConfigPage] Fetching all funnels from Supabase...`);
+          const { data, error } = await supabase
+              .from('north_clinic_crm_funil')
+              .select('id, nome_funil')
+              .order('nome_funil', { ascending: true });
+          if (error) {
+              console.error("[MensagensConfigPage] Supabase all funnels fetch error:", error);
+              throw new Error(`Erro ao buscar funis: ${error.message}`);
+          }
+          return data || [];
+      },
+      enabled: !!clinicData?.id && isLeadsContext, // Enabled only if clinicId is available AND context is 'leads'
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+  });
+
+  // Fetch Stages for the selected funnel (for Leads context filter)
+  const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
+      queryKey: ['stagesForFunnelConfigPage', clinicData?.id, selectedFunnelId],
+      queryFn: async () => {
+          if (!clinicData?.id || selectedFunnelId === null) return [];
+          console.log(`[MensagensConfigPage] Fetching stages for funnel ${selectedFunnelId} from Supabase...`);
+          const { data, error } = await supabase
+              .from('north_clinic_crm_etapa')
+              .select('id, nome_etapa, id_funil, ordem') // Select ordem for sorting
+              .eq('id_funil', selectedFunnelId)
+              .order('ordem', { ascending: true }); // Order by ordem
+          if (error) {
+              console.error("[MensagensConfigPage] Supabase stages fetch error:", error);
+              throw new Error(`Erro ao buscar etapas: ${error.message}`);
+          }
+          return data || [];
+      },
+      enabled: !!clinicData?.id && isLeadsContext && selectedFunnelId !== null, // Enabled only if clinicId, context is 'leads', and a funnel is selected
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+  });
+
 
   // Load initial data: instances, services, message details if editing
   useEffect(() => {
@@ -210,15 +285,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       return;
     }
 
-    const urlParams = new URLSearchParams(location.search); // Use useLocation hook
     const idParam = urlParams.get("id");
-    const contextParam = urlParams.get("context"); // Read context from URL
-
     const isEditing = !!idParam;
     const messageIdToEdit = idParam ? parseInt(idParam, 10) : null;
 
     // Set context from URL if creating a new message, or it will be loaded if editing
-    if (!isEditing && contextParam) {
+    // Only set if messageContext is currently null (initial load)
+    if (messageContext === null && contextParam) {
         setMessageContext(contextParam);
     }
 
@@ -238,7 +311,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
         // Fetch services directly from Supabase (only needed for general context)
         let servicesData: Service[] = [];
-        if (contextParam !== 'cashback') { // Only fetch services if not cashback context
+        if (contextParam !== 'cashback' && contextParam !== 'leads') { // Only fetch services if not cashback or leads context
              const { data: fetchedServicesData, error: servicesError } = await supabase
                .from("north_clinic_servicos")
                .select("id, nome") // Select only necessary fields
@@ -268,11 +341,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             const messageData: FetchedMessageData = messageDataArray; // Cast to the fetched structure
 
             // Extract linked service IDs from the nested array (only relevant for general context)
-            const fetchedLinkedServices = messageData.context !== 'cashback'
+            const fetchedLinkedServices = messageData.context === 'clientes' // Only for 'clientes' context
                 ? messageData.north_clinic_mensagens_servicos
                     .map(link => link.id_servico)
                     .filter((id): id is number => id !== null) // Ensure IDs are numbers and not null
-                : []; // Empty array if cashback context
+                : []; // Empty array if other context
 
             console.log("Fetched message data from Supabase:", messageData);
             console.log("Extracted linkedServices from Supabase:", fetchedLinkedServices);
@@ -319,6 +392,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setDiasMensagemCashback(messageData.dias_mensagem_cashback?.toString() || '');
             setTipoMensagemCashback(messageData.tipo_mensagem_cashback || '');
 
+            // NEW: Set Leads context state (assuming columns exist)
+            if (messageData.context === 'leads') {
+                 setSelectedFunnelId(messageData.id_funil ?? null);
+                 setSelectedStageId(messageData.id_etapa ?? null);
+            }
+
 
           } else {
               // Message not found for this clinic/ID
@@ -345,11 +424,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setSelectedGroup(null);
           setMediaSavedUrl(null);
           // Removed variations default state
-          setTargetType(contextParam === 'cashback' ? 'Cliente' : 'Grupo'); // Default target type based on context
+          // Default target type based on context
+          setTargetType(contextParam === 'cashback' ? 'Cliente' : contextParam === 'leads' ? 'Cliente' : 'Grupo'); // Default to Cliente for leads
 
           // NEW: Default cashback timing
           setDiasMensagemCashback('');
           setTipoMensagemCashback('');
+
+          // NEW: Default Leads context state
+          setSelectedFunnelId(null);
+          setSelectedStageId(null);
 
           // Context is already set from URL parameter above
         }
@@ -369,6 +453,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   useEffect(() => {
       console.log("MensagensConfigPage: messageContext state changed to:", messageContext);
   }, [messageContext]);
+
+  // Effect to reset stage when funnel changes
+  useEffect(() => {
+      console.log("MensagensConfigPage: selectedFunnelId changed. Resetting selectedStageId.");
+      setSelectedStageId(null);
+  }, [selectedFunnelId]);
 
 
   // Load groups when instance or targetType changes and targetType is 'Grupo'
@@ -487,17 +577,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
       return;
     }
-    // Category is required for General context, but not for Cashback
-    if (isGeneralContext && !category) {
-      toast({
-        title: "Erro",
-        description: "Selecione uma categoria.",
-        variant: "destructive",
-      });
-      return;
-    }
-     // For Cashback, category is selected but might not be required for save payload depending on backend
-     // Let's keep it required for now based on the select input being present
 
     if (!instanceId) {
       toast({
@@ -518,6 +597,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
     // Validation specific to General context
     if (isGeneralContext) {
+        if (!category) { // Category is required for General context
+          toast({
+            title: "Erro",
+            description: "Selecione uma categoria.",
+            variant: "destructive",
+          });
+          return;
+        }
         if (
           category !== "Aniversário" &&
           linkedServices.length === 0 &&
@@ -575,9 +662,38 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
              });
              return;
         }
-         // For cashback, targetType is always Cliente and group is not used, no need to validate them
          // scheduledTime might still be relevant for time of day, so validate if needed
          if (showScheduledTimeCashback && !scheduledTime) { // Use correct conditional
+              toast({
+                 title: "Erro",
+                 description: "Selecione a hora programada.",
+                 variant: "destructive",
+             });
+             return;
+         }
+    }
+
+    // NEW: Validation specific to Leads context
+    if (isLeadsContext) {
+        if (selectedFunnelId === null) {
+             toast({
+                 title: "Erro",
+                 description: "Selecione um Funil.",
+                 variant: "destructive",
+             });
+             return;
+        }
+         if (selectedStageId === null) {
+             toast({
+                 title: "Erro",
+                 description: "Selecione uma Etapa.",
+                 variant: "destructive",
+             });
+             return;
+         }
+         // For leads, targetType is always Cliente and group/services are not used, no need to validate them
+         // scheduledTime might still be relevant for time of day, so validate if needed
+         if (showScheduledTimeLeads && !scheduledTime) { // Use correct conditional
               toast({
                  title: "Erro",
                  description: "Selecione a hora programada.",
@@ -640,6 +756,17 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         prioridade: 1, // Default priority for now, can be added later
         context: messageContext, // Include context in save data
         // Removed variations from save data
+
+        // Default values for fields not used in the current context
+        servicos_vinculados: [],
+        para_cliente: false,
+        para_funcionario: false,
+        para_grupo: false,
+        grupo: null,
+        dias_mensagem_cashback: null,
+        tipo_mensagem_cashback: null,
+        id_funil: null, // Default to null
+        id_etapa: null, // Default to null
       };
 
       // Add context-specific fields
@@ -648,9 +775,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
           saveData.grupo = selectedGroup || null;
-          // Ensure cashback fields are null for general messages
+          // Ensure cashback and leads fields are null for general messages
           saveData.dias_mensagem_cashback = null;
           saveData.tipo_mensagem_cashback = null;
+          saveData.id_funil = null;
+          saveData.id_etapa = null;
       } else if (isCashbackContext) {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); // Use correct state name
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; // Use correct state name
@@ -659,6 +788,22 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.para_grupo = false;
           saveData.grupo = null; // Group is not used for cashback
           saveData.servicos_vinculados = []; // Services are not linked for cashback
+          // Ensure leads fields are null for cashback messages
+          saveData.id_funil = null;
+          saveData.id_etapa = null;
+      } else if (isLeadsContext) { // NEW: Add Leads context fields
+          saveData.id_funil = selectedFunnelId;
+          saveData.id_etapa = selectedStageId;
+          saveData.para_cliente = true; // Assuming leads messages are always to clients
+          saveData.para_funcionario = false;
+          saveData.para_grupo = false;
+          saveData.grupo = null; // Group is not used for leads
+          saveData.servicos_vinculados = []; // Services are not linked for leads
+          // Ensure cashback fields are null for leads messages
+          saveData.dias_mensagem_cashback = null;
+          saveData.tipo_mensagem_cashback = null;
+          // Category is not used for leads context, send null or default if needed by backend
+          saveData.categoria = null; // Or a default like "Lead" if backend requires non-null
       }
 
 
@@ -692,7 +837,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       // Redirect or reset form after save
       setTimeout(() => {
         // Redirect back to the correct list page based on context
-        const redirectPath = messageContext === 'cashback' ? '/dashboard/14/messages' : '/dashboard/11';
+        let redirectPath = '/dashboard'; // Default fallback
+        if (messageContext === 'clientes') redirectPath = '/dashboard/11';
+        else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
+        else if (messageContext === 'leads') redirectPath = '/dashboard/9'; // Redirect to Leads Messages page
+
         window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
           clinicData.code
         )}&status=${messageId ? "updated" : "created"}`;
@@ -720,14 +869,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         } else if (isCashbackContext) {
              setMessageText(defaultTemplates[value] || ""); // Use cashback templates if available
         }
+        // No default template logic for Leads context based on category
     }
   };
 
   // Show/hide fields based on context and category
-  const isGeneralContext = messageContext === 'general';
-  const isCashbackContext = messageContext === 'cashback';
-
-  // General context fields visibility
+  // isGeneralContext and isCashbackContext are defined above
   const showCategoryGeneral = isGeneralContext;
   const showTargetTypeSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado");
   const showGroupSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
@@ -736,9 +883,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Cashback context fields visibility
   const showCashbackTiming = isCashbackContext;
-  // UPDATED: Show scheduled time for Aniversário in Cashback context
-  // REMOVED: Check for category === 'Aniversário' for cashback scheduled time
-  const showScheduledTimeCashback = isCashbackContext;
+  const showScheduledTimeCashback = isCashbackContext; // Show scheduled time for all cashback messages
+
+  // NEW: Leads context fields visibility
+  const showFunnelStageSelectLeads = isLeadsContext;
+  const showScheduledTimeLeads = isLeadsContext; // Assuming leads messages can also be scheduled by time
 
 
   // Removed variations count
@@ -749,7 +898,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const handleCancel = () => {
     if (!clinicData?.code) return;
     // Redirect back to the correct list page based on context
-    const redirectPath = messageContext === 'cashback' ? '/dashboard/14/messages' : '/dashboard/11';
+    let redirectPath = '/dashboard'; // Default fallback
+    if (messageContext === 'clientes') redirectPath = '/dashboard/11';
+    else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
+    else if (messageContext === 'leads') redirectPath = '/dashboard/9'; // Redirect to Leads Messages page
+
     window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
       clinicData.code
     )}`;
@@ -757,8 +910,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Determine page title based on context and whether editing or creating
   const pageTitle = messageId
-    ? `Editar Mensagem (${messageContext === 'cashback' ? 'Cashback' : 'Geral'})`
-    : `Configurar Nova Mensagem (${messageContext === 'cashback' ? 'Cashback' : 'Geral'})`;
+    ? `Editar Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`
+    : `Configurar Nova Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`;
+
+  // Determine if data is ready to render the form (include funnel/stage loading for leads context)
+  const isDataReady = !loading && !error &&
+                      (!isLeadsContext || (!isLoadingFunnels && !funnelsError && !isLoadingStages && !stagesError));
 
 
   return (
@@ -768,13 +925,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {loading ? (
+          {loading || (isLeadsContext && (isLoadingFunnels || isLoadingStages)) ? ( // Show loading if initial load or funnel/stage data is loading for leads context
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="animate-spin" />
               Carregando dados...
             </div>
-          ) : error ? (
-            <div className="text-red-600 font-semibold">{error}</div>
+          ) : error || (isLeadsContext && (funnelsError || stagesError)) ? ( // Show error if initial load error or funnel/stage error for leads context
+            <div className="text-red-600 font-semibold flex items-center gap-2">
+                <TriangleAlert className="h-5 w-5" />
+                {error || funnelsError?.message || stagesError?.message || "Erro ao carregar dados."}
+            </div>
           ) : (
             <>
               {/* Category field (Conditional based on context) */}
@@ -808,6 +968,67 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                      {messageId !== null && (
                          <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
                      )}
+                  </div>
+              )}
+
+              {/* NEW: Funnel and Stage fields (only for Leads context) */}
+              {showFunnelStageSelectLeads && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <label
+                            htmlFor="funnel"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Funil *
+                          </label>
+                          <Select
+                            value={selectedFunnelId?.toString() || ''}
+                            onValueChange={(value) => setSelectedFunnelId(value ? parseInt(value, 10) : null)}
+                            id="funnel"
+                            disabled={isLoadingFunnels || !!funnelsError}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o funil" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allFunnels?.map(funnel => (
+                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                           {funnelsError && <p className="text-sm text-red-600 mt-1">Erro ao carregar funis.</p>}
+                      </div>
+                      <div>
+                          <label
+                            htmlFor="stage"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Etapa *
+                          </label>
+                          <Select
+                            value={selectedStageId?.toString() || ''}
+                            onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)}
+                            id="stage"
+                            disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a etapa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                               {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
+                                   <SelectItem value="" disabled>Nenhuma etapa disponível</SelectItem>
+                               ) : (
+                                   stagesForSelectedFunnel?.map(stage => (
+                                       <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
+                                   ))
+                               )}
+                            </SelectContent>
+                          </Select>
+                           {stagesError && <p className="text-sm text-red-600 mt-1">Erro ao carregar etapas.</p>}
+                           {selectedFunnelId !== null && (stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError && (
+                                <p className="text-sm text-orange-600 mt-1">Nenhuma etapa encontrada para este funil.</p>
+                           )}
+                      </div>
                   </div>
               )}
 
@@ -897,7 +1118,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               )}
 
               {/* Scheduled Time field (for specific categories in General, or maybe Aniversário in Cashback) */}
-              {(showScheduledTimeGeneral || showScheduledTimeCashback) && (
+              {(showScheduledTimeGeneral || showScheduledTimeCashback || showScheduledTimeLeads) && ( // Show for Leads context too
                 <div>
                   <label
                     htmlFor="scheduledTime"
@@ -1094,7 +1315,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               {/* Removed Variations section */}
 
               {/* Status field (always starts active for new, but editable) */}
-              {isGeneralContext && ( // <-- Only show Status for General context
+              {/* Show Status for General and Leads context */}
+              {(isGeneralContext || isLeadsContext) && (
                   <div>
                     <label
                       htmlFor="active"
