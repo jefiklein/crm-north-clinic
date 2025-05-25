@@ -64,7 +64,7 @@ const INSTANCE_STATUS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-
 const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17-8b71d610d7c3`; // Webhook para gerar QR
 const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`; // Webhook para excluir
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook para criar na API Evolution
-const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; // Webhook para salvar no DB
+const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`; // Webhook para salvar no DB
 
 // Required permission level for this page
 const REQUIRED_PERMISSION_LEVEL = 2;
@@ -371,7 +371,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             // Evolution API success, now save to DB
             console.log("[WhatsappInstancesPage] Evolution instance created. Saving to database...");
-            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`;
+            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`;
             const dbResponse = await fetch(dbWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -578,7 +578,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         <div className="whatsapp-instances-container flex flex-col h-full p-6 bg-gray-100">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                 <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Instâncias WhatsApp
+                    Instâncias WhatsApp {/* Removed clinicData?.nome */}
                 </h1>
                 <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
                     <div className="relative flex-grow max-w-sm">

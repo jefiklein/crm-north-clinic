@@ -349,7 +349,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         <div className="all-leads-container flex flex-col h-full p-6 bg-gray-100">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                 <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    {clinicData?.nome} | Todos os Leads
+                    Todos os Leads {/* Removed clinicData?.nome */}
                 </h1>
                 <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
                     <div className="relative flex-grow max-w-sm">
