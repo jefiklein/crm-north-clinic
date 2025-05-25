@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Filter } from 'lucide-react'; // Added Filter icon
+import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Filter, ListOrdered } from 'lucide-react'; // Added ListOrdered icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
@@ -310,6 +310,17 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         navigate(`/dashboard/config-mensagem?id=${messageId}&clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
+    // Handle navigation to the NEW Sequence Config Page
+    const handleAddSequence = () => {
+        if (!clinicData?.code) {
+            showError("Erro: Código da clínica não disponível.");
+            return;
+        }
+        // Navigate to the new sequence config page
+        navigate(`/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicData.code)}`);
+    };
+
+
     const handleToggleMessage = (message: MessageItem) => {
         toggleMessageMutation.mutate({ id: message.id, ativo: !message.ativo });
     };
@@ -364,9 +375,16 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
                     Lista de Mensagens de Leads
                 </h1>
-                <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
-                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem de Lead
-                </Button>
+                <div className="flex gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for buttons */}
+                    {/* Button to add a NEW single message */}
+                    <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
+                        <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem Individual
+                    </Button>
+                     {/* Button to add a NEW sequence message */}
+                    <Button onClick={handleAddSequence} className="add-sequence-btn flex-shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors shadow-md">
+                        <ListOrdered className="h-5 w-5 mr-2" /> Configurar Nova Sequência
+                    </Button>
+                </div>
             </div>
 
             {/* Filter Section */}

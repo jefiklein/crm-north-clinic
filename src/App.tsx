@@ -18,6 +18,7 @@ import MensagensListPage from "./pages/MensagensListPage"; // Import the new Men
 import MensagensConfigPage from "./pages/MensagensConfigPage"; // Import the new MensagensConfigPage
 import CashbackMessagesPage from "./pages/CashbackMessagesPage"; // Import the new CashbackMessagesPage
 import LeadsMessagesPage from "./pages/LeadsMessagesPage"; // Import the new LeadsMessagesPage
+import MensagensSequenciaConfigPage from "./pages/MensagensSequenciaConfigPage"; // Import the NEW sequence config page
 
 import React, { useState, useEffect } from 'react';
 
@@ -112,6 +113,10 @@ const App = () => {
 
               {/* Route for the Leads Messages page - Using menu item ID 9 */}
               <Route path="9" element={<LeadsMessagesPage clinicData={clinicData} />} />
+
+              {/* NEW Route for the Message Sequence Config page */}
+              {/* This route will be used for configuring sequences for Leads */}
+              <Route path="config-sequencia" element={<MensagensSequenciaConfigPage clinicData={clinicData} />} />
 
 
               {/* Route for the Conversas page - Using menu item ID 2 */}
