@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react"; // Import useMemo
 import {
   Card,
   CardContent,
@@ -1003,6 +1003,37 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const fetchError = error || (isLeadsContext && (funnelsError || stagesError));
 
 
+  // --- NEW: Filter placeholders based on context ---
+  const availablePlaceholders = useMemo(() => {
+      const allKeys = Object.keys(placeholderData);
+      if (isCashbackContext) {
+          // Include general placeholders + cashback specific ones
+          return allKeys.filter(key => key.startsWith('primeiro_nome_cliente') || key.startsWith('nome_completo_cliente') || key.startsWith('valor_cashback') || key.startsWith('validade_cashback'));
+      }
+      if (isLeadsContext) {
+          // Include general placeholders relevant to leads (client name, maybe service if linked to stage?)
+          // For now, let's include client name and maybe general appointment data as a possibility
+          return allKeys.filter(key =>
+              key.startsWith('primeiro_nome_cliente') ||
+              key.startsWith('nome_completo_cliente') ||
+              key.startsWith('primeiro_nome_funcionario') || // Maybe assigned user?
+              key.startsWith('nome_completo_funcionario') ||
+              key.startsWith('nome_servico_principal') || // If stage is linked to service?
+              key.startsWith('lista_servicos') ||
+              key.startsWith('data_agendamento') || // If stage is linked to appointment?
+              key.startsWith('dia_agendamento_num') ||
+              key.startsWith('dia_semana_relativo_extenso') ||
+              key.startsWith('mes_agendamento_num') ||
+              key.startsWith('mes_agendamento_extenso') ||
+              key.startsWith('hora_agendamento')
+          );
+      }
+      // Default to all placeholders for General context (or filter if needed)
+      return allKeys; // Show all for General context for now
+  }, [messageContext]); // Recompute when context changes
+  // --- END NEW ---
+
+
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
       <Card className="w-full"> {/* Removed max-w-4xl and mx-auto */}
@@ -1393,6 +1424,27 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     </div>
                 </div>
               </div>
+
+              {/* --- NEW: Placeholder List --- */}
+              {availablePlaceholders.length > 0 && (
+                  <div className="placeholder-list mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis:</p>
+                      <div className="flex flex-wrap gap-2 text-sm text-gray-800">
+                          {availablePlaceholders.map(placeholder => (
+                              <span key={placeholder} className="bg-gray-200 px-2 py-1 rounded font-mono text-xs">
+                                  {"{"}{placeholder}{"}"}
+                              </span>
+                          ))}
+                      </div>
+                       {isLeadsContext && (
+                           <p className="text-xs text-gray-500 mt-2">
+                               *A disponibilidade de alguns placeholders (como dados de agendamento ou funcionário) pode depender da configuração da etapa e dos dados do lead.
+                           </p>
+                       )}
+                  </div>
+              )}
+              {/* --- END NEW --- */}
+
 
               {/* Services Vinculados (only for General context) */}
               {showServicesLinkedGeneral && (
