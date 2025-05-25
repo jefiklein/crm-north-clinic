@@ -1415,7 +1415,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={saving || isLoading || !!error || (isLeadsContext && (isLoadingFunnels || !!funnelsError || isLoadingStages || !!stagesError))}>
+                <Button onClick={handleSave} disabled={saving || isLoadingData || !!error || (isLeadsContext && (isLoadingFunnels || !!funnelsError || isLoadingStages || !!stagesError))}>
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
