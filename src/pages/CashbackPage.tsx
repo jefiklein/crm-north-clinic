@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare } from "lucide-react"; // Added Settings and MessageSquare icons
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare, Send } from "lucide-react"; // Added Send icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
-import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
+import { endOfMonth, getDay, isAfter, startOfDay, format, addDays } from 'date-fns'; // Import addDays
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { Calendar } from "@/components/ui/calendar"; // Import shadcn/ui Calendar
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea for message preview
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -40,11 +41,11 @@ interface SupabaseSale {
     valor_cashback: number | null; // Added new column
     validade_cashback: string | null; // Added new column (assuming ISO date string)
     // The client name comes from the joined table
-    north_clinic_clientes: { nome_north: string | null } | null; // Nested client data
+    north_clinic_clientes: { nome_north: string | null, telefone_north: number | null } | null; // Nested client data - ADDED telefone_north
     // Add other fields if needed from the Supabase query
 }
 
-// Define the structure for instance details from Supabase
+// Define the structure for Instance details from Supabase
 interface InstanceDetails {
     id: number;
     nome_exibição: string;
@@ -52,7 +53,17 @@ interface InstanceDetails {
     nome_instancia_evolution: string | null;
 }
 
-// Define the structure for the data sent to the save webhook
+// Define the structure for a Message Template fetched from Supabase
+interface MessageTemplate {
+    id: number;
+    modelo_mensagem: string;
+    url_arquivo: string | null;
+    sending_order: string | null;
+    // Add other fields if needed for preview or sending
+}
+
+
+// Define the structure for the data sent to the save config webhook
 // Using Portuguese names to match the database columns for the webhook payload
 interface SaveConfigPayload {
     id_clinica: number | string;
@@ -68,6 +79,19 @@ interface FetchedConfig {
     cashback_percentual: number | null;
     cashback_validade: number | null;
     cashback_instancia_padrao: number | null; // Corrected name to match DB
+}
+
+// Define the structure for the data sent to the send message webhook
+interface SendMessagePayload {
+    mensagem: string;
+    recipiente: string; // Phone number or JID
+    instancia: string; // Evolution instance name
+    id_clinica: number | string;
+    tipo_mensagem: string; // e.g., "Cashback"
+    prioridade: string; // e.g., "1"
+    tipo_evolution: string; // e.g., "text", "media"
+    url_arquivo?: string | null; // URL of the attachment if sending media
+    sending_order?: string | null; // Order of text/media if sending both
 }
 
 
@@ -109,9 +133,46 @@ const formatDate = (dateString: string | null): string => {
     }
 };
 
+// Placeholder data for message preview (updated for cashback)
+const placeholderData = {
+    primeiro_nome_cliente: "Maria",
+    nome_completo_cliente: "Maria Souza",
+    primeiro_nome_funcionario: "Silva",
+    nome_completo_funcionario: "Dr(a). João Silva",
+    nome_servico_principal: "Consulta Inicial",
+    lista_servicos: "Consulta Inicial, Exame Simples",
+    data_agendamento: "19/04/2025",
+    dia_agendamento_num: "19",
+    dia_semana_relativo_extenso: "sábado",
+    mes_agendamento_num: "04",
+    mes_agendamento_extenso: "Abril",
+    hora_agendamento: "15:30",
+    valor_cashback: "R$ 50,00",
+    validade_cashback: "20/05/2025"
+};
+
+function simulateMessage(template: string | null, placeholders: { [key: string]: string }): string {
+    if (typeof template !== 'string' || !template) return '<i class="text-gray-500">(Modelo inválido ou vazio)</i>';
+    let text = template;
+    for (const key in placeholders) {
+        const regex = new RegExp(`\\{${key}\\}`, 'g');
+        text = text.replace(regex, `<strong>${placeholders[key]}</strong>`);
+    }
+    text = text.replace(/\{([\w_]+)\}/g, '<span class="unreplaced-token text-gray-600 bg-gray-200 px-1 rounded font-mono text-xs">{$1}</span>');
+    text = text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    text = text.replace(/_(.*?)_/g, '<em>$1</em>');
+    text = text.replace(/\\n|\n/g, '<br>');
+    return text;
+}
+
+
+const SALES_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/43a4753b-b7c2-48c0-b57a-61ba5256d5b7';
+const LEADS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c12975eb-6e62-4a61-b19c-5e47b62ca642'; // Corrected Leads webhook URL
+const APPOINTMENTS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/72d5e8a4-eb58-4cdd-a784-5f8cfc9ee739';
+const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
-    const navigate = useNavigate(); // Initialize navigate hook
     const queryClient = useQueryClient(); // Get query client instance
     const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
     // State to hold manual cashback data (simple example, not persisted)
@@ -129,6 +190,15 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
     // NEW: Local state for saving loading indicator
     const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+    // NEW: State for the Send Message modal
+    const [isSendMessageModalOpen, setIsSendMessageModalOpen] = useState(false);
+    const [selectedSaleForMessage, setSelectedSaleForMessage] = useState<SupabaseSale | null>(null);
+    const [selectedMessageTemplateId, setSelectedMessageTemplateId] = useState<number | null>(null);
+    const [selectedSendingInstanceId, setSelectedSendingInstanceId] = useState<number | null>(null);
+
+    // NEW: State for message preview in the modal
+    const [messagePreview, setMessagePreview] = useState<string>('');
 
 
     // Effect to reset form state when modal closes
@@ -148,8 +218,20 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         }
     }, [isAutoCashbackModalOpen]); // Depend on modal open state
 
+    // Effect to reset send message modal state when it closes
+    useEffect(() => {
+        if (!isSendMessageModalOpen) {
+            setSelectedSaleForMessage(null);
+            setSelectedMessageTemplateId(null);
+            setSelectedSendingInstanceId(null);
+            setMessagePreview('');
+        }
+    }, [isSendMessageModalOpen]);
+
 
     const clinicId = clinicData?.id;
+    const clinicCode = clinicData?.code; // Get clinic code for webhooks
+
     // Format dates for Supabase query filters
     const startDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(currentDate), 'yyyy-MM-dd');
@@ -168,7 +250,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             try {
                 const { data, error } = await supabase
                     .from('north_clinic_vendas')
-                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, north_clinic_clientes(nome_north)') // Select sales data and join client name - ADDED NEW COLUMNS
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, north_clinic_clientes(nome_north, telefone_north)') // Select sales data and join client name and phone - ADDED telefone_north
                     .eq('id_clinica', clinicId) // Filter by clinic ID
                     .gte('data_venda', startDate) // Filter by start date of the month
                     .lte('data_venda', endDate) // Filter by end date of the month
@@ -199,14 +281,14 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Fetch instance details from Supabase for the select input
+    // Fetch instance details from Supabase for the select input (used in both modals)
     const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceDetails[]>({
         queryKey: ['instancesListCashbackPage', clinicId],
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
-            console.log(`Fetching instance details for clinic ${clinicId} from Supabase for cashback config`);
+            console.log(`Fetching instance details for clinic ${clinicId} from Supabase`);
 
             const { data, error } = await supabase
                 .from('north_clinic_config_instancias')
@@ -215,18 +297,18 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                 .order('nome_exibição', { ascending: true });
 
             if (error) {
-                console.error("Error fetching instances from Supabase for cashback config:", error);
+                console.error("Error fetching instances from Supabase:", error);
                 throw new Error(error.message);
             }
 
             return data || [];
         },
-        enabled: !!clinicId && isAutoCashbackModalOpen, // Only fetch when clinicId is available and modal is open
+        enabled: !!clinicId && (isAutoCashbackModalOpen || isSendMessageModalOpen), // Only fetch when clinicId is available and either modal is open
         staleTime: 0, // Always refetch when modal opens
         refetchOnWindowFocus: false,
     });
 
-    // Fetch existing automatic cashback configuration from Supabase
+    // Fetch existing automatic cashback configuration from Supabase (used in auto config modal)
     const { data: existingConfig, isLoading: isLoadingConfig, error: configError } = useQuery<FetchedConfig | null>({
         queryKey: ['cashbackConfig', clinicId],
         queryFn: async () => {
@@ -251,7 +333,34 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    // Effect to populate modal state when existingConfig and instancesList are loaded
+    // NEW: Fetch active cashback message templates (used in send message modal)
+    const { data: cashbackMessageTemplates, isLoading: isLoadingMessageTemplates, error: messageTemplatesError } = useQuery<MessageTemplate[]>({
+        queryKey: ['cashbackMessageTemplates', clinicId],
+        queryFn: async () => {
+            if (!clinicId) return [];
+            console.log(`[CashbackPage] Fetching active cashback message templates for clinic ${clinicId}`);
+            const { data, error } = await supabase
+                .from('north_clinic_config_mensagens')
+                .select('id, modelo_mensagem, url_arquivo, sending_order') // Select necessary fields
+                .eq('id_clinica', clinicId)
+                .eq('context', 'cashback') // Filter by cashback context
+                .eq('ativo', true) // Only active templates
+                .order('categoria', { ascending: true }); // Order by category
+
+            if (error) {
+                console.error("[CashbackPage] Error fetching cashback message templates:", error);
+                throw new Error(error.message);
+            }
+            console.log("[CashbackPage] Fetched cashback message templates:", data);
+            return data || [];
+        },
+        enabled: !!clinicId && isSendMessageModalOpen, // Only fetch when clinicId is available and send message modal is open
+        staleTime: 0, // Always refetch when modal opens
+        refetchOnWindowFocus: false,
+    });
+
+
+    // Effect to populate auto config modal state when existingConfig and instancesList are loaded
     useEffect(() => {
         console.log("[CashbackPage] useEffect [isAutoCashbackModalOpen, existingConfig, instancesList, isLoadingConfig, isLoadingInstances] triggered."); // <-- Updated log
         console.log("  isAutoCashbackModalOpen:", isAutoCashbackModalOpen);
@@ -297,6 +406,51 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     }, [isAutoCashbackModalOpen, existingConfig, instancesList, isLoadingConfig, configError, isLoadingInstances, instancesError]); // Dependencies include all relevant states and query results
 
 
+    // Effect to set default sending instance and update preview when send modal data changes
+    useEffect(() => {
+        console.log("[CashbackPage] Send message modal useEffect triggered.");
+        if (!isSendMessageModalOpen || !selectedSaleForMessage || !instancesList || instancesList.length === 0 || !cashbackMessageTemplates) {
+            console.log("[CashbackPage] Send message modal useEffect: Data not ready or modal closed. Skipping.");
+            return;
+        }
+
+        // Set default sending instance if not already selected
+        if (selectedSendingInstanceId === null) {
+            // Try to find the default instance from clinic config (if fetched)
+            const defaultInstanceId = existingConfig?.cashback_instancia_padrao;
+            const defaultInstanceExists = defaultInstanceId !== null && instancesList.some(inst => inst.id === defaultInstanceId);
+
+            if (defaultInstanceExists) {
+                console.log("[CashbackPage] Setting default sending instance from config:", defaultInstanceId);
+                setSelectedSendingInstanceId(defaultInstanceId);
+            } else {
+                // Default to the first available instance if no config or config instance not found
+                const firstInstanceId = instancesList[0]?.id || null;
+                console.log("[CashbackPage] Setting default sending instance to first available:", firstInstanceId);
+                setSelectedSendingInstanceId(firstInstanceId);
+            }
+        }
+
+        // Update message preview when selected template or sale data changes
+        const selectedTemplate = cashbackMessageTemplates.find(t => t.id === selectedMessageTemplateId);
+        if (selectedTemplate) {
+            // Prepare placeholder data from the selected sale
+            const salePlaceholders = {
+                primeiro_nome_cliente: selectedSaleForMessage.north_clinic_clientes?.nome_north?.split(' ')[0] || 'Cliente',
+                nome_completo_cliente: selectedSaleForMessage.north_clinic_clientes?.nome_north || 'Cliente',
+                valor_cashback: selectedSaleForMessage.valor_cashback !== null && selectedSaleForMessage.valor_cashback !== undefined ? `R$ ${selectedSaleForMessage.valor_cashback.toFixed(2).replace('.', ',')}` : 'N/D',
+                validade_cashback: formatDate(selectedSaleForMessage.validade_cashback),
+                // Add other relevant sale/client placeholders here if needed
+            };
+            const preview = simulateMessage(selectedTemplate.modelo_mensagem, salePlaceholders);
+            setMessagePreview(preview);
+        } else {
+            setMessagePreview('Selecione um modelo de mensagem para ver a prévia.');
+        }
+
+    }, [isSendMessageModalOpen, selectedSaleForMessage, instancesList, cashbackMessageTemplates, selectedMessageTemplateId, existingConfig]); // Depend on relevant states and query results
+
+
     // Mutation for saving automatic cashback configuration via webhook
     const saveConfigMutation = useMutation({
         mutationFn: async (configData: SaveConfigPayload) => {
@@ -333,6 +487,34 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             // NEW: Set local saving state to false when mutation is settled
             setIsSavingConfig(false);
         }
+    });
+
+    // NEW: Mutation for sending a specific message via webhook
+    const sendMessageMutation = useMutation({
+        mutationFn: async (payload: SendMessagePayload) => {
+            console.log("[CashbackPage] Sending message via webhook:", payload);
+            const response = await fetch(SEND_MESSAGE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao enviar mensagem`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+                throw new Error(errorMsg);
+            }
+
+            return response.json(); // Assuming webhook returns some confirmation
+        },
+        onSuccess: () => {
+            showSuccess('Mensagem enviada para a fila!');
+            setIsSendMessageModalOpen(false); // Close modal on success
+            // Optionally refetch sales data or update UI to show message sent status
+        },
+        onError: (error: Error) => {
+            showError(`Falha ao enviar mensagem: ${error.message}`);
+        },
     });
 
 
@@ -420,8 +602,67 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         // The onSettled callback will set isSavingConfig back to false
     };
 
-    // Determine if data is ready to render the form
-    const isDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
+    // NEW: Handle click on "Enviar Mensagem" button for a specific sale
+    const handleSendMessageClick = (sale: SupabaseSale) => {
+        setSelectedSaleForMessage(sale);
+        setIsSendMessageModalOpen(true);
+        // The useEffect for the modal will handle fetching instances and templates
+    };
+
+    // NEW: Handle sending the message from the modal
+    const handleSendMessage = () => {
+        if (!selectedSaleForMessage || !selectedMessageTemplateId || selectedSendingInstanceId === null || !clinicId || !clinicCode) {
+            showError("Dados incompletos para enviar a mensagem.");
+            return;
+        }
+
+        const selectedTemplate = cashbackMessageTemplates?.find(t => t.id === selectedMessageTemplateId);
+        const selectedInstance = instancesList?.find(inst => inst.id === selectedSendingInstanceId);
+
+        if (!selectedTemplate || !selectedInstance?.nome_instancia_evolution) {
+             showError("Modelo de mensagem ou instância de envio inválida.");
+             return;
+        }
+
+        const recipientPhone = selectedSaleForMessage.north_clinic_clientes?.telefone_north;
+        if (!recipientPhone) {
+             showError(`Telefone do cliente "${selectedSaleForMessage.north_clinic_clientes?.nome_north || 'N/D'}" não disponível.`);
+             return;
+        }
+
+        // Prepare placeholder data for the selected sale
+        const salePlaceholders = {
+            primeiro_nome_cliente: selectedSaleForMessage.north_clinic_clientes?.nome_north?.split(' ')[0] || 'Cliente',
+            nome_completo_cliente: selectedSaleForMessage.north_clinic_clientes?.nome_north || 'Cliente',
+            valor_cashback: selectedSaleForMessage.valor_cashback !== null && selectedSaleForMessage.valor_cashback !== undefined ? `R$ ${selectedSaleForMessage.valor_cashback.toFixed(2).replace('.', ',')}` : 'N/D',
+            validade_cashback: formatDate(selectedSaleForMessage.validade_cashback),
+            // Add other relevant sale/client placeholders here if needed
+        };
+
+        // Generate the final message text by filling placeholders
+        const finalMessageText = simulateMessage(selectedTemplate.modelo_mensagem, salePlaceholders).replace(/<[^>]*>/g, ''); // Remove HTML tags from simulation
+
+        const payload: SendMessagePayload = {
+            mensagem: finalMessageText,
+            recipiente: String(recipientPhone), // Ensure phone is string
+            instancia: selectedInstance.nome_instancia_evolution, // Use Evolution instance name
+            id_clinica: clinicCode, // Use clinic code for this webhook
+            tipo_mensagem: "Cashback", // Specific type for cashback messages
+            prioridade: "1", // Default priority
+            tipo_evolution: selectedTemplate.url_arquivo ? "media" : "text", // Determine type based on attachment
+            url_arquivo: selectedTemplate.url_arquivo || null, // Include attachment URL if exists
+            sending_order: selectedTemplate.sending_order || 'both', // Include sending order
+        };
+
+        sendMessageMutation.mutate(payload); // Trigger the send message mutation
+    };
+
+
+    // Determine if data is ready to render the auto config form
+    const isAutoConfigDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
+
+    // Determine if data is ready to render the send message form
+    const isSendMessageDataReady = !isLoadingMessageTemplates && !messageTemplatesError && !isLoadingInstances && !instancesError;
 
 
     if (!clinicData) {
@@ -458,16 +699,16 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             <Card className="sales-list-container">
                 <CardContent className="p-0">
                     {isLoading ? (
-                        <div className="status-message loading-message flex flex-col items-center justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                            <span className="text-gray-700">Carregando vendas para {format(currentDate, 'MMMM yyyy', { locale: ptBR })}...</span>
-                        </div>
+                         <div className="flex flex-col items-center justify-center p-8">
+                             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                             <span className="text-gray-700">Carregando dados de vendas...</span>
+                         </div>
                     ) : error ? (
-                        <div className="status-message error-message flex flex-col items-center justify-center p-8 text-red-600">
-                            <TriangleAlert className="h-8 w-8 mb-4" />
-                            <span>Erro ao carregar vendas: {error.message}</span>
-                            <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
-                        </div>
+                         <div className="flex flex-col items-center justify-center p-8 text-red-600 bg-red-100 rounded-md">
+                             <TriangleAlert className="h-8 w-8 mb-4" />
+                             <span>Erro ao carregar dados de vendas: {error.message}</span>
+                             {/* Add a retry button if needed */}
+                         </div>
                     ) : (salesData?.length ?? 0) === 0 ? (
                         <div className="status-message text-gray-700 p-8 text-center">
                             Nenhuma venda encontrada para este mês.
@@ -483,6 +724,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         <TableHead className="text-right">Valor Venda</TableHead>
                                         <TableHead>Valor Cashback</TableHead>
                                         <TableHead>Validade Cashback</TableHead>
+                                        <TableHead className="text-right">Ações</TableHead> {/* New column for actions */}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -557,6 +799,17 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                         </PopoverContent>
                                                     </Popover>
                                                 </TableCell>
+                                                <TableCell className="text-right whitespace-nowrap"> {/* Actions cell */}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleSendMessageClick(sale)} // Trigger send message modal
+                                                        className="flex items-center gap-1"
+                                                        disabled={sendMessageMutation.isLoading || !sale.north_clinic_clientes?.telefone_north} // Disable if sending or no phone
+                                                    >
+                                                        <Send className="h-4 w-4" /> Enviar Mensagem
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
                                         );
                                     })}
@@ -612,6 +865,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                     placeholder="Ex: 30"
                                     value={autoCashbackConfig.validadeDias}
                                     onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
+                                    min="0"
                                     disabled={saveConfigMutation.isLoading} // Disable while saving
                                 />
                                  <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
@@ -624,7 +878,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                 ) : (
                                     <Select
                                         // Add key here to force re-render when data is ready
-                                        key={isDataReady ? 'data-ready' : 'loading'}
+                                        key={isAutoConfigDataReady ? 'data-ready' : 'loading'}
                                         value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
                                         onValueChange={(value) => {
                                             console.log("[CashbackPage] Select onValueChange:", value);
@@ -688,6 +942,110 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* NEW: Send Message Modal */}
+            <Dialog open={isSendMessageModalOpen} onOpenChange={setIsSendMessageModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Enviar Mensagem de Cashback</DialogTitle>
+                    </DialogHeader>
+                    {isLoadingMessageTemplates || isLoadingInstances ? (
+                         <div className="flex items-center justify-center gap-2 text-primary py-8">
+                             <Loader2 className="animate-spin" />
+                             Carregando opções de envio...
+                         </div>
+                    ) : messageTemplatesError || instancesError ? (
+                         <div className="text-red-600 font-semibold py-8">{messageTemplatesError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
+                    ) : (
+                        <div className={cn("grid gap-4 py-4", sendMessageMutation.isLoading && "opacity-50 pointer-events-none")}>
+                            <p className="text-sm text-gray-700">
+                                Enviando para: <strong>{selectedSaleForMessage?.north_clinic_clientes?.nome_north || 'N/D'}</strong> ({formatPhone(selectedSaleForMessage?.north_clinic_clientes?.telefone_north)})
+                            </p>
+
+                            {/* Select Message Template */}
+                            <div>
+                                <Label htmlFor="messageTemplate">Modelo de Mensagem *</Label>
+                                {(cashbackMessageTemplates?.length ?? 0) === 0 ? (
+                                    <p className="text-sm text-orange-600">Nenhum modelo de mensagem de cashback ativo encontrado.</p>
+                                ) : (
+                                    <Select
+                                        value={selectedMessageTemplateId?.toString() || ''}
+                                        onValueChange={(value) => setSelectedMessageTemplateId(value ? parseInt(value, 10) : null)}
+                                        disabled={sendMessageMutation.isLoading}
+                                    >
+                                        <SelectTrigger id="messageTemplate">
+                                            <SelectValue placeholder="Selecione o modelo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {cashbackMessageTemplates?.map(template => (
+                                                <SelectItem key={template.id} value={template.id.toString()}>
+                                                    {template.modelo_mensagem.substring(0, 50)}... {/* Show preview */}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </div>
+
+                            {/* Select Sending Instance */}
+                            <div>
+                                <Label htmlFor="sendingInstance">Instância Enviadora *</Label>
+                                {(instancesList?.length ?? 0) === 0 ? (
+                                    <p className="text-sm text-orange-600">Nenhuma instância de WhatsApp configurada.</p>
+                                ) : (
+                                    <Select
+                                        value={selectedSendingInstanceId?.toString() || ''}
+                                        onValueChange={(value) => setSelectedSendingInstanceId(value ? parseInt(value, 10) : null)}
+                                        disabled={sendMessageMutation.isLoading}
+                                    >
+                                        <SelectTrigger id="sendingInstance">
+                                            <SelectValue placeholder="Selecione a instância" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {instancesList?.map(inst => (
+                                                <SelectItem key={inst.id} value={inst.id.toString()}>
+                                                    {inst.nome_exibição} ({formatPhone(inst.telefone)})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </div>
+
+                            {/* Message Preview */}
+                            <div>
+                                <Label>Prévia da Mensagem</Label>
+                                <Card className="mt-1">
+                                    <CardContent className="p-3 text-sm text-gray-800 bg-gray-50 rounded-md">
+                                        {/* Use dangerouslySetInnerHTML to render formatted preview */}
+                                        <div dangerouslySetInnerHTML={{ __html: messagePreview || '<i class="text-gray-500">Selecione um modelo para ver a prévia.</i>' }}></div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={() => setIsSendMessageModalOpen(false)} disabled={sendMessageMutation.isLoading}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handleSendMessage}
+                            disabled={sendMessageMutation.isLoading || !selectedMessageTemplateId || selectedSendingInstanceId === null || (cashbackMessageTemplates?.length ?? 0) === 0 || (instancesList?.length ?? 0) === 0}
+                        >
+                            {sendMessageMutation.isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Enviando...
+                                </>
+                            ) : (
+                                'Enviar Mensagem'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
 
         </div>
     );
