@@ -1016,7 +1016,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             </SelectTrigger>
                             <SelectContent>
                                {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
-                                   <SelectItem value="" disabled>Nenhuma etapa disponível</SelectItem>
+                                   // Changed value from "" to "none"
+                                   <SelectItem value="none" disabled>Nenhuma etapa disponível</SelectItem>
                                ) : (
                                    stagesForSelectedFunnel?.map(stage => (
                                        <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
