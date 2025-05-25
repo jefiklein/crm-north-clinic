@@ -1033,6 +1033,27 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   }, [messageContext]); // Recompute when context changes
   // --- END NEW ---
 
+  // Handle placeholder click
+  const handlePlaceholderClick = (placeholder: string) => {
+      const placeholderText = `{${placeholder}}`;
+      const textarea = messageTextRef.current;
+      if (textarea) {
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const newText = messageText.slice(0, start) + placeholderText + messageText.slice(end);
+
+          setMessageText(newText);
+
+          // Move cursor after the inserted placeholder
+          const newCursorPosition = start + placeholderText.length;
+          // Use a timeout to ensure state update is processed before setting selection
+          setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = newCursorPosition;
+              textarea.focus(); // Keep focus on the textarea
+          }, 0); // Use 0ms timeout to defer until next tick
+      }
+  };
+
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
@@ -1428,10 +1449,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               {/* --- NEW: Placeholder List --- */}
               {availablePlaceholders.length > 0 && (
                   <div className="placeholder-list mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis:</p>
+                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis (clique para inserir):</p> {/* Updated text */}
                       <div className="flex flex-wrap gap-2 text-sm text-gray-800">
                           {availablePlaceholders.map(placeholder => (
-                              <span key={placeholder} className="bg-gray-200 px-2 py-1 rounded font-mono text-xs">
+                              <span
+                                  key={placeholder}
+                                  className="bg-gray-200 px-2 py-1 rounded font-mono text-xs cursor-pointer hover:bg-gray-300 transition-colors" // Added cursor and hover styles
+                                  onClick={() => handlePlaceholderClick(placeholder)} // Added onClick handler
+                              >
                                   {"{"}{placeholder}{"}"}
                               </span>
                           ))}
