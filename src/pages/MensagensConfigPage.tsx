@@ -1575,7 +1575,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
               {/* Status field (always starts active for new, but editable) */}
               {/* Show Status for General and Leads context */}
-              {(isGeneralContext || isLeadsContext) && (
+              {/* Hiding the Status field as requested */}
+              {/* {(isGeneralContext || isLeadsContext) && (
                   <div>
                     <label
                       htmlFor="active"
@@ -1597,7 +1598,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       </SelectContent>
                     </Select>
                   </div>
-              )}
+              )} */}
 
               <div className="flex justify-end gap-4 pt-4 border-t">
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
