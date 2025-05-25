@@ -9,10 +9,18 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // <-- Added this import
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TriangleAlert, Plus, Trash2 } from "lucide-react"; // Added Plus and Trash2 icons
+import { EmojiPicker } from "emoji-picker-element";
+import { Loader2, Smile, TriangleAlert, Plus, Trash2 } from "lucide-react"; // Added Plus and Trash2 icons
 import { useLocation, useNavigate } from "react-router-dom"; // Import useLocation and useNavigate
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
 import { useQuery } from "@tanstack/react-query"; // Import useQuery
@@ -26,15 +34,20 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for a single step in the message sequence
-interface MessageSequenceStep {
-    id: string; // Client-side ID for list rendering
-    type: 'text' | 'image' | 'video' | 'audio'; // Type of message step
-    text?: string; // Text content for text messages
-    mediaFile?: File | null; // File object for media messages (client-side)
-    mediaUrl?: string | null; // URL for saved media (or preview)
-    delaySeconds?: number; // Optional delay before sending this step
-    // Add other properties as needed (e.g., conditions, buttons)
+interface Instance {
+  id: number;
+  nome_exibição: string;
+  nome_instancia_evolution: string | null;
+}
+
+interface Service {
+  id: number;
+  nome: string;
+}
+
+interface Group {
+  id_grupo: number;
+  nome_grupo: string;
 }
 
 // Define the structure for Funnel Details (from Supabase)
@@ -49,6 +62,18 @@ interface FunnelStage {
     nome_etapa: string;
     id_funil: number;
     ordem: number | null;
+}
+
+
+// Define the structure for a single step in the message sequence
+interface MessageSequenceStep {
+    id: string; // Client-side ID for list rendering
+    type: 'text' | 'image' | 'video' | 'audio'; // Type of message step
+    text?: string; // Text content for text messages
+    mediaFile?: File | null; // File object for media messages (client-side)
+    mediaUrl?: string | null; // URL for saved media (or preview)
+    delaySeconds?: number; // Optional delay before sending this step
+    // Add other properties as needed (e.g., conditions, buttons)
 }
 
 
