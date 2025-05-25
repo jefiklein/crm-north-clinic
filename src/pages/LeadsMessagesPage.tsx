@@ -389,7 +389,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                              <SelectValue placeholder="Todos os Funis" />
                          </SelectTrigger>
                          <SelectContent>
-                             <SelectItem value="">Todos os Funis</SelectItem>
+                             <SelectItem value={null as any}>Todos os Funis</SelectItem> {/* Changed value to null */}
                              {allFunnels?.map(funnel => (
                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
                              ))}
@@ -409,7 +409,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                              <SelectValue placeholder="Todas as Etapas" />
                          </SelectTrigger>
                          <SelectContent>
-                             <SelectItem value="">Todas as Etapas</SelectItem>
+                             <SelectItem value={null as any}>Todas as Etapas</SelectItem> {/* Changed value to null */}
                              {stagesForSelectedFunnel?.map(stage => (
                                  <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
                              ))}
