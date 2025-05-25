@@ -774,6 +774,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.servicos_vinculados = linkedServices; // Send the array of IDs
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
+          saveData.para_grupo = targetType === "Grupo"; // Corrected logic
           saveData.grupo = selectedGroup || null;
           // Ensure cashback and leads fields are null for general messages
           saveData.dias_mensagem_cashback = null;
@@ -887,7 +888,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // NEW: Leads context fields visibility
   const showFunnelStageSelectLeads = isLeadsContext;
-  const showScheduledTimeLeads = isLeadsContext; // Assuming leads messages can also be scheduled by time
+  // Corrected condition: Hora Programada is NOT shown for Leads context
+  const showScheduledTimeLeads = false; // Always false for Leads context
 
 
   // Removed variations count
@@ -1016,7 +1018,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             </SelectTrigger>
                             <SelectContent>
                                {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
-                                   // Changed value from "" to "none"
                                    <SelectItem value="none" disabled>Nenhuma etapa disponível</SelectItem>
                                ) : (
                                    stagesForSelectedFunnel?.map(stage => (
@@ -1119,7 +1120,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               )}
 
               {/* Scheduled Time field (for specific categories in General, or maybe Aniversário in Cashback) */}
-              {(showScheduledTimeGeneral || showScheduledTimeCashback || showScheduledTimeLeads) && ( // Show for Leads context too
+              {(showScheduledTimeGeneral || showScheduledTimeCashback) && ( // Show only for General and Cashback contexts
                 <div>
                   <label
                     htmlFor="scheduledTime"
