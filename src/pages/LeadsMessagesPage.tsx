@@ -3,14 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Filter, ListOrdered } from 'lucide-react'; // Added ListOrdered icon
+import { Plus, Eye, EyeOff, Edit, Trash2, ToggleLeft, ToggleRight, Loader2, TriangleAlert, Info, MessagesSquare, Filter, ListOrdered } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
-import { Label } from "@/components/ui/label"; // Import Label component
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -25,7 +25,7 @@ interface ClinicData {
 // Define the structure for a message item fetched from Supabase
 interface MessageItem {
     id: number;
-    categoria: string; // Still exists in DB, but not used for filtering/display here
+    categoria: string;
     modelo_mensagem: string | null;
     midia_mensagem: string | null;
     id_instancia: number | null | string;
@@ -46,10 +46,11 @@ interface MessageItem {
     prioridade: number;
     created_at: string;
     updated_at: string;
-    context: string | null; // Should be 'leads' for this page
+    context: string | null;
     dias_mensagem_cashback: number | null;
     tipo_mensagem_cashback: string | null;
-    // TODO: Add id_funil and id_etapa here once DB is updated
+    sending_order: string | null; // <-- Added new column
+    // TODO: Add id_funil and id_etapa here once columns exist in DB
     // id_funil: number | null;
     // id_etapa: number | null;
 }
@@ -407,7 +408,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                              <SelectValue placeholder="Todos os Funis" />
                          </SelectTrigger>
                          <SelectContent>
-                             <SelectItem value={null as any}>Todos os Funis</SelectItem> {/* Changed value to null */}
+                             <SelectItem value={null as any}>Todos os Funis</SelectItem>
                              {allFunnels?.map(funnel => (
                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
                              ))}
@@ -427,7 +428,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                              <SelectValue placeholder="Todas as Etapas" />
                          </SelectTrigger>
                          <SelectContent>
-                             <SelectItem value={null as any}>Todas as Etapas</SelectItem> {/* Changed value to null */}
+                             <SelectItem value={null as any}>Todas as Etapas</SelectItem>
                              {stagesForSelectedFunnel?.map(stage => (
                                  <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
                              ))}
@@ -470,7 +471,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                     <Table className="message-table min-w-full">
                         <TableHeader className="bg-gray-100 border-b border-gray-300">
                             <TableRow>
-                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Funil / Etapa</TableHead> {/* New column */}
+                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Funil / Etapa</TableHead>
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Instância</TableHead>
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Prioridade</TableHead>
@@ -599,7 +600,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6"> {/* Adjusted colspan */}
+                                            <TableCell colSpan={6} className="p-6">
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}

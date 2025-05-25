@@ -20,13 +20,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EmojiPicker } from "emoji-picker-element";
-import { Loader2, Smile, TriangleAlert } from "lucide-react"; // Added TriangleAlert
+import { Loader2, Smile, TriangleAlert } from "lucide-react";
 import MultiSelectServices from "@/components/MultiSelectServices";
-import { useLocation } from "react-router-dom"; // Import useLocation
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
-import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
-import { cn } from '@/lib/utils'; // Import cn for conditional classes
-import { useQuery } from "@tanstack/react-query"; // Import useQuery
+import { useLocation } from "react-router-dom";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { cn } from '@/lib/utils';
+import { useQuery } from "@tanstack/react-query";
 
 interface ClinicData {
   code: string;
@@ -64,18 +64,18 @@ interface FunnelStage {
     id: number;
     nome_etapa: string;
     id_funil: number;
-    ordem: number | null; // Added ordem for sorting stages
+    ordem: number | null;
 }
 
 
 // Updated interface to match Supabase join structure and new column names
 interface FetchedMessageData {
   id: number;
-  categoria: string | null; // Allow null based on DB schema change
+  categoria: string | null;
   id_instancia: number | null;
   modelo_mensagem: string;
   ativo: boolean;
-  hora_envio: string | null; // Can be null
+  hora_envio: string | null;
   grupo: number | null;
   url_arquivo: string | null;
   variacao_1: string | null;
@@ -85,21 +85,20 @@ interface FetchedMessageData {
   variacao_5: string | null;
   para_cliente: boolean;
   para_funcionario: boolean;
-  context: string | null; // Added new column
-  dias_mensagem_cashback: number | null; // Added new column (renamed)
-  tipo_mensagem_cashback: string | null; // Added new column (renamed)
-  // This will be an array of objects from the join table
-  north_clinic_mensagens_servicos: { id_servico: number }[];
-  // NEW: Add funnel and stage IDs (assuming these columns will exist)
+  context: string | null;
+  dias_mensagem_cashback: number | null;
+  tipo_mensagem_cashback: string | null;
   id_funil?: number | null;
   id_etapa?: number | null;
+  sending_order: string | null; // <-- Added new column
+  north_clinic_mensagens_servicos: { id_servico: number }[];
 }
 
 // Interface for webhook response (assuming it might return success/error flags)
 interface WebhookResponse {
     success?: boolean;
     error?: string;
-    message?: string; // Common field for success or error messages
+    message?: string;
     // Add other expected fields from webhook response if any
 }
 
@@ -116,10 +115,9 @@ const orderedCategoriesGeneral = [
 ];
 
 const orderedCategoriesCashback = [
-    "Aniversário", // Aniversário can also be a cashback message
+    "Aniversário",
     "Cashback Concedido",
     "Cashback Próximo a Expirar",
-    // Add other cashback categories as needed
 ];
 
 
@@ -141,9 +139,9 @@ const defaultTemplates: Record<string, string> = {
   Liberado:
     "{primeiro_nome_cliente}, sua sessão de *{nome_servico_principal}* foi concluída. Se tiver uma próxima etapa, informaremos em breve. Obrigado!",
   "Cashback Concedido":
-    "Olá {primeiro_nome_cliente}! Você recebeu R$ {valor_cashback} de cashback na sua última compra! Use até {validade_cashback}. Aproveite!", // Example cashback template
+    "Olá {primeiro_nome_cliente}! Você recebeu R$ {valor_cashback} de cashback na sua última compra! Use até {validade_cashback}. Aproveite!",
   "Cashback Próximo a Expirar":
-    "Olá {primeiro_nome_cliente}! Seu cashback de R$ {valor_cashback} está perto de expirar ({validade_cashback}). Não perca a chance de usar!", // Example cashback template
+    "Olá {primeiro_nome_cliente}! Seu cashback de R$ {valor_cashback} está perto de expirar ({validade_cashback}). Não perca a chance de usar!",
 };
 
 // Placeholder data for message preview (updated for cashback)
@@ -160,8 +158,8 @@ const placeholderData = {
     mes_agendamento_num: "04",
     mes_agendamento_extenso: "Abril",
     hora_agendamento: "15:30",
-    valor_cashback: "R$ 50,00", // Added cashback placeholder
-    validade_cashback: "20/05/2025" // Added cashback placeholder
+    valor_cashback: "R$ 50,00",
+    validade_cashback: "20/05/2025"
 };
 
 function simulateMessage(template: string | null, placeholders: { [key: string]: string }): string {
@@ -183,7 +181,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
   const { toast } = useToast();
-  const location = useLocation(); // Hook to get URL parameters
+  const location = useLocation();
 
   // Form state
   const [loading, setLoading] = useState(true);
@@ -209,13 +207,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
   const [messageContext, setMessageContext] = useState<string | null>(null); // State for message context
 
-  // NEW: State for cashback timing (using correct column names)
+  // State for cashback timing (using correct column names)
   const [diasMensagemCashback, setDiasMensagemCashback] = useState<string>(''); // Use string for input
   const [tipoMensagemCashback, setTipoMensagemCashback] = useState<string>(''); // 'apos_venda' or 'antes_validade'
 
-  // NEW: State for Leads context - Funnel and Stage
+  // State for Leads context - Funnel and Stage
   const [selectedFunnelId, setSelectedFunnelId] = useState<number | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
+
+  // NEW: State for sending order
+  const [sendingOrder, setSendingOrder] = useState<string>('both'); // Default to 'both'
 
 
   // Removed variations state
@@ -258,7 +259,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
       queryKey: ['stagesForFunnelConfigPage', clinicData?.id, selectedFunnelId],
       queryFn: async () => {
-          if (!clinicData?.id || selectedFunnelId === null) return [];
+          if (!clinicId || selectedFunnelId === null) return [];
           console.log(`[MensagensConfigPage] Fetching stages for funnel ${selectedFunnelId} from Supabase...`);
           const { data, error } = await supabase
               .from('north_clinic_crm_etapa')
@@ -271,7 +272,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           }
           return data || [];
       },
-      enabled: !!clinicData?.id && isLeadsContext && selectedFunnelId !== null, // Enabled only if clinicId, context is 'leads', and a funnel is selected
+      enabled: !!clinicId && isLeadsContext && selectedFunnelId !== null, // Enabled only if clinicId, context is 'leads', and a funnel is selected
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false,
   });
@@ -328,7 +329,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Fetch message details and linked services from Supabase
           const { data: messageDataArray, error: messageError } = await supabase
             .from('north_clinic_config_mensagens')
-            .select('*, north_clinic_mensagens_servicos(id_servico)') // Select message fields and linked service IDs
+            .select('*, north_clinic_mensagens_servicos(id_servico)') // Select message fields and join linked service IDs
             .eq('id', messageIdToEdit) // Filter by message ID
             .eq('id_clinica', clinicData.id) // Filter by clinic ID
             .single(); // Expecting a single message
@@ -338,7 +339,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           }
 
           if (messageDataArray) {
-            const messageData: FetchedMessageData = messageDataArray; // Cast to the fetched structure
+            const messageData: FetchedMessageData = messageDataArray; // Cast to the defined structure
 
             // Extract linked service IDs from the nested array (only relevant for general context)
             const fetchedLinkedServices = messageData.context === 'clientes' // Only for 'clientes' context
@@ -388,15 +389,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
             );
 
-            // NEW: Set cashback timing state (using correct column names)
+            // Set cashback timing state (using correct column names)
             setDiasMensagemCashback(messageData.dias_mensagem_cashback?.toString() || '');
             setTipoMensagemCashback(messageData.tipo_mensagem_cashback || '');
 
-            // NEW: Set Leads context state (assuming columns exist)
+            // Set Leads context state (assuming columns exist)
             if (messageData.context === 'leads') {
                  setSelectedFunnelId(messageData.id_funil ?? null);
                  setSelectedStageId(messageData.id_etapa ?? null);
             }
+
+            // NEW: Set sending order state
+            setSendingOrder(messageData.sending_order || 'both');
 
 
           } else {
@@ -427,13 +431,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Default target type based on context
           setTargetType(contextParam === 'cashback' ? 'Cliente' : contextParam === 'leads' ? 'Cliente' : 'Grupo'); // Default to Cliente for leads
 
-          // NEW: Default cashback timing
+          // Default cashback timing
           setDiasMensagemCashback('');
           setTipoMensagemCashback('');
 
-          // NEW: Default Leads context state
+          // Default Leads context state
           setSelectedFunnelId(null);
           setSelectedStageId(null);
+
+          // NEW: Default sending order
+          setSendingOrder('both');
 
           // Context is already set from URL parameter above
         }
@@ -673,7 +680,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
          }
     }
 
-    // NEW: Validation specific to Leads context
+    // Validation specific to Leads context
     if (isLeadsContext) {
         if (selectedFunnelId === null) {
              toast({
@@ -708,6 +715,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
          toast({
              title: "Erro",
              description: "Contexto da mensagem não definido.",
+             variant: "destructive",
+         });
+         return;
+    }
+
+    // NEW: Validate sending order if media is attached
+    if ((mediaFile || mediaSavedUrl) && sendingOrder === 'none') {
+         toast({
+             title: "Erro",
+             description: "Selecione a ordem de envio para a mensagem com anexo.",
              variant: "destructive",
          });
          return;
@@ -767,6 +784,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         tipo_mensagem_cashback: null,
         id_funil: null, // Default to null
         id_etapa: null, // Default to null
+        sending_order: sendingOrder, // <-- Include sending order
       };
 
       // Add context-specific fields
@@ -792,7 +810,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Ensure leads fields are null for cashback messages
           saveData.id_funil = null;
           saveData.id_etapa = null;
-      } else if (isLeadsContext) { // NEW: Add Leads context fields
+      } else if (isLeadsContext) { // Add Leads context fields
           saveData.id_funil = selectedFunnelId;
           saveData.id_etapa = selectedStageId;
           saveData.para_cliente = true; // Assuming leads messages are always to clients
@@ -818,7 +836,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         body: JSON.stringify(saveData),
       });
 
-      // --- MODIFIED: Check response status AND body for errors ---
+      // Check response status AND body for errors
       const responseData: WebhookResponse = await saveRes.json(); // Always read the JSON response
 
       if (!saveRes.ok || responseData.error || (responseData.success === false)) {
@@ -886,10 +904,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const showCashbackTiming = isCashbackContext;
   const showScheduledTimeCashback = isCashbackContext; // Show scheduled time for all cashback messages
 
-  // NEW: Leads context fields visibility
+  // Leads context fields visibility
   const showFunnelStageSelectLeads = isLeadsContext;
   // Corrected condition: Hora Programada is NOT shown for Leads context
   const showScheduledTimeLeads = false; // Always false for Leads context
+
+  // Show sending order field only if there is a media file attached or saved
+  const showSendingOrder = !!mediaFile || !!mediaSavedUrl;
 
 
   // Removed variations count
@@ -973,7 +994,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   </div>
               )}
 
-              {/* NEW: Funnel and Stage fields (only for Leads context) */}
+              {/* Funnel and Stage fields (only for Leads context) */}
               {showFunnelStageSelectLeads && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -1158,38 +1179,38 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </div>
               )}
 
-              {/* NEW: Cashback Timing fields (only for Cashback context) */}
+              {/* Cashback Timing fields (only for Cashback context) */}
               {showCashbackTiming && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                           <label
-                            htmlFor="diasMensagemCashback" // Use correct ID
+                            htmlFor="diasMensagemCashback"
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Dias *
                           </label>
                           <Input
-                              id="diasMensagemCashback" // Use correct ID
+                              id="diasMensagemCashback"
                               type="number"
                               placeholder="Ex: 3"
-                              value={diasMensagemCashback} // Use correct state
-                              onChange={(e) => setDiasMensagemCashback(e.target.value)} // Use correct state setter
+                              value={diasMensagemCashback}
+                              onChange={(e) => setDiasMensagemCashback(e.target.value)}
                               min="0"
                           />
                           <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
                       </div>
                       <div>
-                          <Label // Use Label component
-                            htmlFor="tipoMensagemCashback" // Use correct ID
+                          <Label
+                            htmlFor="tipoMensagemCashback"
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Agendar Para *
                           </Label>
-                          <RadioGroup // Use RadioGroup component
-                              value={tipoMensagemCashback} // Use correct state
-                              onValueChange={setTipoMensagemCashback} // Use correct state setter
-                              id="tipoMensagemCashback" // Use correct ID
-                              className="flex flex-col space-y-1" // Add some spacing
+                          <RadioGroup
+                              value={tipoMensagemCashback}
+                              onValueChange={setTipoMensagemCashback}
+                              id="tipoMensagemCashback"
+                              className="flex flex-col space-y-1"
                           >
                               <div className="flex items-center space-x-2">
                                   <RadioGroupItem value="apos_venda" id="apos_venda" />
@@ -1314,6 +1335,34 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 </p>
               </div>
 
+              {/* NEW: Sending Order field (Conditional) */}
+              {showSendingOrder && (
+                  <div>
+                      <label
+                        htmlFor="sendingOrder"
+                        className="block mb-1 font-medium text-gray-700"
+                      >
+                        Ordem de Envio (Texto e Mídia) *
+                      </label>
+                      <Select
+                          value={sendingOrder}
+                          onValueChange={setSendingOrder}
+                          id="sendingOrder"
+                      >
+                          <SelectTrigger>
+                              <SelectValue placeholder="Selecione a ordem" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="both">Texto e Mídia Juntos</SelectItem>
+                              <SelectItem value="text_first">Texto Primeiro, Depois Mídia</SelectItem>
+                              <SelectItem value="media_first">Mídia Primeiro, Depois Texto</SelectItem>
+                          </SelectContent>
+                      </Select>
+                       <p className="text-sm text-gray-500 mt-1">Define a ordem em que o texto e o anexo serão enviados.</p>
+                  </div>
+              )}
+
+
               {/* Removed Variations section */}
 
               {/* Status field (always starts active for new, but editable) */}
@@ -1346,7 +1395,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={saving}>
+                <Button onClick={handleSave} disabled={saving || isLoading || !!error || (isLeadsContext && (isLoadingFunnels || !!funnelsError || isLoadingStages || !!stagesError))}>
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

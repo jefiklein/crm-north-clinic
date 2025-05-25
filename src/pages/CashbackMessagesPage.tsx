@@ -44,9 +44,10 @@ interface MessageItem {
     prioridade: number;
     created_at: string;
     updated_at: string;
-    context: string | null; // Added new column
-    dias_mensagem_cashback: number | null; // Added new column (renamed)
-    tipo_mensagem_cashback: string | null; // Added new column (renamed)
+    context: string | null;
+    dias_mensagem_cashback: number | null;
+    tipo_mensagem_cashback: string | null;
+    sending_order: string | null; // <-- Added new column
 }
 
 // Define the structure for Instance Info from Supabase
@@ -76,8 +77,8 @@ const placeholderData = {
     mes_agendamento_extenso: "Abril",
     hora_agendamento: "15:30",
     // Add cashback specific placeholders if needed in the future
-    valor_cashback: "R$ 50,00", // Added cashback placeholder
-    validade_cashback: "20/05/2025" // Added cashback placeholder
+    valor_cashback: "R$ 50,00",
+    validade_cashback: "20/05/2025"
 };
 
 // Categories relevant to Cashback context (kept for reference, but filtering by context now)
@@ -447,7 +448,7 @@ const CashbackMessagesPage: React.FC<CashbackMessagesPageProps> = ({ clinicData 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={4} className="p-6"> {/* Adjusted colspan to 4 */}
+                                            <TableCell colSpan={4} className="p-6">
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}

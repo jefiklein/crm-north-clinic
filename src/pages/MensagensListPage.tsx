@@ -44,9 +44,10 @@ interface MessageItem {
     prioridade: number;
     created_at: string;
     updated_at: string;
-    context: string | null; // Added new column
-    dias_mensagem_cashback: number | null; // Added new column (renamed)
-    tipo_mensagem_cashback: string | null; // Added new column (renamed)
+    context: string | null;
+    dias_mensagem_cashback: number | null;
+    tipo_mensagem_cashback: string | null;
+    sending_order: string | null; // <-- Added new column
 }
 
 // Define the structure for Instance Info from Supabase
@@ -239,10 +240,10 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
         <div className="config-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
-                    Lista de Mensagens de Clientes {/* Updated title */}
+                    Lista de Mensagens de Clientes
                 </h1>
                 <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
-                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem de Cliente {/* Updated button text */}
+                    <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem de Cliente
                 </Button>
             </div>
 
@@ -266,7 +267,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
             {!isLoading && !fetchError && (messagesList?.length ?? 0) === 0 ? (
                 <div id="noMessagesFound" className="text-center text-gray-600 p-12 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
                     <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
-                    <p className="text-2xl font-semibold">Nenhuma mensagem automática configurada encontrada para clientes.</p> {/* Updated text */}
+                    <p className="text-2xl font-semibold">Nenhuma mensagem automática configurada encontrada para clientes.</p>
                 </div>
             ) : (
                 <div id="messageListContainer" className="overflow-x-auto rounded-lg border border-gray-300 shadow-md">
@@ -401,7 +402,7 @@ const MensagensListPage: React.FC<MensagensListPageProps> = ({ clinicData }) => 
                                         </TableRow>
                                         {/* Preview Row */}
                                         <TableRow className={cn("preview-row bg-gray-50 text-gray-900 text-base border-t border-gray-200", !isExpanded && 'hidden')}>
-                                            <TableCell colSpan={6} className="p-6"> {/* Adjusted colspan to 6 */}
+                                            <TableCell colSpan={6} className="p-6">
                                                 <div
                                                     className="preview-content whitespace-pre-wrap leading-relaxed"
                                                     dangerouslySetInnerHTML={{ __html: simulateMessage(message.modelo_mensagem, placeholderData) }}
