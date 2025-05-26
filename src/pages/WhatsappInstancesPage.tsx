@@ -74,7 +74,7 @@ const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook para criar na API Evolution
 const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`; // Webhook para salvar no DB
 // TODO: Add a webhook URL for updating instance details, including id_funcionario
-const INSTANCE_UPDATE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/SEU-WEBHOOK-ATUALIZAR-INSTANCIA`; // Placeholder for update webhook
+const INSTANCE_UPDATE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/5508f715-27a5-447c-86d4-2026e1517a21`; // Placeholder for update webhook
 
 
 // Required permission level for this page
@@ -506,24 +506,30 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     // NEW: Mutation for updating an instance (simulated webhook)
     const updateInstanceMutation = useMutation({
         mutationFn: async ({ instanceId, id_funcionario }: { instanceId: number; id_funcionario: number | null }) => {
-            console.log(`[WhatsappInstancesPage] Simulating update for instance ${instanceId}: Linking to employee ID ${id_funcionario}`);
+            if (!clinicId) throw new Error("ID da clínica não definido.");
+            console.log(`[WhatsappInstancesPage] Attempting to update instance ${instanceId}: Linking to employee ID ${id_funcionario} via webhook`);
             // TODO: Replace with actual fetch call to your update webhook
             // Example:
-            // const response = await fetch(INSTANCE_UPDATE_WEBHOOK_URL, {
-            //     method: "POST",
-            //     headers: { "Content-Type": "application/json" },
-            //     body: JSON.stringify({ id: instanceId, id_funcionario: id_funcionario, id_clinica: clinicId })
-            // });
-            // if (!response.ok) { ... throw error ... }
-            // return response.json();
+            const response = await fetch(INSTANCE_UPDATE_WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: instanceId, id_funcionario: id_funcionario, id_clinica: clinicId })
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao atualizar instância`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+                throw new Error(errorMsg);
+            }
+            return response.json();
 
             // Simulation:
-            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-            console.log(`[WhatsappInstancesPage] Simulation: Instance ${instanceId} linked to employee ${id_funcionario} successfully.`);
-            return { success: true, message: 'Simulação de atualização bem-sucedida.' };
+            // await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+            // console.log(`[WhatsappInstancesPage] Simulation: Instance ${instanceId} linked to employee ${id_funcionario} successfully.`);
+            // return { success: true, message: 'Simulação de atualização bem-sucedida.' };
         },
         onSuccess: (_, variables) => {
-            showSuccess(`Vínculo de funcionário para instância ${variables.instanceId} salvo (simulado)!`);
+            showSuccess(`Vínculo de funcionário para instância ${variables.instanceId} salvo!`);
             // Invalidate the instances list query to refetch the updated data
             queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
             // Clear the pending state for this instance
