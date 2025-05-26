@@ -39,6 +39,11 @@ interface SupabaseSale {
     valor_venda: number | null;
     valor_cashback: number | null; // Added new column
     validade_cashback: string | null; // Added new column (assuming ISO date string)
+    tipo: number | null; // Added tipo
+    status: number | null; // Added status
+    servico: string | null; // Added servico
+    produto: string | null; // Added produto
+    pacote: string | null; // Added pacote
     // The client name comes from the joined table
     north_clinic_clientes: { nome_north: string | null } | null; // Nested client data
     // Add other fields if needed from the Supabase query
@@ -109,6 +114,28 @@ const formatDate = (dateString: string | null): string => {
     }
 };
 
+// Helper to format sale type
+const formatSaleType = (type: number | null): string => {
+    if (type === null || type === undefined) return 'N/D';
+    switch (type) {
+        case 1: return 'Serviço';
+        case 2: return 'Produto';
+        case 3: return 'Pacote';
+        default: return `Tipo ${type}`;
+    }
+};
+
+// Helper to format sale status
+const formatSaleStatus = (status: number | null): string => {
+    if (status === null || status === undefined) return 'N/D';
+    switch (status) {
+        case 1: return 'Aberto';
+        case 2: return 'Fechado';
+        case 3: return 'Cancelado';
+        default: return `Status ${status}`;
+    }
+};
+
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const navigate = useNavigate(); // Initialize navigate hook
@@ -168,8 +195,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             try {
                 const { data, error } = await supabase
                     .from('north_clinic_vendas')
-                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, north_clinic_clientes(nome_north)') // Select sales data and join client name - ADDED NEW COLUMNS
+                    // Select sales data and join client name - ADDED NEW COLUMNS
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, tipo, status, servico, produto, pacote, north_clinic_clientes(nome_north)')
                     .eq('id_clinica', clinicId) // Filter by clinic ID
+                    .eq('brinde', false) // <-- ADDED FILTER FOR BRINDE = FALSE
                     .gte('data_venda', startDate) // Filter by start date of the month
                     .lte('data_venda', endDate) // Filter by end date of the month
                     .order('data_venda', { ascending: true }); // Order by sale date
@@ -425,7 +454,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
 
     if (!clinicData) {
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+        return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
     }
 
     return (
@@ -480,6 +509,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         <TableHead>Data Venda</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Vendedora</TableHead>
+                                        <TableHead>Tipo</TableHead> {/* Added Type column */}
+                                        <TableHead>Status</TableHead> {/* Added Status column */}
+                                        <TableHead>Item</TableHead> {/* Added Item column */}
                                         <TableHead className="text-right">Valor Venda</TableHead>
                                         <TableHead>Valor Cashback</TableHead>
                                         <TableHead>Validade Cashback</TableHead>
@@ -492,6 +524,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toFixed(2).replace('.', ',') ?? ''; // Format fetched number for display
                                         const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
 
+                                        // Determine the item name (Serviço, Produto, or Pacote)
+                                        const itemName = sale.servico || sale.produto || sale.pacote || 'N/D';
+
 
                                         return (
                                             <TableRow key={saleId}>
@@ -499,10 +534,13 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                 {/* Access client name from the nested object */}
                                                 <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
                                                 <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
+                                                <TableCell className="whitespace-nowrap">{formatSaleType(sale.tipo)}</TableCell> {/* Display Type */}
+                                                <TableCell className="whitespace-nowrap">{formatSaleStatus(sale.status)}</TableCell> {/* Display Status */}
+                                                <TableCell className="whitespace-nowrap">{itemName}</TableCell> {/* Display Item Name */}
                                                 <TableCell className="text-right whitespace-nowrap">
                                                     {sale.valor_venda !== null && sale.valor_venda !== undefined ?
                                                         `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :
-                                                        'N/D'
+                                                        'R$ 0,00'
                                                     }
                                                 </TableCell>
                                                 <TableCell className="w-[150px]"> {/* Fixed width for input */}
