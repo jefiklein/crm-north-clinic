@@ -149,6 +149,7 @@ const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
+  console.log("[ConversasPage] Component Rendered. clinicData:", clinicData); // Log clinicData on render
   const queryClient = useQueryClient(); // Get query client instance
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -178,6 +179,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
   const hasPermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
+  console.log("[ConversasPage] hasPermission:", hasPermission); // Log permission status
+
+
   // Ref for the ScrollArea wrapper
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   // Ref for the sentinel div at the end of messages
@@ -189,25 +193,38 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
 
   // Fetch Instances from Supabase
-  const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
+  const { data: instancesList, isLoading: isLoadingInstances, error: instancesError, refetch: refetchInstances } = useQuery<InstanceInfo[]>({
     queryKey: ['instancesList', clinicId],
     queryFn: async () => {
-      if (!clinicId) throw new Error("ID da clínica não disponível.");
-      console.log("[ConversasPage] Fetching instance list...");
+      console.log("[ConversasPage] instancesList queryFn started. clinicId:", clinicId); // Add this log
+      if (!clinicId) {
+          console.error("[ConversasPage] instancesList queryFn: clinicId is null."); // Add this log
+          throw new Error("ID da clínica não disponível.");
+      }
+      console.log(`[ConversasPage] Fetching instance list for clinic ${clinicId}...`);
       const { data, error } = await supabase
         .from('north_clinic_config_instancias')
         .select('id, nome_exibição, telefone, nome_instancia_evolution')
         .eq('id_clinica', clinicId)
         .eq('historico', true) // <-- Added filter for historico = true
         .order('nome_exibição', { ascending: true });
-      if (error) throw new Error(error.message);
-      console.log("[ConversasPage] Fetched instances list:", data); // Log fetched instances
+      if (error) {
+          console.error("[ConversasPage] Supabase instances fetch error:", error); // Log fetch error
+          throw new Error(error.message);
+      }
+      console.log("[ConversasPage] Fetched instances list:", data?.length, "items"); // Log fetched instances count
       return data || [];
     },
     enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // Log the state of the instancesList query
+  useEffect(() => {
+      console.log("[ConversasPage] instancesList query state updated. isLoadingInstances:", isLoadingInstances, "instancesError:", instancesError, "instancesList:", instancesList ? instancesList.length + ' items' : 'null/undefined'); // Add this log
+  }, [isLoadingInstances, instancesError, instancesList]);
+
 
   // Extract instance IDs for filtering messages
   const instanceIds = useMemo(() => {
@@ -227,8 +244,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: conversationSummaries, isLoading: isLoadingSummaries, error: summariesError } = useQuery<ConversationSummary[]>({
     queryKey: ['conversationSummaries', clinicId, instanceIds],
     queryFn: async () => {
+      console.log("[ConversasPage] conversationSummaries queryFn started. clinicId:", clinicId, "instanceIds:", instanceIds); // Add this log
       if (!clinicId) throw new Error("ID da clínica não disponível.");
-      if (!instanceIds || instanceIds.length === 0) return [];
+      if (!instanceIds || instanceIds.length === 0) {
+          console.log("[ConversasPage] conversationSummaries queryFn: No instance IDs available. Returning empty."); // Add this log
+          return [];
+      }
 
       // Fetch messages with id_instancia in instanceIds - UPDATED SELECT TO INCLUDE nome_lead
       const { data, error } = await supabase
@@ -237,7 +258,10 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .in('id_instancia', instanceIds)
         .order('message_timestamp', { ascending: false }); // Decrescente
 
-      if (error) throw new Error(error.message);
+      if (error) {
+          console.error("[ConversasPage] Supabase conversation summaries fetch error:", error); // Log fetch error
+          throw new Error(error.message);
+      }
       if (!data) {
           console.log("[ConversasPage] Supabase conversation summaries fetch returned null data."); // Log null data
           return [];
@@ -257,13 +281,19 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         }
       }
       const summaries = Array.from(groupedMap.values());
-      console.log("[ConversasPage] Fetched conversation summaries:", summaries.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp, lastMessage: s.lastMessage?.substring(0, 50) + '...' }))); // Log summaries with nome_lead and message preview
+      console.log("[ConversasPage] Fetched conversation summaries:", summaries.length, "items"); // Log summaries count
       return summaries;
     },
     enabled: hasPermission && !!clinicId && instanceIds.length > 0,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  // Log the state of the conversationSummaries query
+  useEffect(() => {
+      console.log("[ConversasPage] conversationSummaries query state updated. isLoadingSummaries:", isLoadingSummaries, "summariesError:", summariesError, "conversationSummaries:", conversationSummaries ? conversationSummaries.length + ' items' : 'null/undefined'); // Add this log
+  }, [isLoadingSummaries, summariesError, conversationSummaries]);
+
 
   // Filter and sort summaries based on search term and timestamp
   const filteredAndSortedSummaries = useMemo(() => {
@@ -277,7 +307,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     });
     // Already ordered by message_timestamp desc from query, but sort again to be safe
     filtered.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
-    console.log("[ConversasPage] Filtered and sorted summaries:", filtered.map(s => ({ remoteJid: s.remoteJid, nome_lead: s.nome_lead, lastTimestamp: s.lastTimestamp, lastMessage: s.lastMessage?.substring(0, 50) + '...' }))); // Log filtered summaries
+    console.log("[ConversasPage] Filtered and sorted summaries:", filtered.length, "items"); // Log filtered summaries count
     return filtered;
   }, [conversationSummaries, searchTerm]);
 
@@ -285,6 +315,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: messages, isLoading: isLoadingMessages, error: messagesError } = useQuery<Message[]>({
     queryKey: ['conversationMessages', selectedConversationId],
     queryFn: async () => {
+      console.log("[ConversasPage] conversationMessages queryFn started. selectedConversationId:", selectedConversationId); // Add this log
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
       // Fetch messages in DESCENDING order
       const { data, error } = await supabase
@@ -292,14 +323,23 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
         .order('message_timestamp', { ascending: false }); // <-- Changed to DESCENDING
-      if (error) throw new Error(error.message);
-      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId} (DESC):`, data?.map(msg => ({ id: msg.id, from_me: msg.from_me, nome_lead: msg.nome_lead, remoteJid: msg.remoteJid, timestamp: msg.message_timestamp, message: msg.mensagem?.substring(0, 50) + '...' }))); // Log messages with nome_lead and message preview
+      if (error) {
+          console.error("[ConversasPage] Supabase messages fetch error:", error); // Log fetch error
+          throw new Error(error.message);
+      }
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.length, "items"); // Log messages count
       return data || [];
     },
     enabled: hasPermission && !!selectedConversationId,
     staleTime: 10 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  // Log the state of the messages query
+  useEffect(() => {
+      console.log("[ConversasPage] messages query state updated. isLoadingMessages:", isLoadingMessages, "messagesError:", messagesError, "messages:", messages ? messages.length + ' items' : 'null/undefined'); // Add this log
+  }, [isLoadingMessages, messagesError, messages]);
+
 
   // --- New Queries for Funnel/Stage/Origem/SourceUrl in Header ---
 
@@ -347,6 +387,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: selectedLeadDetails, isLoading: isLoadingSelectedLead, error: selectedLeadError } = useQuery<ConversationLeadDetails | null>({
       queryKey: ['selectedLeadDetails', selectedConversationId],
       queryFn: async () => {
+          console.log("[ConversasPage] selectedLeadDetails queryFn started. selectedConversationId:", selectedConversationId, "clinicId:", clinicId); // Add this log
           if (!selectedConversationId || !clinicId) {
               console.log("[ConversasPage] Skipping selected lead details fetch: No conversation selected or clinicId missing.");
               return null;
@@ -361,7 +402,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               .single(); // <-- Kept single() for type safety, combined with limit(1)
 
           if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
-              console.error("[ConversasPage] Supabase selected lead details fetch error:", error);
+              console.error("[ConversasPage] Supabase selected lead details fetch error:", error); // Log fetch error
               throw new Error(`Erro ao buscar detalhes do lead: ${error.message}`);
           }
 
@@ -370,13 +411,19 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               return null;
           }
 
-          console.log("[ConversasPage] Fetched selected lead details:", data);
+          console.log("[ConversasPage] Fetched selected lead details:", data); // Log fetched data
           return data as ConversationLeadDetails;
       },
       enabled: hasPermission && !!selectedConversationId && !!clinicId, // Enabled if user has permission, conversation selected, and clinicId available
       staleTime: 60 * 1000, // 1 minute
       refetchOnWindowFocus: false,
   });
+
+  // Log the state of the selectedLeadDetails query
+  useEffect(() => {
+      console.log("[ConversasPage] selectedLeadDetails query state updated. isLoadingSelectedLead:", isLoadingSelectedLead, "selectedLeadError:", selectedLeadError, "selectedLeadDetails:", selectedLeadDetails); // Add this log
+  }, [isLoadingSelectedLead, selectedLeadError, selectedLeadDetails]);
+
 
   // Memoized maps for stages and funnels
   const stageMap = useMemo(() => {
@@ -759,7 +806,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!Array.isArray(allMessages)) {
+      if (!ArrayMessages) { // Corrected check here
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
@@ -847,10 +894,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // --- Permission Check ---
   if (!clinicData) {
+    console.log("[ConversasPage] Rendering: clinicData is null."); // Log permission check state
     return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
   }
 
   if (!hasPermission) {
+    console.log("[ConversasPage] Rendering: User does not have required permission."); // Log permission check state
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
         <Card className="w-full max-w-md text-center">
