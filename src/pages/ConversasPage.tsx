@@ -6,8 +6,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
-import { cn, formatPhone } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
@@ -62,10 +60,12 @@ interface Message {
   status?: 'pending' | 'failed'; // Added status for optimistic updates
 }
 
-// Structure for Lead data fetched for the selected conversation
+// Structure for Lead data fetched for the selected conversation - UPDATED
 interface ConversationLeadDetails {
     id: number;
     id_etapa: number | null;
+    origem: string | null; // Added origem
+    sourceUrl: string | null; // Added sourceUrl
     // Add other lead fields if needed in the future
 }
 
@@ -301,7 +301,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     refetchOnWindowFocus: true,
   });
 
-  // --- New Queries for Funnel/Stage in Header ---
+  // --- New Queries for Funnel/Stage/Origem/SourceUrl in Header ---
 
   // Fetch all stages (needed for mapping id_etapa to name)
   const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
@@ -343,7 +343,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       refetchOnWindowFocus: false,
   });
 
-  // Fetch lead details (specifically id_etapa) for the selected conversation
+  // Fetch lead details (specifically id_etapa, origem, sourceUrl) for the selected conversation - UPDATED SELECT
   const { data: selectedLeadDetails, isLoading: isLoadingSelectedLead, error: selectedLeadError } = useQuery<ConversationLeadDetails | null>({
       queryKey: ['selectedLeadDetails', selectedConversationId],
       queryFn: async () => {
@@ -354,7 +354,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           console.log(`[ConversasPage] Fetching lead details for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
           const { data, error } = await supabase
               .from('north_clinic_leads_API')
-              .select('id, id_etapa')
+              .select('id, id_etapa, origem, sourceUrl') // UPDATED: Select origem and sourceUrl
               .eq('remoteJid', selectedConversationId)
               .eq('id_clinica', clinicId) // Filter by clinic ID
               .single(); // Expecting a single lead
@@ -980,9 +980,27 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                              <TriangleAlert className="h-3 w-3" /> Erro ao carregar info do lead.
                          </span>
                     ) : selectedLeadDetails ? (
-                        <div className="flex items-center gap-2 text-xs font-semibold mt-1"> {/* Use flex and gap for badges */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold mt-1"> {/* Use flex and gap for badges */}
                             <span className={cn("funnel px-2 py-1 rounded-md", funilClass)}>{leadFunnelName}</span>
                             <span className={cn("stage px-2 py-1 rounded-md", etapaClass)}>{leadStageName}</span>
+                            {/* Display Origem */}
+                            {selectedLeadDetails.origem && (
+                                <span className="origem px-2 py-1 rounded-md bg-gray-100 text-gray-800 border border-gray-800">
+                                    Origem: {selectedLeadDetails.origem}
+                                </span>
+                            )}
+                            {/* Display SourceUrl as a link */}
+                            {selectedLeadDetails.sourceUrl && (
+                                <a
+                                    href={selectedLeadDetails.sourceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="source-url px-2 py-1 rounded-md bg-gray-100 text-blue-600 border border-gray-800 hover:underline truncate max-w-[200px]" // Added truncate and max-width
+                                    title={`Anúncio: ${selectedLeadDetails.sourceUrl}`} // Add tooltip for full URL
+                                >
+                                    Anúncio: {selectedLeadDetails.sourceUrl}
+                                </a>
+                            )}
                         </div>
                     ) : (
                          <span className="text-sm text-gray-600">Lead não encontrado no CRM.</span>
