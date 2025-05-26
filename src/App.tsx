@@ -91,13 +91,15 @@ const App = () => {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Layout /> {/* Layout contains Sidebar, Header, and Outlet */}
+                  {/* Pass handleLogout to Layout */}
+                  <Layout onLogout={handleLogout} /> {/* Layout contains Sidebar, Header, and Outlet */}
                 </ProtectedRoute>
               }
             >
               {/* Nested routes within the Layout */}
               {/* Use path="" for the default route /dashboard */}
-              <Route path="" element={<DashboardPage clinicData={clinicData} onLogout={handleLogout} />} />
+              {/* DashboardPage no longer needs onLogout prop as Header handles it */}
+              <Route path="" element={<DashboardPage clinicData={clinicData} />} />
 
               {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
               <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />

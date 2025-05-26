@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'; // shadcn/ui Button
 
 interface HeaderProps {
   clinicName: string;
-  onLogout: () => void;
+  onLogout: () => void; // Define the prop type
 }
 
 export const Header: React.FC<HeaderProps> = ({ clinicName, onLogout }) => {
@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({ clinicName, onLogout }) => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={onLogout}
+          onClick={onLogout} // Use the onLogout prop here
           title="Sair"
         >
           <LogOut className="h-5 w-5 text-primary hover:text-destructive" />
