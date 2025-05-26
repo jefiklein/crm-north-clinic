@@ -131,9 +131,14 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
              } else if (Array.isArray(data)) {
                  console.log("[WhatsappInstancesPage] Instance list data received (array):", data.length, "items");
                  return data as InstanceInfo[];
-             } else {
+             } else if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+                 // NEW: Handle null, undefined, or empty object response as an empty list
+                 console.log("[WhatsappInstancesPage] Instance list data received (empty or unexpected empty format). Returning empty array.");
+                 return [];
+             }
+             else {
                  console.error("[WhatsappInstancesPage] Unexpected instance list data format:", data);
-                 throw new Error("Formato inesperado da lista de instâncias.");
+                 throw new Error("Formato inesperado da lista de instâncias."); // <-- This is where the error is thrown
              }
         },
         enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
