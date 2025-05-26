@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - ADDED formatPhone HERE
+import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
 
 // Define the structure for clinic data
