@@ -67,7 +67,7 @@ const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-
 const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`; // Webhook para salvar no DB
 
 // Required permission level for this page
-const REQUIRED_PERMISSION_LEVEL = 2;
+const REQUIRED_PERMISSION_LEVEL = 1; // <-- Changed from 2 to 1
 
 // Polling configuration for connection status
 const POLLING_INTERVAL_MS = 5000; // Check every 5 seconds
@@ -495,7 +495,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     stopQrTimer();
                     setIsQrModalOpen(false);
                     showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
-                    refetchInstances();
+                    refetchInstances(); // Refetch the list to get updated status if needed
                 }
             } catch (error) {
                 // Continue polling on error
