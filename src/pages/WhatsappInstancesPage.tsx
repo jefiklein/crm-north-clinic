@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn } from '@/lib/utils'; // Utility for class names
+import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - ADDED formatPhone HERE
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
 
 // Define the structure for clinic data
@@ -75,15 +75,7 @@ const POLLING_TIMEOUT_MS = 120000; // Stop after 2 minutes (120 seconds)
 
 
 // Helper functions
-function formatPhone(phone: number | string | null): string {
-    if (!phone) return 'S/ Tel.';
-    const s = String(phone).replace(/\D/g, '');
-    if (s.length === 13 && s.startsWith('55')) { return `+${s.substring(0,2)} (${s.substring(2,4)}) ${s.substring(4,9)}-${s.substring(9)}`; }
-    if (s.length === 12 && s.startsWith('55')) { return `+${s.substring(0,2)} (${s.substring(2,4)}) ${s.substring(4,8)}-${s.substring(8)}`; }
-    if (s.length === 11) { return `(${s.substring(0,2)}) ${s.substring(2,7)}-${s.substring(7)}`; }
-    if (s.length === 10) { return `(${s.substring(0,2)}) ${s.substring(2,6)}-${s.substring(6)}`; }
-    return String(phone); // Return original if format doesn't match
-}
+// formatPhone is now imported from '@/lib/utils'
 
 function validatePhone(phone: string): boolean {
     const cleaned = phone.replace(/\D/g, '');
