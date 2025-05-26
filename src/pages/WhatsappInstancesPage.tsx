@@ -634,7 +634,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         </div>
                     ) : (instancesList?.length || 0) === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
+                            <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
                             <span className="text-lg text-center">Nenhuma instância encontrada.</span>
                         </div>
                     ) : (
