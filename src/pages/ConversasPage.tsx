@@ -183,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -759,7 +759,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!ArrayMessages) {
+      if (!Array.isArray(allMessages)) { // Corrected typo here
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
