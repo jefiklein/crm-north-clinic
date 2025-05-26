@@ -748,7 +748,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                             </div>
                             {/* Added Sending Instance field */}
                              <div className="form-group">
-                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão</Label>
+                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão (Fallback)</Label> {/* Updated label */}
                                 {(instancesList?.length ?? 0) === 0 ? (
                                     <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                 ) : (
@@ -767,7 +767,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {/* Added option for no default instance */}
-                                            <SelectItem value="none">Nenhuma instância padrão</SelectItem> {/* Use 'none' as value */}
+                                            <SelectItem value="none">-- Nenhuma instância padrão --</SelectItem> {/* Use 'none' as value */}
                                             {instancesList?.map(inst => (
                                                 <SelectItem key={inst.id} value={inst.id.toString()}>
                                                     {inst.nome_exibição} ({formatPhone(inst.telefone)})
@@ -776,7 +776,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         </SelectContent>
                                     </Select>
                                 )}
-                                 <p className="text-xs text-gray-500 mt-1">Esta é a instância padrão para enviar mensagens automáticas de cashback. Se nenhuma for selecionada, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
+                                 <p className="text-xs text-gray-500 mt-1">Esta instância será usada para enviar mensagens automáticas de cashback *apenas* se a instância da venda não tiver um funcionário vinculado. Se nenhuma for selecionada aqui e a instância da venda também não tiver funcionário, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
                             </div>
 
                             {/* NEW: Checkbox to apply to current month sales */}
