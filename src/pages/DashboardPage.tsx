@@ -146,13 +146,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 } else {
                      // If data is not an array, it's an unexpected format
                      console.error("Sales webhook returned non-array data:", data);
-                     throw new Error("Formato de resposta inesperado do webhook de vendas. Esperado array.");
+                     // Treat unexpected format as no data found for safety
+                     console.warn("Unexpected sales data format, treating as empty.");
+                     return { total: null, rebuy: null, new: null };
                 }
 
 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de vendas:', error);
-                throw error;
+                // Return null data on fetch error
+                return null;
             }
         },
         enabled: !!clinicData?.code,
@@ -219,7 +222,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de leads:', error);
-                throw error;
+                // Return null data on fetch error
+                return null;
             }
         },
         enabled: !!clinicData?.code,
@@ -321,7 +325,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 if (error.message.startsWith('Resposta inesperada do webhook de avaliações:')) {
                      throw error; // Keep the detailed error message
                 }
-                throw new Error(`Falha ao buscar dados de avaliações: ${error.message}`); // Generic error for others
+                // Return null data on fetch error
+                return null;
             }
         },
         enabled: !!clinicData?.code,
@@ -332,17 +337,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Calculate Average Ticket for Total, Rebuy, and New Sales
     // Use optional chaining (?.) and nullish coalescing (??) to safely access properties
-    const totalAverageTicket = salesData?.total?.count_id_north !== undefined && salesData.total.count_id_north > 0
-        ? (salesData.total.sum_valor_venda ?? 0) / salesData.total.count_id_north
+    // MODIFIED: Use optional chaining consistently in conditions
+    const totalAverageTicket = (salesData?.total?.count_id_north ?? 0) > 0
+        ? (salesData?.total?.sum_valor_venda ?? 0) / (salesData?.total?.count_id_north ?? 1) // Avoid division by zero
         : 0; // Handle division by zero
 
-    const rebuyAverageTicket = salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra > 0
-        ? (salesData.rebuy.sum_recompra ?? 0) / salesData.rebuy.num_recompra
+    const rebuyAverageTicket = (salesData?.rebuy?.num_recompra ?? 0) > 0
+        ? (salesData?.rebuy?.sum_recompra ?? 0) / (salesData?.rebuy?.num_recompra ?? 1) // Avoid division by zero
         : 0; // Handle division by zero
 
-    const newSalesAverageTicket = salesData?.new?.num_nova_compra !== undefined && salesData.new.num_nova_compra > 0
-        ? (salesData.new.sum_nova_compra ?? 0) / salesData.new.num_nova_compra
+    const newSalesAverageTicket = (salesData?.new?.num_nova_compra ?? 0) > 0
+        ? (salesData?.new?.sum_nova_compra ?? 0) / (salesData?.new?.num_nova_compra ?? 1) // Avoid division by zero
         : 0; // Handle division by zero
+
 
     // Get current month and year for the title
     // UPDATED: Format date to show month name and year with capitalized month
@@ -573,7 +580,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
                                     {/* Use optional chaining and nullish coalescing */}
-                                    salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
+                                    {salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
                                         `R$ ${(salesData.rebuy.sum_recompra ?? 0).toFixed(2).replace('.', ',')}` :
                                         'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
