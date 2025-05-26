@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
 import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -196,13 +197,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: instancesList, isLoading: isLoadingInstances, error: instancesError, refetch: refetchInstances } = useQuery<InstanceInfo[]>({
     queryKey: ['instancesList', clinicId],
     queryFn: async () => {
+      // Explicitly reference supabase here
+      const currentSupabase = supabase;
+
       console.log("[ConversasPage] instancesList queryFn started. clinicId:", clinicId); // Add this log
       if (!clinicId) {
           console.error("[ConversasPage] instancesList queryFn: clinicId is null."); // Add this log
           throw new Error("ID da clínica não disponível.");
       }
       console.log(`[ConversasPage] Fetching instance list for clinic ${clinicId}...`);
-      const { data, error } = await supabase
+      const { data, error } = await currentSupabase // Use currentSupabase here
         .from('north_clinic_config_instancias')
         .select('id, nome_exibição, telefone, nome_instancia_evolution')
         .eq('id_clinica', clinicId)
@@ -244,6 +248,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: conversationSummaries, isLoading: isLoadingSummaries, error: summariesError } = useQuery<ConversationSummary[]>({
     queryKey: ['conversationSummaries', clinicId, instanceIds],
     queryFn: async () => {
+      // Explicitly reference supabase here
+      const currentSupabase = supabase;
+
       console.log("[ConversasPage] conversationSummaries queryFn started. clinicId:", clinicId, "instanceIds:", instanceIds); // Add this log
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       if (!instanceIds || instanceIds.length === 0) {
@@ -252,7 +259,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Fetch messages with id_instancia in instanceIds - UPDATED SELECT TO INCLUDE nome_lead
-      const { data, error } = await supabase
+      const { data, error } = await currentSupabase // Use currentSupabase here
         .from('whatsapp_historico')
         .select('remoteJid, nome_lead, mensagem, message_timestamp, tipo_mensagem, from_me, id_instancia, url_arquivo') // Select nome_lead here
         .in('id_instancia', instanceIds)
@@ -315,10 +322,13 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: messages, isLoading: isLoadingMessages, error: messagesError } = useQuery<Message[]>({
     queryKey: ['conversationMessages', selectedConversationId],
     queryFn: async () => {
+      // Explicitly reference supabase here
+      const currentSupabase = supabase;
+
       console.log("[ConversasPage] conversationMessages queryFn started. selectedConversationId:", selectedConversationId); // Add this log
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
       // Fetch messages in DESCENDING order
-      const { data, error } = await supabase
+      const { data, error } = await currentSupabase // Use currentSupabase here
         .from('whatsapp_historico')
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
@@ -347,8 +357,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
       queryKey: ['allStagesConversations'],
       queryFn: async () => {
+          // Explicitly reference supabase here
+          const currentSupabase = supabase;
+
           console.log(`[ConversasPage] Fetching all stages from Supabase...`);
-          const { data, error } = await supabase
+          const { data, error } = await currentSupabase // Use currentSupabase here
               .from('north_clinic_crm_etapa')
               .select('id, nome_etapa, id_funil')
               .order('ordem', { ascending: true });
@@ -367,8 +380,11 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
       queryKey: ['allFunnelsConversations'],
       queryFn: async () => {
+          // Explicitly reference supabase here
+          const currentSupabase = supabase;
+
           console.log(`[ConversasPage] Fetching all funnels from Supabase...`);
-          const { data, error } = await supabase
+          const { data, error } = await currentSupabase // Use currentSupabase here
               .from('north_clinic_crm_funil')
               .select('id, nome_funil')
               .order('nome_funil', { ascending: true });
@@ -387,13 +403,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const { data: selectedLeadDetails, isLoading: isLoadingSelectedLead, error: selectedLeadError } = useQuery<ConversationLeadDetails | null>({
       queryKey: ['selectedLeadDetails', selectedConversationId],
       queryFn: async () => {
+          // Explicitly reference supabase here
+          const currentSupabase = supabase;
+
           console.log("[ConversasPage] selectedLeadDetails queryFn started. selectedConversationId:", selectedConversationId, "clinicId:", clinicId); // Add this log
           if (!selectedConversationId || !clinicId) {
               console.log("[ConversasPage] Skipping selected lead details fetch: No conversation selected or clinicId missing.");
               return null;
           }
           console.log(`[ConversasPage] Fetching lead details for remoteJid: ${selectedConversationId} and clinicId: ${clinicId}`);
-          const { data, error } = await supabase
+          const { data, error } = await currentSupabase // Use currentSupabase here
               .from('north_clinic_leads_API')
               .select('id, id_etapa, origem, sourceUrl') // UPDATED: Select origem and sourceUrl
               .eq('remoteJid', selectedConversationId)
