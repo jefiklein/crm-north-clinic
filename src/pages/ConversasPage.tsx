@@ -183,7 +183,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -357,7 +357,8 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               .select('id, id_etapa, origem, sourceUrl') // UPDATED: Select origem and sourceUrl
               .eq('remoteJid', selectedConversationId)
               .eq('id_clinica', clinicId) // Filter by clinic ID
-              .single(); // Expecting a single lead
+              .limit(1) // <-- Added limit(1)
+              .single(); // <-- Kept single() for type safety, combined with limit(1)
 
           if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
               console.error("[ConversasPage] Supabase selected lead details fetch error:", error);
@@ -758,7 +759,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!Array.isArray(allMessages)) {
+      if (!ArrayMessages) {
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
