@@ -10,6 +10,7 @@ import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, Triangle
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
+import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -21,19 +22,18 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for Instance Info from the webhook (get list)
+// Define the structure for Instance Info fetched directly from Supabase
 interface InstanceInfo {
     id: number; // Assuming this is the DB ID
     nome_exibição: string;
     telefone: number | null;
     tipo: string | null;
     nome_instancia_evolution: string | null; // Technical name for Evolution API
-    nome_instancia: string | null; // Another potential technical name field?
     trackeamento: boolean;
     historico: boolean;
     id_server_evolution: number | null;
     confirmar_agendamento: boolean;
-    // Add other fields if the webhook returns them
+    // Add other fields if needed from the Supabase table
 }
 
 // Define the structure for Instance Status from the webhook (check status)
@@ -57,9 +57,9 @@ interface WhatsappInstancesPageProps {
     clinicData: ClinicData | null;
 }
 
-// Webhook URLs
+// Webhook URLs (only for actions that require backend logic, like QR, Delete, Create)
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
-const INSTANCE_LIST_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/75943a6b-cefc-4af0-97c5-902d5b797d27`; // Webhook para lista de instâncias (GET)
+// REMOVED: INSTANCE_LIST_WEBHOOK_URL
 const INSTANCE_STATUS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-a64b-d1b7fd78dddc`; // Webhook para status
 const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17-8b71d610d7c3`; // Webhook para gerar QR
 const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`; // Webhook para excluir
@@ -107,61 +107,29 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const userPermissionLevel = parseInt(String(clinicData?.id_permissao), 10);
     const hasPermission = !isNaN(userPermissionLevel) && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
-    // --- Fetch Instances List ---
+    // --- Fetch Instances List DIRECTLY FROM SUPABASE ---
     const { data: instancesList, isLoading: isLoadingInstances, error: instancesError, refetch: refetchInstances } = useQuery<InstanceInfo[]>({
         queryKey: ['whatsappInstances', clinicId],
         queryFn: async () => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log("[WhatsappInstancesPage] Fetching instance list...");
-            const response = await fetch(INSTANCE_LIST_WEBHOOK_URL, {
-                method: 'POST', // Assuming POST based on HTML
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ clinic_id: clinicId }) // Sending clinic ID
-            });
-            console.log(`[WhatsappInstancesPage] Instance list fetch status: ${response.status}`);
+            console.log("[WhatsappInstancesPage] Fetching instance list directly from Supabase...");
 
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`Erro ${response.status} ao buscar instâncias: ${errorText.substring(0, 100)}...`);
+            const { data, error } = await supabase
+                .from('north_clinic_config_instancias')
+                .select('id, nome_exibição, telefone, tipo, nome_instancia_evolution, trackeamento, historico, id_server_evolution, confirmar_agendamento') // Select all necessary columns
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .order('nome_exibição', { ascending: true }); // Order by display name
+
+            console.log('[WhatsappInstancesPage] Supabase instance list fetch result:', { data, error });
+
+            if (error) {
+                 console.error('[WhatsappInstancesPage] Supabase instance list fetch error:', error);
+                 throw new Error(`Erro ao buscar instâncias: ${error.message}`);
             }
 
-            // Read response as text first to check if it's empty or not JSON
-            const responseText = await response.text();
-            console.log(`[WhatsappInstancesPage] Instance list response text (first 100 chars): ${responseText.substring(0, 100)}`);
-
-            if (!responseText || responseText.trim() === '') {
-                 console.log("[WhatsappInstancesPage] Instance list response is empty. Returning empty array.");
-                 return []; // Return empty array if response is empty
-            }
-
-            try {
-                const data = JSON.parse(responseText); // Attempt to parse as JSON
-
-                 // Check for { data: [...] } structure as seen in HTML JS
-                 if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.data)) {
-                     console.log("[WhatsappInstancesPage] Instance list data received (nested):", data.data.length, "items");
-                     return data.data as InstanceInfo[];
-                 } else if (Array.isArray(data)) {
-                     console.log("[WhatsappInstancesPage] Instance list data received (array):", data.length, "items");
-                     return data as InstanceInfo[];
-                 } else if (data && typeof data === 'object' && Object.keys(data).length === 0) {
-                     // Handle empty object response as an empty list
-                     console.log("[WhatsappInstancesPage] Instance list data received (empty object). Returning empty array.");
-                     return [];
-                 }
-                 else {
-                     console.error("[WhatsappInstancesPage] Unexpected instance list data format:", data);
-                     // If format is unexpected but not empty, maybe it's an error response that wasn't 4xx/5xx?
-                     // Or just a format we don't handle. Treat as empty list for now to avoid crashing.
-                     console.warn("[WhatsappInstancesPage] Unexpected format, treating as empty list.");
-                     return [];
-                 }
-            } catch (jsonError) {
-                // Catch JSON parsing errors (like Unexpected end of JSON input)
-                console.error("[WhatsappInstancesPage] JSON parsing error:", jsonError);
-                console.warn("[WhatsappInstancesPage] Response was not valid JSON, treating as empty list.");
-                return []; // Treat JSON parsing error on OK response as empty list
-            }
+            // Supabase returns null if no rows found with .single(), but an empty array [] for .select()
+            // So, if data is null or undefined, return an empty array.
+            return data || [];
         },
         enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
         staleTime: 60 * 1000, // Cache instances for 1 minute
@@ -456,7 +424,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                      telefone: Number(addInstanceFormData.telefone),
                      tipo: addInstanceFormData.tipo,
                      nome_instancia_evolution: data.instanceIdentifier,
-                     nome_instancia: null,
                      trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false
                  };
                  setCurrentInstanceForQr(newInstanceInfo);
