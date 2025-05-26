@@ -75,6 +75,16 @@ interface FetchedConfig {
     cashback_instancia_padrao: number | null; // Corrected name to match DB
 }
 
+// Define the structure for the payload sent to the manual save webhook
+interface ManualSavePayload {
+    id_clinica: number | string;
+    vendas: {
+        id_north: number;
+        valor_cashback: number | null;
+        validade_cashback: string | null; // ISO date string or null
+    }[];
+}
+
 
 interface CashbackPageProps {
   clinicData: ClinicData | null;
@@ -344,6 +354,37 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         }
     });
 
+    // NEW: Mutation for saving manual cashback data
+    const saveManualCashbackMutation = useMutation({
+        mutationFn: async (payload: ManualSavePayload) => {
+            console.log("Sending manual cashback data to webhook:", payload);
+            const webhookUrl = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/salvar-cashback-completo'; // Your new webhook URL
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao salvar cashback manual`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+                throw new Error(errorMsg);
+            }
+
+            return response.json(); // Assuming webhook returns some confirmation
+        },
+        onSuccess: () => {
+            showSuccess('Cashback manual salvo com sucesso!');
+            // Invalidate the sales query to refetch updated data
+            queryClient.invalidateQueries({ queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate] });
+            // Clear manual changes state after successful save
+            setManualCashbackData({});
+        },
+        onError: (error: Error) => {
+            showError(`Falha ao salvar cashback manual: ${error.message}`);
+        },
+    });
+
 
     // Function to navigate months
     const goToPreviousMonth = () => {
@@ -428,6 +469,61 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         saveConfigMutation.mutate(payload); // Trigger the mutation
         // The onSettled callback will set isSavingConfig back to false
     };
+
+    // NEW: Handle saving manual cashback data
+    const handleSaveManualCashback = () => {
+        if (!clinicId) {
+            showError("ID da clínica não disponível para salvar.");
+            return;
+        }
+
+        if (!salesData || salesData.length === 0) {
+             showError("Nenhuma venda para salvar.");
+             return;
+        }
+
+        // Prepare the payload for the manual save webhook
+        const salesToSave = salesData.map(sale => {
+            const saleId = sale.id_north;
+            const manualChanges = manualCashbackData[saleId];
+
+            // Determine cashback value: manual input (parsed) or original fetched value
+            let valorCashback: number | null = null;
+            if (manualChanges?.valor !== undefined && manualChanges.valor !== '') {
+                 const parsedValue = parseFloat(manualChanges.valor.replace(',', '.'));
+                 valorCashback = isNaN(parsedValue) ? null : parsedValue; // Send null if parsing fails
+            } else {
+                 valorCashback = sale.valor_cashback; // Use original fetched value
+            }
+
+            // Determine validity date: manual input (formatted) or original fetched value
+            let validadeCashback: string | null = null;
+            if (manualChanges?.validade !== undefined) { // Check if validity was manually touched (even if set to null)
+                 if (manualChanges.validade instanceof Date && !isNaN(manualChanges.validade.getTime())) {
+                     validadeCashback = format(manualChanges.validade, 'yyyy-MM-dd'); // Format Date object to ISO string
+                 } else {
+                     validadeCashback = null; // Send null if manually set to null or invalid Date
+                 }
+            } else {
+                 validadeCashback = sale.validade_cashback; // Use original fetched value (already ISO string or null)
+            }
+
+
+            return {
+                id_north: saleId,
+                valor_cashback: valorCashback,
+                validade_cashback: validadeCashback,
+            };
+        });
+
+        const payload: ManualSavePayload = {
+            id_clinica: clinicId,
+            vendas: salesToSave,
+        };
+
+        saveManualCashbackMutation.mutate(payload); // Trigger the manual save mutation
+    };
+
 
     // Determine if data is ready to render the form
     const isDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
@@ -546,7 +642,9 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                                             if (validRegex.test(valueWithDot)) {
                                                                                  // Convert dot back to comma for display in the input field
                                                                                  handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
-                                                                            }
+                                                                             } else if (rawValue === ',') { // Allow typing ',' first
+                                                                                 handleCashbackInputChange(saleId, 'valor', '0,');
+                                                                             }
                                                                             // If invalid, the state is not updated, keeping the last valid value
                                                                         }}
                                                                         className="h-8 text-right flex-grow" // Smaller input, right align text, flex-grow
@@ -594,8 +692,15 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
              {/* Optional: Add a button to save/process the manual cashback data */}
              {salesData && salesData.length > 0 && (
                  <div className="mt-6 text-right">
-                     <Button onClick={() => console.log("Dados de Cashback a serem processados:", manualCashbackData)} disabled={isLoading}>
-                         Salvar Cashback (Funcionalidade futura)
+                     <Button onClick={handleSaveManualCashback} disabled={isLoading || saveManualCashbackMutation.isLoading}>
+                         {saveManualCashbackMutation.isLoading ? (
+                             <>
+                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                 Salvando...
+                             </>
+                         ) : (
+                             'Salvar Cashback Manual'
+                         )}
                      </Button>
                  </div>
              )}
