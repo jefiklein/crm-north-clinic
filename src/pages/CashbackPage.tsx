@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -489,92 +490,101 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Vendedora</TableHead>
                                         {/* Removed Tipo and Status TableHead */}
-                                        <TableHead>Item</TableHead> {/* Added Item column */}
+                                        {/* Removed Item TableHead */}
                                         <TableHead className="text-right">Valor Venda</TableHead>
                                         <TableHead>Valor Cashback</TableHead>
                                         <TableHead>Validade Cashback</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {salesData?.map(sale => {
-                                        const saleId = sale.id_north; // Use id_north as unique key
-                                        // Prioritize manual input state, fallback to fetched data
-                                        const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toFixed(2).replace('.', ',') ?? ''; // Format fetched number for display
-                                        const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
+                                    <TooltipProvider> {/* Wrap TableBody with TooltipProvider */}
+                                        {salesData?.map(sale => {
+                                            const saleId = sale.id_north; // Use id_north as unique key
+                                            // Prioritize manual input state, fallback to fetched data
+                                            const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toFixed(2).replace('.', ',') ?? ''; // Format fetched number for display
+                                            const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
 
-                                        // Determine the item name (Serviço, Produto, or Pacote)
-                                        const itemName = sale.servico || sale.produto || sale.pacote || 'N/D';
+                                            // Determine the item name (Serviço, Produto, or Pacote)
+                                            const itemName = sale.servico || sale.produto || sale.pacote || 'N/D';
 
 
-                                        return (
-                                            <TableRow key={saleId}>
-                                                <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
-                                                {/* Access client name from the nested object */}
-                                                <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
-                                                {/* Removed Tipo and Status TableCell */}
-                                                <TableCell className="whitespace-nowrap">{itemName}</TableCell> {/* Display Item Name */}
-                                                <TableCell className="text-right whitespace-nowrap">
-                                                    {sale.valor_venda !== null && sale.valor_venda !== undefined ?
-                                                        `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :
-                                                        'R$ 0,00'
-                                                    }
-                                                </TableCell>
-                                                <TableCell className="w-[150px]"> {/* Fixed width for input */}
-                                                    <div className="flex items-center"> {/* Wrap input for R$ prefix */}
-                                                        <span className="mr-1 text-gray-600 text-sm">R$</span> {/* R$ prefix */}
-                                                        <Input
-                                                            type="text" // Changed to text
-                                                            placeholder="0,00" // Updated placeholder
-                                                            value={currentCashbackValue} // Use current value (string)
-                                                            onChange={(e) => {
-                                                                const rawValue = e.target.value;
-                                                                // Allow empty string
-                                                                if (rawValue === '') {
-                                                                     handleCashbackInputChange(saleId, 'valor', '');
-                                                                     return;
+                                            return (
+                                                <Tooltip key={saleId}> {/* Add Tooltip to each TableRow */}
+                                                    <TooltipTrigger asChild>
+                                                        <TableRow data-sale-id={saleId}> {/* Add data attribute for potential future use */}
+                                                            <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
+                                                            {/* Access client name from the nested object */}
+                                                            <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
+                                                            <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
+                                                            {/* Removed Tipo and Status TableCell */}
+                                                            {/* Removed Item TableCell */}
+                                                            <TableCell className="text-right whitespace-nowrap">
+                                                                {sale.valor_venda !== null && sale.valor_venda !== undefined ?
+                                                                    `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :
+                                                                    'R$ 0,00'
                                                                 }
-                                                                // Replace comma with dot for internal processing
-                                                                const valueWithDot = rawValue.replace(',', '.');
-                                                                // Regex to allow digits, at most one dot, and at most two digits after the dot
-                                                                // Also handle cases where the user types '.' first
-                                                                const validRegex = /^\d*\.?\d{0,2}$/;
-                                                                if (validRegex.test(valueWithDot)) {
-                                                                     // Convert dot back to comma for display in the input field
-                                                                     handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
-                                                                }
-                                                                // If invalid, the state is not updated, keeping the last valid value
-                                                            }}
-                                                            className="h-8 text-right flex-grow" // Smaller input, right align text, flex-grow
-                                                        />
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="w-[150px]"> {/* Fixed width for date picker */}
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="w-full h-8 text-left"
-                                                            >
-                                                                {currentCashbackValidity ? format(currentCashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'} {/* Use current value */}
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <Calendar
-                                                                mode="single"
-                                                                selected={currentCashbackValidity ?? undefined} // Use current value, handle null/undefined
-                                                                onSelect={(date) => {
-                                                                    handleCashbackInputChange(saleId, 'validade', date);
-                                                                }}
-                                                                disabled={(date) => date < startOfMonth(new Date())} // Disable dates before the current month
-                                                                initialFocus
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
+                                                            </TableCell>
+                                                            <TableCell className="w-[150px]"> {/* Fixed width for input */}
+                                                                <div className="flex items-center"> {/* Wrap input for R$ prefix */}
+                                                                    <span className="mr-1 text-gray-600 text-sm">R$</span> {/* R$ prefix */}
+                                                                    <Input
+                                                                        type="text" // Changed to text
+                                                                        placeholder="0,00" // Updated placeholder
+                                                                        value={currentCashbackValue} // Use current value (string)
+                                                                        onChange={(e) => {
+                                                                            const rawValue = e.target.value;
+                                                                            // Allow empty string
+                                                                            if (rawValue === '') {
+                                                                                 handleCashbackInputChange(saleId, 'valor', '');
+                                                                                 return;
+                                                                            }
+                                                                            // Replace comma with dot for internal processing
+                                                                            const valueWithDot = rawValue.replace(',', '.');
+                                                                            // Regex to allow digits, at most one dot, and at most two digits after the dot
+                                                                            // Also handle cases where the user types '.' first
+                                                                            const validRegex = /^\d*\.?\d{0,2}$/;
+                                                                            if (validRegex.test(valueWithDot)) {
+                                                                                 // Convert dot back to comma for display in the input field
+                                                                                 handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
+                                                                            }
+                                                                            // If invalid, the state is not updated, keeping the last valid value
+                                                                        }}
+                                                                        className="h-8 text-right flex-grow" // Smaller input, right align text, flex-grow
+                                                                    />
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="w-[150px]"> {/* Fixed width for date picker */}
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            className="w-full h-8 text-left"
+                                                                        >
+                                                                            {currentCashbackValidity ? format(currentCashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'} {/* Use current value */}
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                            <Calendar
+                                                                                mode="single"
+                                                                                selected={currentCashbackValidity ?? undefined} // Use current value, handle null/undefined
+                                                                                onSelect={(date) => {
+                                                                                    handleCashbackInputChange(saleId, 'validade', date);
+                                                                                }}
+                                                                                disabled={(date) => date < startOfMonth(new Date())} // Disable dates before the current month
+                                                                                initialFocus
+                                                                            />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent> {/* Tooltip content */}
+                                                        <p>Item: {itemName}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </TooltipProvider>
                                 </TableBody>
                             </Table>
                         </div>
