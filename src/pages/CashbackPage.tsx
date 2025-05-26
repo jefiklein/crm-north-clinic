@@ -39,8 +39,7 @@ interface SupabaseSale {
     valor_venda: number | null;
     valor_cashback: number | null; // Added new column
     validade_cashback: string | null; // Added new column (assuming ISO date string)
-    tipo: number | null; // Added tipo
-    status: number | null; // Added status
+    // Removed tipo and status from interface
     servico: string | null; // Added servico
     produto: string | null; // Added produto
     pacote: string | null; // Added pacote
@@ -114,27 +113,7 @@ const formatDate = (dateString: string | null): string => {
     }
 };
 
-// Helper to format sale type
-const formatSaleType = (type: number | null): string => {
-    if (type === null || type === undefined) return 'N/D';
-    switch (type) {
-        case 1: return 'Serviço';
-        case 2: return 'Produto';
-        case 3: return 'Pacote';
-        default: return `Tipo ${type}`;
-    }
-};
-
-// Helper to format sale status
-const formatSaleStatus = (status: number | null): string => {
-    if (status === null || status === undefined) return 'N/D';
-    switch (status) {
-        case 1: return 'Aberto';
-        case 2: return 'Fechado';
-        case 3: return 'Cancelado';
-        default: return `Status ${status}`;
-    }
-};
+// Removed formatSaleType and formatSaleStatus helper functions
 
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
@@ -196,7 +175,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                 const { data, error } = await supabase
                     .from('north_clinic_vendas')
                     // Select sales data and join client name - ADDED NEW COLUMNS
-                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, tipo, status, servico, produto, pacote, north_clinic_clientes(nome_north)')
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, servico, produto, pacote, north_clinic_clientes(nome_north)') // Removed tipo and status from select
                     .eq('id_clinica', clinicId) // Filter by clinic ID
                     .eq('brinde', false) // <-- ADDED FILTER FOR BRINDE = FALSE
                     .gte('data_venda', startDate) // Filter by start date of the month
@@ -509,8 +488,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         <TableHead>Data Venda</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Vendedora</TableHead>
-                                        <TableHead>Tipo</TableHead> {/* Added Type column */}
-                                        <TableHead>Status</TableHead> {/* Added Status column */}
+                                        {/* Removed Tipo and Status TableHead */}
                                         <TableHead>Item</TableHead> {/* Added Item column */}
                                         <TableHead className="text-right">Valor Venda</TableHead>
                                         <TableHead>Valor Cashback</TableHead>
@@ -534,8 +512,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                 {/* Access client name from the nested object */}
                                                 <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
                                                 <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
-                                                <TableCell className="whitespace-nowrap">{formatSaleType(sale.tipo)}</TableCell> {/* Display Type */}
-                                                <TableCell className="whitespace-nowrap">{formatSaleStatus(sale.status)}</TableCell> {/* Display Status */}
+                                                {/* Removed Tipo and Status TableCell */}
                                                 <TableCell className="whitespace-nowrap">{itemName}</TableCell> {/* Display Item Name */}
                                                 <TableCell className="text-right whitespace-nowrap">
                                                     {sale.valor_venda !== null && sale.valor_venda !== undefined ?
