@@ -806,7 +806,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       }
 
       // Defensive check: Ensure allMessages is an array before proceeding
-      if (!ArrayMessages) { // Corrected check here
+      if (!Array.isArray(allMessages)) { // Corrected check here
           console.error("[ConversasPage] useEffect: allMessages is not an array!", allMessages);
           return; // Exit early if not an array
       }
