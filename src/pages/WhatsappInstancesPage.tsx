@@ -119,27 +119,49 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 body: JSON.stringify({ clinic_id: clinicId }) // Sending clinic ID
             });
             console.log(`[WhatsappInstancesPage] Instance list fetch status: ${response.status}`);
+
             if (!response.ok) {
                  const errorText = await response.text();
                  throw new Error(`Erro ${response.status} ao buscar instâncias: ${errorText.substring(0, 100)}...`);
             }
-            const data = await response.json();
-             // Check for { data: [...] } structure as seen in HTML JS
-             if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.data)) {
-                 console.log("[WhatsappInstancesPage] Instance list data received (nested):", data.data.length, "items");
-                 return data.data as InstanceInfo[];
-             } else if (Array.isArray(data)) {
-                 console.log("[WhatsappInstancesPage] Instance list data received (array):", data.length, "items");
-                 return data as InstanceInfo[];
-             } else if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-                 // NEW: Handle null, undefined, or empty object response as an empty list
-                 console.log("[WhatsappInstancesPage] Instance list data received (empty or unexpected empty format). Returning empty array.");
-                 return [];
-             }
-             else {
-                 console.error("[WhatsappInstancesPage] Unexpected instance list data format:", data);
-                 throw new Error("Formato inesperado da lista de instâncias."); // <-- This is where the error is thrown
-             }
+
+            // Read response as text first to check if it's empty or not JSON
+            const responseText = await response.text();
+            console.log(`[WhatsappInstancesPage] Instance list response text (first 100 chars): ${responseText.substring(0, 100)}`);
+
+            if (!responseText || responseText.trim() === '') {
+                 console.log("[WhatsappInstancesPage] Instance list response is empty. Returning empty array.");
+                 return []; // Return empty array if response is empty
+            }
+
+            try {
+                const data = JSON.parse(responseText); // Attempt to parse as JSON
+
+                 // Check for { data: [...] } structure as seen in HTML JS
+                 if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.data)) {
+                     console.log("[WhatsappInstancesPage] Instance list data received (nested):", data.data.length, "items");
+                     return data.data as InstanceInfo[];
+                 } else if (Array.isArray(data)) {
+                     console.log("[WhatsappInstancesPage] Instance list data received (array):", data.length, "items");
+                     return data as InstanceInfo[];
+                 } else if (data && typeof data === 'object' && Object.keys(data).length === 0) {
+                     // Handle empty object response as an empty list
+                     console.log("[WhatsappInstancesPage] Instance list data received (empty object). Returning empty array.");
+                     return [];
+                 }
+                 else {
+                     console.error("[WhatsappInstancesPage] Unexpected instance list data format:", data);
+                     // If format is unexpected but not empty, maybe it's an error response that wasn't 4xx/5xx?
+                     // Or just a format we don't handle. Treat as empty list for now to avoid crashing.
+                     console.warn("[WhatsappInstancesPage] Unexpected format, treating as empty list.");
+                     return [];
+                 }
+            } catch (jsonError) {
+                // Catch JSON parsing errors (like Unexpected end of JSON input)
+                console.error("[WhatsappInstancesPage] JSON parsing error:", jsonError);
+                console.warn("[WhatsappInstancesPage] Response was not valid JSON, treating as empty list.");
+                return []; // Treat JSON parsing error on OK response as empty list
+            }
         },
         enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
         staleTime: 60 * 1000, // Cache instances for 1 minute
