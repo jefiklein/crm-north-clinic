@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Using shadcn Dialog
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare
+import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle, Save } from 'lucide-react'; // Using Lucide icons, changed Whatsapp to MessagesSquare, Added Save
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
 import { showSuccess, showError } from '@/utils/toast'; // Using our toast utility
@@ -33,6 +33,7 @@ interface InstanceInfo {
     historico: boolean;
     id_server_evolution: number | null;
     confirmar_agendamento: boolean;
+    id_funcionario?: number | null; // <-- Added new column for linked employee
     // Add other fields if needed from the Supabase table
 }
 
@@ -52,6 +53,13 @@ interface QrCodeResponse {
     // Add other fields if needed
 }
 
+// Define the structure for Employee Info fetched from Supabase
+interface EmployeeInfo {
+    id: number;
+    nome: string;
+    // Add other employee fields if needed
+}
+
 
 interface WhatsappInstancesPageProps {
     clinicData: ClinicData | null;
@@ -65,6 +73,9 @@ const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17
 const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`; // Webhook para excluir
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook para criar na API Evolution
 const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`; // Webhook para salvar no DB
+// TODO: Add a webhook URL for updating instance details, including id_funcionario
+const INSTANCE_UPDATE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/SEU-WEBHOOK-ATUALIZAR-INSTANCIA`; // Placeholder for update webhook
+
 
 // Required permission level for this page
 const REQUIRED_PERMISSION_LEVEL = 1; // <-- Changed from 2 to 1
@@ -99,6 +110,12 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const [addInstanceFormData, setAddInstanceFormData] = useState({ nome_exibição: '', telefone: '', tipo: '' });
     const [addInstanceAlert, setAddInstanceAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
+    // NEW: State to track linked employee changes for each instance
+    const [instanceEmployeeLinks, setInstanceEmployeeLinks] = useState<Record<number, number | null>>({});
+    // NEW: State to track saving state for individual instance updates
+    const [isSavingInstance, setIsSavingInstance] = useState<Record<number, boolean>>({});
+
+
     const qrTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const connectionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const connectionCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -116,7 +133,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             const { data, error } = await supabase
                 .from('north_clinic_config_instancias')
-                .select('id, nome_exibição, telefone, tipo, nome_instancia_evolution, trackeamento, historico, id_server_evolution, confirmar_agendamento') // Select all necessary columns
+                .select('id, nome_exibição, telefone, tipo, nome_instancia_evolution, trackeamento, historico, id_server_evolution, confirmar_agendamento, id_funcionario') // <-- Select id_funcionario
                 .eq('id_clinica', clinicId) // Filter by clinic ID
                 .order('nome_exibição', { ascending: true }); // Order by display name
 
@@ -135,6 +152,51 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         staleTime: 60 * 1000, // Cache instances for 1 minute
         refetchOnWindowFocus: false,
     });
+
+    // NEW: Fetch Employees List DIRECTLY FROM SUPABASE
+    const { data: employeesList, isLoading: isLoadingEmployees, error: employeesError } = useQuery<EmployeeInfo[]>({
+        queryKey: ['clinicEmployees', clinicId],
+        queryFn: async () => {
+            if (!clinicId) throw new Error("ID da clínica não disponível.");
+            console.log("[WhatsappInstancesPage] Fetching employees list directly from Supabase...");
+
+            const { data, error } = await supabase
+                .from('north_clinic_funcionarios')
+                .select('id, nome') // Select necessary columns
+                .eq('id_clinica', clinicId) // Filter by clinic ID
+                .order('nome', { ascending: true }); // Order by name
+
+            console.log('[WhatsappInstancesPage] Supabase employees list fetch result:', { data, error });
+
+            if (error) {
+                 console.error('[WhatsappInstancesPage] Supabase employees list fetch error:', error);
+                 throw new Error(`Erro ao buscar funcionários: ${error.message}`);
+            }
+
+            return data || [];
+        },
+        enabled: hasPermission && !!clinicId, // Only fetch if user has permission and clinicId is available
+        staleTime: 5 * 60 * 1000, // Cache employees for 5 minutes
+        refetchOnWindowFocus: false,
+    });
+
+
+    // Effect to initialize instanceEmployeeLinks state when instancesList loads
+    useEffect(() => {
+        console.log("[WhatsappInstancesPage] Initializing instanceEmployeeLinks state...");
+        if (instancesList) {
+            const initialLinks: Record<number, number | null> = {};
+            instancesList.forEach(instance => {
+                initialLinks[instance.id] = instance.id_funcionario ?? null;
+            });
+            setInstanceEmployeeLinks(initialLinks);
+            console.log("[WhatsappInstancesPage] instanceEmployeeLinks initialized:", initialLinks);
+        } else {
+             setInstanceEmployeeLinks({}); // Clear if instancesList is null/undefined
+             console.log("[WhatsappInstancesPage] instanceEmployeeLinks cleared as instancesList is null/undefined.");
+        }
+    }, [instancesList]); // Depend on instancesList
+
 
     // State to hold statuses of instances by their identifier (nome_instancia_evolution or nome_instancia)
     const [instanceStatuses, setInstanceStatuses] = useState<Record<string, InstanceStatus>>({});
@@ -424,7 +486,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                      telefone: Number(addInstanceFormData.telefone),
                      tipo: addInstanceFormData.tipo,
                      nome_instancia_evolution: data.instanceIdentifier,
-                     trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false
+                     trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false,
+                     id_funcionario: null // Default new instance to no linked employee
                  };
                  setCurrentInstanceForQr(newInstanceInfo);
                  setQrCodeUrl(data.qrCodeUrl);
@@ -437,6 +500,39 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
         onError: (error: Error) => {
             showError(`Erro ao criar instância: ${error.message}`);
+        },
+    });
+
+    // NEW: Mutation for updating an instance (simulated webhook)
+    const updateInstanceMutation = useMutation({
+        mutationFn: async ({ instanceId, id_funcionario }: { instanceId: number; id_funcionario: number | null }) => {
+            console.log(`[WhatsappInstancesPage] Simulating update for instance ${instanceId}: Linking to employee ID ${id_funcionario}`);
+            // TODO: Replace with actual fetch call to your update webhook
+            // Example:
+            // const response = await fetch(INSTANCE_UPDATE_WEBHOOK_URL, {
+            //     method: "POST",
+            //     headers: { "Content-Type": "application/json" },
+            //     body: JSON.stringify({ id: instanceId, id_funcionario: id_funcionario, id_clinica: clinicId })
+            // });
+            // if (!response.ok) { ... throw error ... }
+            // return response.json();
+
+            // Simulation:
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+            console.log(`[WhatsappInstancesPage] Simulation: Instance ${instanceId} linked to employee ${id_funcionario} successfully.`);
+            return { success: true, message: 'Simulação de atualização bem-sucedida.' };
+        },
+        onSuccess: (_, variables) => {
+            showSuccess(`Vínculo de funcionário para instância ${variables.instanceId} salvo (simulado)!`);
+            // Invalidate the instances list query to refetch the updated data
+            queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
+            // Clear the pending state for this instance
+            setIsSavingInstance(prev => ({ ...prev, [variables.instanceId]: false }));
+        },
+        onError: (error: Error, variables) => {
+            showError(`Erro ao salvar vínculo para instância ${variables.instanceId}: ${error.message}`);
+            // Clear the pending state for this instance
+            setIsSavingInstance(prev => ({ ...prev, [variables.instanceId]: false }));
         },
     });
 
@@ -457,7 +553,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 if (prev <= 1) {
                     stopQrTimer();
                     if (currentInstanceForQr) {
-                        const instanceIdentifier = currentInstanceForQr.nome_instancia_evolution || currentInstanceForQr.nome_instancia;
+                        const instanceIdentifier = currentInstanceForQr.nome_instancia_evolution || currentInstanceForQr.nome_instancia || '';
                         if (instanceIdentifier) {
                             qrCodeMutation.mutate(instanceIdentifier);
                         } else {
@@ -536,6 +632,32 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         }
     };
 
+    // NEW: Handle employee selection change for an instance
+    const handleEmployeeChange = (instanceId: number, employeeId: string) => {
+        const id = employeeId === 'none' ? null : parseInt(employeeId, 10);
+        setInstanceEmployeeLinks(prev => ({
+            ...prev,
+            [instanceId]: id
+        }));
+        console.log(`[WhatsappInstancesPage] Employee link changed for instance ${instanceId} to employee ID: ${id}`);
+    };
+
+    // NEW: Handle saving employee link for an instance
+    const handleSaveEmployeeLink = (instance: InstanceInfo) => {
+        const instanceId = instance.id;
+        const newEmployeeId = instanceEmployeeLinks[instanceId];
+
+        // Check if there's an actual change
+        if ((newEmployeeId === null && instance.id_funcionario === null) || newEmployeeId === instance.id_funcionario) {
+            console.log(`[WhatsappInstancesPage] No change detected for instance ${instanceId}. Save skipped.`);
+            return; // No change, do nothing
+        }
+
+        console.log(`[WhatsappInstancesPage] Saving employee link for instance ${instanceId}: New employee ID is ${newEmployeeId}`);
+        setIsSavingInstance(prev => ({ ...prev, [instanceId]: true })); // Set saving state for this instance
+        updateInstanceMutation.mutate({ instanceId: instanceId, id_funcionario: newEmployeeId }); // Trigger the mutation
+    };
+
 
     // --- Permission Check ---
     if (!clinicData) {
@@ -559,6 +681,10 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
          );
     }
 
+    // Combine loading states
+    const overallLoading = isLoadingInstances || isLoadingEmployees;
+    const overallError = instancesError || employeesError;
+
 
     return (
         <div className="whatsapp-instances-container flex flex-col h-full p-6 bg-gray-100">
@@ -578,7 +704,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                          />
                     </div>
                     <span id="recordsCount" className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoadingInstances ? 'Carregando...' : `${instancesList?.length || 0} registro(s)`}
+                        {overallLoading ? 'Carregando...' : `${instancesList?.length || 0} registro(s)`}
                     </span>
                 </div>
                 <Button onClick={() => setIsAddInstanceModalOpen(true)} className="flex-shrink-0">
@@ -588,16 +714,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             <Card className="instances-list-container h-full flex flex-col">
                 <CardContent className="p-0 flex-grow overflow-y-auto">
-                    {isLoadingInstances ? (
+                    {overallLoading ? (
                         <div className="flex flex-col items-center justify-center h-full text-primary p-8">
                             <Loader2 className="h-12 w-12 animate-spin mb-4" />
-                            <span className="text-lg">Carregando instâncias...</span>
+                            <span className="text-lg">Carregando dados...</span>
                         </div>
-                    ) : instancesError ? (
+                    ) : overallError ? (
                         <div className="flex flex-col items-center justify-center h-full text-red-600 p-8 bg-red-50 rounded-md">
                             <TriangleAlert className="h-12 w-12 mb-4" />
-                            <span className="text-lg text-center">Erro ao carregar instâncias: {instancesError.message}</span>
-                            <Button variant="outline" onClick={() => refetchInstances()} className="mt-4">Tentar Novamente</Button>
+                            <span className="text-lg text-center">Erro ao carregar dados: {overallError.message}</span>
+                            <Button variant="outline" onClick={() => { refetchInstances(); queryClient.invalidateQueries({ queryKey: ['clinicEmployees', clinicId] }); }} className="mt-4">Tentar Novamente</Button>
                         </div>
                     ) : (instancesList?.length || 0) === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
@@ -608,7 +734,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         <ScrollArea className="h-full">
                             {instancesList.map(instance => {
                                 const instanceIdentifier = instance.nome_instancia_evolution || instance.nome_instancia || '';
-                                const instanceDbId = instance.id; // Use DB ID for delete
+                                const instanceDbId = instance.id; // Use DB ID for delete and update
                                 const status = instanceStatuses[instanceIdentifier];
 
                                 // Determine status display
@@ -651,9 +777,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                 // Show Reconnect button if status is 'close' or 'connecting' (Desconectado)
                                 const showReconnectButton = status && (status.instance?.state === 'close' || status.instance?.state === 'connecting');
 
+                                // Determine if the Save button should be enabled
+                                const originalEmployeeId = instance.id_funcionario ?? null;
+                                const currentSelectedEmployeeId = instanceEmployeeLinks[instanceDbId] ?? null;
+                                const hasChanges = currentSelectedEmployeeId !== originalEmployeeId;
+                                const isSavingThisInstance = isSavingInstance[instanceDbId] ?? false;
+
+
                                 return (
                                     <div
-                                        key={instanceDbId || instanceIdentifier} // Use DB ID if available, fallback to tech name
+                                        key={instanceDbId} // Use DB ID as the primary key
                                         className="whatsapp-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-4 flex-wrap"
                                     >
                                         <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0" /> {/* WhatsApp icon */}
@@ -666,6 +799,42 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                 </span>
                                             )}
                                         </div>
+
+                                        {/* NEW: Employee Link Select */}
+                                        <div className="flex flex-col gap-1 min-w-[150px]">
+                                            <Label htmlFor={`employee-link-${instanceDbId}`} className="text-xs font-medium text-gray-700">
+                                                Funcionário Vinculado
+                                            </Label>
+                                            {isLoadingEmployees ? (
+                                                 <span className="text-sm text-gray-500 flex items-center gap-1">
+                                                     <Loader2 className="h-3 w-3 animate-spin" /> Carregando...
+                                                 </span>
+                                            ) : employeesError ? (
+                                                 <span className="text-sm text-red-600">Erro ao carregar funcionários.</span>
+                                            ) : (employeesList?.length ?? 0) === 0 ? (
+                                                 <span className="text-sm text-orange-600">Nenhum funcionário disponível.</span>
+                                            ) : (
+                                                <Select
+                                                    value={instanceEmployeeLinks[instanceDbId]?.toString() || 'none'} // Use 'none' for null
+                                                    onValueChange={(value) => handleEmployeeChange(instanceDbId, value)}
+                                                    disabled={isSavingThisInstance} // Disable while saving this instance
+                                                >
+                                                    <SelectTrigger id={`employee-link-${instanceDbId}`} className="h-8 text-sm">
+                                                        <SelectValue placeholder="Vincular funcionário" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">-- Nenhum --</SelectItem> {/* Option to unlink */}
+                                                        {employeesList?.map(employee => (
+                                                            <SelectItem key={employee.id} value={employee.id.toString()}>
+                                                                {employee.nome}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        </div>
+
+
                                         <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 ml-auto">
                                             {statusContent}
                                         </div>
@@ -675,17 +844,34 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                 size="sm"
                                                 onClick={() => handleReconnectClick(instanceIdentifier)}
                                                 className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
+                                                disabled={isSavingThisInstance} // Disable while saving
                                             >
                                                 Reconectar
                                             </Button>
                                         )}
+                                        {/* NEW: Save Button for Employee Link */}
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => handleSaveEmployeeLink(instance)}
+                                            className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
+                                            disabled={!hasChanges || isSavingThisInstance} // Disable if no changes or currently saving
+                                        >
+                                            {isSavingThisInstance ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                <Save className="h-3 w-3" />
+                                            )}
+                                            Salvar
+                                        </Button>
+
                                         {instanceDbId ? (
                                             <Button
                                                 variant="destructive"
                                                 size="sm"
                                                 onClick={() => handleDeleteClick(instanceDbId, instance.nome_exibição || `ID ${instanceDbId}`)}
                                                 className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
-                                                disabled={deleteInstanceMutation.isLoading}
+                                                disabled={deleteInstanceMutation.isLoading || isSavingThisInstance} // Disable while saving
                                             >
                                                 {deleteInstanceMutation.isLoading ? (
                                                      <Loader2 className="h-3 w-3 animate-spin" />
