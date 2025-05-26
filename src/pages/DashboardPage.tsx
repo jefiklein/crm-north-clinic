@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Repeat, TagIcon } from "lucide-react"; // Added Repeat and TagIcon
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Repeat, TagIcon, TriangleAlert } from "lucide-react"; // Added TriangleAlert to imports
 import { useQuery } from "@tanstack/react-query";
 import { endOfMonth, getDay, isAfter, startOfDay, format } from 'date-fns'; // Import format
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
 
-// Define the structure for clinic data
+// Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
   code: string;
   nome: string;
@@ -33,9 +33,9 @@ interface NewSalesData {
 
 // Combined interface for the processed sales data
 interface DetailedSalesData {
-    total: TotalSalesData;
-    rebuy: RebuySalesData;
-    new: NewSalesData;
+    total: TotalSalesData | null; // Allow null if not found
+    rebuy: RebuySalesData | null; // Allow null if not found
+    new: NewSalesData | null; // Allow null if not found
 }
 
 
@@ -130,31 +130,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de vendas:', data);
 
-                // Process the array response
-                if (Array.isArray(data) && data.length >= 3) {
+                // Process the array response - MODIFIED TO BE MORE RESILIENT
+                if (Array.isArray(data)) {
                     const total = data.find(item => item.count_id_north !== undefined && item.sum_valor_venda !== undefined);
                     const rebuy = data.find(item => item.num_recompra !== undefined && item.sum_recompra !== undefined);
                     const newSale = data.find(item => item.num_nova_compra !== undefined && item.sum_nova_compra !== undefined);
 
-                    if (total && rebuy && newSale) {
-                        return {
-                            total: {
-                                count_id_north: Number(total.count_id_north),
-                                sum_valor_venda: Number(total.sum_valor_venda)
-                            },
-                            rebuy: {
-                                num_recompra: Number(rebuy.num_recompra), // Ensure parsing from string if necessary
-                                sum_recompra: Number(rebuy.sum_recompra) // Ensure parsing from string if necessary
-                            },
-                            new: {
-                                num_nova_compra: Number(newSale.num_nova_compra), // Ensure parsing from string if necessary
-                                sum_nova_compra: Number(newSale.sum_nova_compra) // Ensure parsing from string if necessary
-                            }
-                        } as DetailedSalesData;
-                    }
+                    // Return the found objects, allowing them to be null if not found
+                    return {
+                        total: total ? { count_id_north: Number(total.count_id_north), sum_valor_venda: Number(total.sum_valor_venda) } : null,
+                        rebuy: rebuy ? { num_recompra: Number(rebuy.num_recompra), sum_recompra: Number(rebuy.sum_recompra) } : null,
+                        new: newSale ? { num_nova_compra: Number(newSale.num_nova_compra), sum_nova_compra: Number(newSale.sum_nova_compra) } : null
+                    } as DetailedSalesData;
+
+                } else {
+                     // If data is not an array, it's an unexpected format
+                     console.error("Sales webhook returned non-array data:", data);
+                     throw new Error("Formato de resposta inesperado do webhook de vendas. Esperado array.");
                 }
 
-                throw new Error("Formato de resposta inesperado do webhook de vendas. Esperado array com dados de total, recompra e nova venda.");
 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de vendas:', error);
@@ -214,9 +208,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 // Expecting an array with one object: [{ "count_remoteJid": N }]
                 if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].count_remoteJid !== undefined) {
                     return { count_remoteJid: Number(data[0].count_remoteJid) } as LeadsData; // Return the object with the count
+                } else if (Array.isArray(data) && data.length === 0) {
+                     // Handle empty array response gracefully
+                     console.log("Leads webhook returned empty array. Treating as 0 leads.");
+                     return { count_remoteJid: 0 } as LeadsData;
                 }
 
-                throw new Error("Formato de resposta inesperado do webhook de leads. Esperado: [{ count_remoteJid: N }]");
+
+                throw new Error("Formato de resposta inesperado do webhook de leads. Esperado: [{ count_remoteJid: N }] ou [].");
 
             } catch (error) {
                 console.error('Erro na chamada ao webhook de leads:', error);
@@ -275,7 +274,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
                 // Detailed check for the expected format: [{ "sum_total_agendamentos": N, "sum_total_realizadas": M }]
                 if (!Array.isArray(data) || data.length === 0) {
-                    throw new Error(`Resposta inesperada do webhook de avaliações: Esperado um array não vazio, mas recebeu ${Array.isArray(data) ? 'um array vazio' : typeof data}. Dados recebidos: ${JSON.stringify(data).substring(0, 200)}...`);
+                    // If response is an empty array or not an array, treat as 0 appointments
+                    console.warn(`Resposta inesperada do webhook de avaliações: Esperado um array não vazio, mas recebeu ${Array.isArray(data) ? 'um array vazio' : typeof data}. Tratando como 0 agendamentos.`);
+                    return { sum_total_agendamentos: 0, sum_total_realizados: 0 } as AppointmentsData;
                 }
 
                 const result = data[0];
@@ -330,16 +331,17 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
 
     // Calculate Average Ticket for Total, Rebuy, and New Sales
-    const totalAverageTicket = salesData?.total && salesData.total.count_id_north > 0
-        ? salesData.total.sum_valor_venda / salesData.total.count_id_north
+    // Use optional chaining (?.) and nullish coalescing (??) to safely access properties
+    const totalAverageTicket = salesData?.total?.count_id_north !== undefined && salesData.total.count_id_north > 0
+        ? (salesData.total.sum_valor_venda ?? 0) / salesData.total.count_id_north
         : 0; // Handle division by zero
 
-    const rebuyAverageTicket = salesData?.rebuy && salesData.rebuy.num_recompra > 0
-        ? salesData.rebuy.sum_recompra / salesData.rebuy.num_recompra
+    const rebuyAverageTicket = salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra > 0
+        ? (salesData.rebuy.sum_recompra ?? 0) / salesData.rebuy.num_recompra
         : 0; // Handle division by zero
 
-    const newSalesAverageTicket = salesData?.new && salesData.new.num_nova_compra > 0
-        ? salesData.new.sum_nova_compra / salesData.new.num_nova_compra
+    const newSalesAverageTicket = salesData?.new?.num_nova_compra !== undefined && salesData.new.num_nova_compra > 0
+        ? (salesData.new.sum_nova_compra ?? 0) / salesData.new.num_nova_compra
         : 0; // Handle division by zero
 
     // Get current month and year for the title
@@ -378,8 +380,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-sm text-destructive">Erro ao carregar leads.</div>
                             ) : (
                                 <div className="text-2xl font-bold text-primary">
-                                    {/* Display the count_remoteJid */}
-                                    {leadsData?.count_remoteJid !== undefined && leadsData.count_remoteJid !== null ? leadsData.count_remoteJid : 'N/A'}
+                                    {/* Display the count_remoteJid, default to 0 if null/undefined */}
+                                    {leadsData?.count_remoteJid ?? 0}
                                 </div>
                             )}
                         </CardContent>
@@ -400,8 +402,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
                             ) : (
                                 <div className="text-2xl font-bold text-primary">
-                                    {/* Use sum_total_agendamentos */}
-                                    {appointmentsData?.sum_total_agendamentos !== undefined && appointmentsData.sum_total_agendamentos !== null ? appointmentsData.sum_total_agendamentos : 'N/A'}
+                                    {/* Use sum_total_agendamentos, default to 0 if null/undefined */}
+                                    {appointmentsData?.sum_total_agendamentos ?? 0}
                                 </div>
                             )}
                         </CardContent>
@@ -422,8 +424,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
                             ) : (
                                 <div className="text-2xl font-bold text-primary">
-                                    {/* Use sum_total_realizados */}
-                                    {appointmentsData?.sum_total_realizados !== undefined && appointmentsData.sum_total_realizados !== null ? appointmentsData.sum_total_realizados : 'N/A'}
+                                    {/* Use sum_total_realizados, default to 0 if null/undefined */}
+                                    {appointmentsData?.sum_total_realizados ?? 0}
                                 </div>
                             )}
                         </CardContent>
@@ -457,7 +459,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
-                                    {salesData?.total?.count_id_north !== undefined && salesData.total.count_id_north !== null ? salesData.total.count_id_north : 'N/A'}
+                                    {/* Use optional chaining and nullish coalescing */}
+                                    {salesData?.total?.count_id_north ?? 0}
                                 </div>
                             </CardContent>
                         </Card>
@@ -471,9 +474,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
+                                    {/* Use optional chaining and nullish coalescing */}
                                     {salesData?.total?.sum_valor_venda !== undefined && salesData.total.sum_valor_venda !== null ?
-                                        `R$ ${salesData.total.sum_valor_venda.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                        `R$ ${(salesData.total.sum_valor_venda ?? 0).toFixed(2).replace('.', ',')}` :
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
@@ -489,7 +493,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {totalAverageTicket !== undefined && totalAverageTicket !== null ?
                                         `R$ ${totalAverageTicket.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
@@ -504,7 +508,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
-                                    {salesData?.new?.num_nova_compra !== undefined && salesData.new.num_nova_compra !== null ? salesData.new.num_nova_compra : 'N/A'}
+                                    {/* Use optional chaining and nullish coalescing */}
+                                    {salesData?.new?.num_nova_compra ?? 0}
                                 </div>
                             </CardContent>
                         </Card>
@@ -518,9 +523,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
+                                    {/* Use optional chaining and nullish coalescing */}
                                     {salesData?.new?.sum_nova_compra !== undefined && salesData.new.sum_nova_compra !== null ?
-                                        `R$ ${salesData.new.sum_nova_compra.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                        `R$ ${(salesData.new.sum_nova_compra ?? 0).toFixed(2).replace('.', ',')}` :
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
@@ -536,7 +542,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {newSalesAverageTicket !== undefined && newSalesAverageTicket !== null ?
                                         `R$ ${newSalesAverageTicket.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
@@ -551,7 +557,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
-                                    {salesData?.rebuy?.num_recompra !== undefined && salesData.rebuy.num_recompra !== null ? salesData.rebuy.num_recompra : 'N/A'}
+                                    {/* Use optional chaining and nullish coalescing */}
+                                    {salesData?.rebuy?.num_recompra ?? 0}
                                 </div>
                             </CardContent>
                         </Card>
@@ -565,9 +572,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-primary">
-                                    {salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
-                                        `R$ ${salesData.rebuy.sum_recompra.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                    {/* Use optional chaining and nullish coalescing */}
+                                    salesData?.rebuy?.sum_recompra !== undefined && salesData.rebuy.sum_recompra !== null ?
+                                        `R$ ${(salesData.rebuy.sum_recompra ?? 0).toFixed(2).replace('.', ',')}` :
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
@@ -583,7 +591,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {rebuyAverageTicket !== undefined && rebuyAverageTicket !== null ?
                                         `R$ ${rebuyAverageTicket.toFixed(2).replace('.', ',')}` :
-                                        'N/A'
+                                        'R$ 0,00' // Default to R$ 0,00 if data is missing
                                     }
                                 </div>
                             </CardContent>
