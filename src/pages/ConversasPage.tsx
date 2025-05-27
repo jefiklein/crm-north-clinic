@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -779,7 +779,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
           instancia: instanceEvolutionName, // Use the determined evolution instance name from the selected instance
           id_clinica: clinicData.id, // Use clinic ID
           tipo_mensagem: "CRM", // As specified
-          prioridade: "99", // <-- Set priority to 99 for testing
+          prioridade: "0", // <-- Alterado para "0"
           tipo_evolution: "text", // As specified
       };
 
