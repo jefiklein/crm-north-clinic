@@ -49,7 +49,7 @@ interface Service {
 }
 
 interface Group {
-  id_grupo: number;
+  id_grupo: string; // <-- Changed to string
   nome_grupo: string;
 }
 
@@ -76,7 +76,7 @@ interface FetchedMessageData {
   modelo_mensagem: string;
   ativo: boolean;
   hora_envio: string | null;
-  grupo: number | null;
+  grupo: string | null; // <-- Changed to string
   url_arquivo: string | null;
   variacao_1: string | null;
   variacao_2: string | null;
@@ -200,7 +200,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [linkedServices, setLinkedServices] = useState<number[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null); // <-- Changed to string | null
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [targetType, setTargetType] = useState<"Grupo" | "Cliente" | "Funcionário">(
     "Grupo"
@@ -406,7 +406,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             // --- END FIX ---
 
 
-            setSelectedGroup(messageData.grupo ?? null);
+            setSelectedGroup(messageData.grupo ?? null); // <-- Keep as string | null
             setMediaSavedUrl(messageData.url_arquivo ?? null);
             // Removed variations state setting
             setTargetType(
@@ -453,7 +453,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setActive(true); // New messages start active
           setLinkedServices([]);
           setScheduledTime("");
-          setSelectedGroup(null);
+          setSelectedGroup(null); // <-- Keep as string | null
           setMediaSavedUrl(null);
           // Removed variations default state
           // Default target type based on context
@@ -510,7 +510,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       if (!instanceId || targetType !== "Grupo" || !currentClinicId) { // Add clinicId check
         console.log("[MensagensConfigPage] fetchGroups: Conditions not met. Clearing groups."); // Log condition fail
         setGroups([]);
-        setSelectedGroup(null);
+        setSelectedGroup(null); // <-- Keep as string | null
         return;
       }
       try {
@@ -518,7 +518,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         if (!instance?.nome_instancia_evolution) {
           console.log("[MensagensConfigPage] fetchGroups: Instance not found or missing nome_instancia_evolution. Clearing groups."); // Log instance issue
           setGroups([]);
-          setSelectedGroup(null);
+          setSelectedGroup(null); // <-- Keep as string | null
           return;
         }
         console.log(`[MensagensConfigPage] fetchGroups: Fetching groups for instance ${instance.nome_instancia_evolution}...`); // Log fetch attempt
@@ -542,12 +542,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         // If current selectedGroup is not in new groups, reset
         if (selectedGroup !== null && !groupsData.find((g) => g.id_grupo === selectedGroup)) {
           console.log("[MensagensConfigPage] fetchGroups: Selected group not found in new list. Resetting selectedGroup."); // Log reset
-          setSelectedGroup(null);
+          setSelectedGroup(null); // <-- Keep as string | null
         }
       } catch(e: any) {
         console.error("[MensagensConfigPage] fetchGroups: Error fetching groups:", e); // Log catch error
         setGroups([]);
-        setSelectedGroup(null);
+        setSelectedGroup(null); // <-- Keep as string | null
         // Optionally set an error state specific to groups if needed
       }
     }
@@ -853,7 +853,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
           saveData.para_grupo = targetType === "Grupo"; // Corrected logic
-          saveData.grupo = selectedGroup || null;
+          saveData.grupo = selectedGroup || null; // <-- Send string or null
           // Ensure cashback and leads fields are null for general messages
           saveData.dias_mensagem_cashback = null;
           saveData.tipo_mensagem_cashback = null;
@@ -1041,7 +1041,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       // Default to all placeholders for General context (or filter if needed)
       return allKeys; // Show all for General context for now
   }, [messageContext]); // Recompute when context changes
-  // --- END NEW ---
 
   // Handle placeholder click
   const handlePlaceholderClick = (placeholder: string) => {
@@ -1245,11 +1244,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     Grupo Alvo *
                   </label>
                   <Select
-                    // Corrected value prop logic
-                    value={selectedGroup === null ? undefined : selectedGroup.toString()}
+                    // Corrected value prop logic: Pass string or undefined
+                    value={selectedGroup ?? undefined} // <-- Pass string or undefined
                     onValueChange={(v) => {
                         console.log("[MensagensConfigPage] Group Select onValueChange:", v); // Log value received
-                        setSelectedGroup(v ? parseInt(v, 10) : null);
+                        setSelectedGroup(v || null); // <-- Store string or null
                     }}
                     id="group"
                     disabled={groups.length === 0}
@@ -1259,9 +1258,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     </SelectTrigger>
                     <SelectContent>
                       {groups.map((g) => {
-                          console.log("[MensagensConfigPage] Group SelectItem value:", g.id_grupo.toString(), "name:", g.nome_grupo); // Log SelectItem values
+                          console.log("[MensagensConfigPage] Group SelectItem value:", g.id_grupo, "name:", g.nome_grupo); // Log SelectItem values (now string)
                           return (
-                            <SelectItem key={g.id_grupo} value={g.id_grupo.toString()}>
+                            <SelectItem key={g.id_grupo} value={g.id_grupo}> {/* <-- Use string value */}
                               {g.nome_grupo}
                             </SelectItem>
                           );
