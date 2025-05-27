@@ -567,7 +567,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const el = messageTextRef.current;
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const text = messageText; // Use state value
+      const text = messageInput; // Use state value
       const newText = text.slice(0, start) + emoji + text.slice(end);
 
       setMessageText(newText); // Update state
@@ -678,7 +678,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         if (
           (category === "Chegou" || category === "Liberado") &&
           targetType === "Grupo" &&
-          !selectedGroup
+          selectedGroup === null // Check if selectedGroup is null
         ) {
           toast({
             title: "Erro",
@@ -928,10 +928,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }, 1500);
     } catch (e: any) {
       console.error("Error saving message:", e);
-      setError(e.message || "Erro ao salvar mensagem");
+      setError(e.message || "Erro ao salvar sequência");
       toast({
         title: "Erro",
-        description: e.message || "Erro ao salvar mensagem",
+        description: e.message || "Erro ao salvar sequência",
         variant: "destructive",
       });
     } finally {
@@ -1233,7 +1233,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     Grupo Alvo *
                   </label>
                   <Select
-                    value={selectedGroup?.toString() || ""}
+                    // Corrected value prop logic
+                    value={selectedGroup === null ? undefined : selectedGroup.toString()}
                     onValueChange={(v) =>
                       setSelectedGroup(v ? parseInt(v, 10) : null)
                     }
@@ -1456,7 +1457,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                                   key={placeholder}
                                   className="bg-gray-200 px-2 py-1 rounded font-mono text-xs cursor-pointer hover:bg-gray-300 transition-colors" // Added cursor and hover styles
                                   onClick={() => handlePlaceholderClick(placeholder)} // Added onClick handler
-                              >
+                               >
                                   {"{"}{placeholder}{"}"}
                               </span>
                           ))}
