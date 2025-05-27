@@ -533,121 +533,120 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                      {/* Removed Optional: Add a button to save/process the manual cashback data */}
 
 
-                    {/* Automatic Cashback Configuration Modal */}
-                    <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>Configurar Regras de Cashback Automático</DialogTitle> {/* Changed title */}
-                            </DialogHeader>
-                            {isLoadingConfig || isLoadingInstances ? ( // Show loading if either config or instances are loading
-                                 <div className="flex items-center justify-center gap-2 text-primary py-8">
-                                     <Loader2 className="animate-spin" />
-                                     Carregando configurações...
-                                 </div>
-                            ) : configError || instancesError ? ( // Show error if either config or instances failed
-                                 <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
-                            ) : (
-                                // NEW: Use local isSavingConfig state for dimming and disabling pointer events
-                                <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
-                                    <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
-                                    <div className="form-group">
-                                        <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
-                                        <Input
-                                            id="cashbackPercentual"
-                                            type="number"
-                                            placeholder="Ex: 5"
-                                            value={autoCashbackConfig.percentual}
-                                            onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
-                                            disabled={saveConfigMutation.isLoading} // Disable while saving
-                                        />
-                                    </div>
-                                    {/* Changed Validity field */}
-                                    <div className="form-group">
-                                        <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda) *</Label> {/* Added asterisk */}
-                                        <Input
-                                            id="cashbackValidadeDias"
-                                            type="number"
-                                            placeholder="Ex: 30"
-                                            value={autoCashbackConfig.validadeDias}
-                                            onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
-                                            disabled={saveConfigMutation.isLoading} // Disable while saving
-                                        />
-                                         <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
-                                    </div>
-                                    {/* Added Sending Instance field */}
-                                     <div className="form-group">
-                                        <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão (Fallback)</Label> {/* Updated label */}
-                                        {(instancesList?.length ?? 0) === 0 ? (
-                                            <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
-                                        ) : (
-                                            <Select
-                                                // Add key here to force re-render when data is ready
-                                                key={isDataReady ? 'data-ready' : 'loading'}
-                                                value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
-                                                onValueChange={(value) => {
-                                                    console.log("[CashbackPage] Select onValueChange:", value);
-                                                    setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
-                                                }}
-                                                disabled={saveConfigMutation.isLoading} // Disable while saving
-                                            >
-                                                <SelectTrigger id="idInstanciaEnvioPadrao">
-                                                    <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {/* Added option for no default instance */}
-                                                    <SelectItem value="none">-- Nenhuma instância padrão --</SelectItem> {/* Use 'none' as value */}
-                                                    {instancesList?.map(inst => (
-                                                        <SelectItem key={inst.id} value={inst.id.toString()}>
-                                                            {inst.nome_exibição} ({formatPhone(inst.telefone)})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                         <p className="text-xs text-gray-500 mt-1">Esta instância será usada para enviar mensagens automáticas de cashback *apenas* se a instância da venda não tiver um funcionário vinculado. Se nenhuma for selecionada aqui e a instância da venda também não tiver funcionário, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
-                                    </div>
-
-                                    {/* NEW: Checkbox to apply to current month sales */}
-                                    <div className="flex items-center space-x-2 mt-4">
-                                        <Checkbox
-                                            id="applyToCurrentMonthSales"
-                                            checked={applyToCurrentMonthSales}
-                                            onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
-                                            disabled={saveConfigMutation.isLoading} // Disable while saving
-                                        />
-                                        <Label
-                                            htmlFor="applyToCurrentMonthSales"
-                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                        >
-                                            Aplicar esta regra para todas as vendas do mês atual
-                                        </Label>
-                                    </div>
-                                     <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p> {/* Clarified text */}
-
-                                     {/* Add more configuration fields here as needed */}
+                {/* Automatic Cashback Configuration Modal */}
+                <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Configurar Regras de Cashback Automático</DialogTitle> {/* Changed title */}
+                        </DialogHeader>
+                        {isLoadingConfig || isLoadingInstances ? ( // Show loading if either config or instances are loading
+                             <div className="flex items-center justify-center gap-2 text-primary py-8">
+                                 <Loader2 className="animate-spin" />
+                                 Carregando configurações...
+                             </div>
+                        ) : configError || instancesError ? ( // Show error if either config or instances failed
+                             <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
+                        ) : (
+                            // NEW: Use local isSavingConfig state for dimming and disabling pointer events
+                            <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
+                                <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
+                                <div className="form-group">
+                                    <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
+                                    <Input
+                                        id="cashbackPercentual"
+                                        type="number"
+                                        placeholder="Ex: 5"
+                                        value={autoCashbackConfig.percentual}
+                                        onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    />
                                 </div>
-                            )}
-                            <DialogFooter>
-                                {/* NEW: Disable Cancel button based on local saving state */}
-                                <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
-                                    Cancelar
-                                </Button>
-                                {/* NEW: Use local isSavingConfig state for button loading indicator */}
-                                <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
-                                    {saveConfigMutation.isLoading ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Salvando...
-                                        </>
+                                {/* Changed Validity field */}
+                                <div className="form-group">
+                                    <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda) *</Label> {/* Added asterisk */}
+                                    <Input
+                                        id="cashbackValidadeDias"
+                                        type="number"
+                                        placeholder="Ex: 30"
+                                        value={autoCashbackConfig.validadeDias}
+                                        onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    />
+                                     <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
+                                </div>
+                                {/* Added Sending Instance field */}
+                                 <div className="form-group">
+                                    <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão (Fallback)</Label> {/* Updated label */}
+                                    {(instancesList?.length ?? 0) === 0 ? (
+                                        <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                     ) : (
-                                        'Salvar Configurações'
+                                        <Select
+                                            // Add key here to force re-render when data is ready
+                                            key={isDataReady ? 'data-ready' : 'loading'}
+                                            value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
+                                            onValueChange={(value) => {
+                                                console.log("[CashbackPage] Select onValueChange:", value);
+                                                setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
+                                            }}
+                                            disabled={saveConfigMutation.isLoading} // Disable while saving
+                                        >
+                                            <SelectTrigger id="idInstanciaEnvioPadrao">
+                                                <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {/* Added option for no default instance */}
+                                                <SelectItem value="none">-- Nenhuma instância padrão --</SelectItem> {/* Use 'none' as value */}
+                                                {instancesList?.map(inst => (
+                                                    <SelectItem key={inst.id} value={inst.id.toString()}>
+                                                        {inst.nome_exibição} ({formatPhone(inst.telefone)})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     )}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                                     <p className="text-xs text-gray-500 mt-1">Esta instância será usada para enviar mensagens automáticas de cashback *apenas* se a instância da venda não tiver um funcionário vinculado. Se nenhuma for selecionada aqui e a instância da venda também não tiver funcionário, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
+                                </div>
 
-                </div>
+                                {/* NEW: Checkbox to apply to current month sales */}
+                                <div className="flex items-center space-x-2 mt-4">
+                                    <Checkbox
+                                        id="applyToCurrentMonthSales"
+                                        checked={applyToCurrentMonthSales}
+                                        onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    />
+                                    <Label
+                                        htmlFor="applyToCurrentMonthSales"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        Aplicar esta regra para todas as vendas do mês atual
+                                    </Label>
+                                </div>
+                                 <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p> {/* Clarified text */}
+
+                                 {/* Add more configuration fields here as needed */}
+                            </div>
+                        )}
+                        <DialogFooter>
+                            {/* NEW: Disable Cancel button based on local saving state */}
+                            <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                                Cancelar
+                            </Button>
+                            {/* NEW: Use local isSavingConfig state for button loading indicator */}
+                            <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                                {saveConfigMutation.isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Salvando...
+                                    </>
+                                ) : (
+                                    'Salvar Configurações'
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
             </div>
         </TooltipProvider>
     );
