@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, Filter } from "lucide-react"; // Added Filter icon
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays, addDays, isAfter, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Label } from "@/components/ui/label"; // Import Label
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -101,28 +103,36 @@ function formatFinalMessage(messageText: string | null): string {
 const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => {
     const [currentQueueDate, setCurrentQueueDate] = useState<Date>(startOfDay(new Date()));
     const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set()); // State to track expanded messages
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null); // State for status filter
 
     const clinicId = clinicData?.id;
     const dateString = format(currentQueueDate, 'yyyy-MM-dd');
 
     // Fetch message queue items from Supabase
     const { data: queueItems, isLoading, error, refetch } = useQuery<QueueItem[]>({
-        queryKey: ['messageQueue', clinicId, dateString],
+        queryKey: ['messageQueue', clinicId, dateString, selectedStatus], // Added selectedStatus to query key
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
-            console.log(`Fetching message queue for clinic ${clinicId} on date ${dateString} from Supabase`);
+            console.log(`Fetching message queue for clinic ${clinicId} on date ${dateString} with status ${selectedStatus} from Supabase`);
 
             // Query queue items for the clinic and date (filter by agendado_para date)
-            const { data, error } = await supabase
+            let query = supabase
                 .from('north_clinic_fila_mensagens')
                 .select('*')
                 .eq('id_clinica', clinicId)
                 .gte('agendado_para', `${dateString}T00:00:00Z`)
-                .lte('agendado_para', `${dateString}T23:59:59Z`)
-                // Removed order by prioridade
-                .order('agendado_para', { ascending: false }); // <-- Changed to DESCENDING
+                .lte('agendado_para', `${dateString}T23:59:59Z`);
+
+            // Add status filter if selectedStatus is not null
+            if (selectedStatus !== null) {
+                query = query.eq('status', selectedStatus);
+            }
+
+            query = query.order('agendado_para', { ascending: false }); // Order by AGENDADO_PARA DESC
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("Error fetching queue items from Supabase:", error);
@@ -213,16 +223,41 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         <div className="fila-mensagens-container bg-gray-100 p-6"> {/* Removed max-w-4xl mx-auto */}
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="page-title text-2xl font-bold text-primary">Fila de Mensagens</h1>
-                <div className="date-navigation flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={goToPreviousDay} title="Dia Anterior">
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <strong id="queueDateDisplay" className="text-lg font-bold text-primary whitespace-nowrap">
-                        {format(currentQueueDate, 'dd/MM/yyyy')}
-                    </strong>
-                    <Button variant="outline" size="icon" onClick={goToNextDay} disabled={isNextDayDisabled} title="Próximo Dia">
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
+                <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for date nav and filter */}
+                    {/* Date Navigation */}
+                    <div className="date-navigation flex items-center gap-4">
+                        <Button variant="outline" size="icon" onClick={goToPreviousDay} title="Dia Anterior">
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <strong id="queueDateDisplay" className="text-lg font-bold text-primary whitespace-nowrap">
+                            {format(currentQueueDate, 'dd/MM/yyyy')}
+                        </strong>
+                        <Button variant="outline" size="icon" onClick={goToNextDay} disabled={isNextDayDisabled} title="Próximo Dia">
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="filter-section flex items-center gap-2">
+                         <Filter className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                         <Label htmlFor="statusFilter" className="sr-only">Filtrar por Status</Label>
+                         <Select
+                             value={selectedStatus || ''} // Use empty string for null
+                             onValueChange={(value) => setSelectedStatus(value === '' ? null : value)} // Set null if empty string is selected
+                             disabled={isLoading}
+                         >
+                             <SelectTrigger id="statusFilter" className="w-[150px]">
+                                 <SelectValue placeholder="Todos os Status" />
+                             </SelectTrigger>
+                             <SelectContent>
+                                 <SelectItem value="">Todos os Status</SelectItem> {/* Option to show all */}
+                                 <SelectItem value="Enviado">Enviado</SelectItem>
+                                 <SelectItem value="Pendente">Pendente</SelectItem>
+                                 <SelectItem value="Erro">Erro</SelectItem>
+                                 <SelectItem value="Agendado">Agendado</SelectItem> {/* Added Agendado status */}
+                             </SelectContent>
+                         </Select>
+                    </div>
                 </div>
             </div>
 
@@ -241,7 +276,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                         </div>
                     ) : (queueItems?.length ?? 0) === 0 ? (
                         <div className="status-message text-gray-700 p-8 text-center">
-                            Nenhuma mensagem na fila para esta data.
+                            Nenhuma mensagem na fila para esta data{selectedStatus ? ` com status "${selectedStatus}"` : ''}.
                         </div>
                     ) : (
                         queueItems?.map(item => {
