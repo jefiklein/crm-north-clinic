@@ -461,7 +461,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
-    // If clinicData is available, render the main content wrapped in TooltipProvider and Fragment
     return (
         <>
             {/* Use Fragment as the single root element */}
