@@ -34,15 +34,14 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
-// Define the structure for Leads fetched from Supabase
+// Define the structure for Leads fetched from Supabase - UPDATED to use remoteJid
 interface SupabaseLead {
     id: number;
     nome_lead: string | null;
-    telefone: number | null;
+    remoteJid: string; // Use remoteJid instead of telefone
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
-    // interesses: string | null; // Removed interests property
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
     // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
@@ -87,12 +86,14 @@ function formatLeadTimestamp(iso: string | null): string {
     }
 }
 
-function openLeadDetails(phone: number | string | null) {
-    if (!phone) return;
-    const clean = String(phone).replace(/\D/g, '');
-    if (clean) {
+// UPDATED: Function to open lead details using remoteJid
+function openLeadDetails(remoteJid: string) {
+    if (!remoteJid) return;
+    // Extract the number part before the '@'
+    const phoneNumber = remoteJid.split('@')[0];
+    if (phoneNumber) {
         // Open in a new tab
-        window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${clean}`, '_blank');
+        window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${phoneNumber}`, '_blank');
     }
 }
 
@@ -235,16 +236,16 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                // Removed 'interesses' from the select list
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                // UPDATED SELECT: Use remoteJid instead of telefone
+                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
                 .eq('id_clinica', clinicId); // Filter by clinic ID - KEEP THIS
 
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
                 const searchTermLower = searchTerm.toLowerCase();
-                // Note: 'telefone::text' is the correct way to cast to text for ilike in Supabase/Postgres
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
-                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+                // UPDATED FILTER: Search remoteJid instead of telefone::text
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,remoteJid.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR remoteJid ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             // Apply sorting
@@ -362,8 +363,8 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                             className="pl-9"
                          />
                     </div>
-                    <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {isLoading ? 'Carregando...' : `${totalItems} registros`}
+                    <span id="recordsCount" className="text-sm text-gray-600 whitespace-nowrap">
+                        {isLoading ? 'Carregando...' : `${totalItems} registro(s)`}
                     </span>
                     <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
                         <SelectTrigger className="w-[180px]">
@@ -408,16 +409,19 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     ) : (
                         leadsToDisplay.map(lead => {
                             const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
+                            // Extract phone number from remoteJid
+                            const phoneNumber = lead.remoteJid ? lead.remoteJid.split('@')[0] : null;
                             return (
                                 <div
                                     key={lead.id}
                                     className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => openLeadDetails(lead.telefone)}
+                                    onClick={() => openLeadDetails(lead.remoteJid)} // Use remoteJid here
                                 >
                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
+                                        {/* Display formatted phone number extracted from remoteJid */}
+                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(phoneNumber)}</span>
                                         {/* Removed rendering of interests */}
                                     </div>
                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
@@ -445,7 +449,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     <div className="pagination-container p-4 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
                         <div className="pagination-info text-sm text-gray-600">
                             Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} registros
+                            {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} de {totalItems} registro(s)
                         </div>
                         <Pagination>
                             <PaginationContent>
