@@ -121,8 +121,8 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                 .eq('id_clinica', clinicId)
                 .gte('agendado_para', `${dateString}T00:00:00Z`)
                 .lte('agendado_para', `${dateString}T23:59:59Z`)
-                .order('prioridade', { ascending: true })
-                .order('agendado_para', { ascending: true });
+                // Removed order by prioridade
+                .order('agendado_para', { ascending: false }); // <-- Changed to DESCENDING
 
             if (error) {
                 console.error("Error fetching queue items from Supabase:", error);
