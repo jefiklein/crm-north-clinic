@@ -180,6 +180,18 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         refetchOnWindowFocus: false,
     });
 
+    // NEW: Memoized set of employee IDs currently linked to an instance
+    const linkedEmployeeIds = useMemo(() => {
+        const ids = new Set<number>();
+        instancesList?.forEach(instance => {
+            if (instance.id_funcionario !== null && instance.id_funcionario !== undefined) {
+                ids.add(instance.id_funcionario);
+            }
+        });
+        console.log("[WhatsappInstancesPage] Linked employee IDs:", ids);
+        return ids;
+    }, [instancesList]);
+
 
     // Effect to initialize instanceEmployeeLinks state when instancesList loads
     useEffect(() => {
@@ -832,7 +844,13 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                         <SelectItem value="none">-- Nenhum --</SelectItem> {/* Option to unlink */}
                                                         {employeesList?.map(employee => (
                                                             <SelectItem key={employee.id} value={employee.id.toString()}>
-                                                                {employee.nome}
+                                                                <div className="flex items-center gap-2"> {/* Flex container for name and icon */}
+                                                                    <span>{employee.nome}</span>
+                                                                    {/* Show icon if this employee ID is in the linkedEmployeeIds set */}
+                                                                    {linkedEmployeeIds.has(employee.id) && (
+                                                                        <MessagesSquare className="h-3 w-3 text-green-600" title="Vinculado a outra instância" />
+                                                                    )}
+                                                                </div>
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
