@@ -461,6 +461,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
+    // If clinicData is available, render the main content wrapped in TooltipProvider and Fragment
     return (
         <> {/* Use Fragment as the single root element */}
             <TooltipProvider> {/* TooltipProvider wraps the main content */}
@@ -624,9 +625,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                         Aplicar esta regra para todas as vendas do mês atual
                                     </Label>
                                 </div>
-                                 <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p> {/* Clarified text */}
+                                 <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p>
 
-                                 {/* Add more configuration fields here as needed */}
                             </div>
                         )}
                         <DialogFooter>
