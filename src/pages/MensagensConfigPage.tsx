@@ -372,8 +372,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     .filter((id): id is number => id !== null) // Ensure IDs are numbers and not null
                 : []; // Empty array if other context
 
-            console.log("Fetched message data from Supabase:", messageData);
-            console.log("Extracted linkedServices from Supabase:", fetchedLinkedServices);
+            console.log("[MensagensConfigPage] Fetched message data from Supabase:", messageData);
+            console.log("[MensagensConfigPage] Extracted linkedServices from Supabase:", fetchedLinkedServices);
 
 
             setMessageId(messageData.id);
@@ -394,11 +394,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     if (parts.length >= 2) {
                         formattedScheduledTime = `${parts[0]}:${parts[1]}`;
                     } else {
-                         console.warn("Unexpected hora_envio format:", fetchedScheduledTime);
+                         console.warn("[MensagensConfigPage] Unexpected hora_envio format:", fetchedScheduledTime);
                          formattedScheduledTime = fetchedScheduledTime; // Use as is if unexpected
                     }
                 } catch (e) {
-                    console.error("Error formatting hora_envio:", fetchedScheduledTime, e);
+                    console.error("[MensagensConfigPage] Error formatting hora_envio:", fetchedScheduledTime, e);
                     formattedScheduledTime = fetchedScheduledTime; // Use as is on error
                 }
             }
@@ -479,7 +479,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           // Context is already set from URL parameter above
         }
       } catch (e: any) {
-        console.error("Error fetching initial data:", e);
+        console.error("[MensagensConfigPage] Error fetching initial data:", e);
         setError(e.message || "Erro ao carregar dados iniciais");
         setMessageContext(contextParam); // Ensure context is kept on error if present in URL
       } finally {
@@ -492,12 +492,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Log the messageContext state whenever it changes
   useEffect(() => {
-      console.log("MensagensConfigPage: messageContext state changed to:", messageContext);
+      console.log("[MensagensConfigPage] messageContext state changed to:", messageContext);
   }, [messageContext]);
 
   // Effect to reset stage when funnel changes
   useEffect(() => {
-      console.log("MensagensConfigPage: selectedFunnelId changed. Resetting selectedStageId.");
+      console.log("[MensagensConfigPage] selectedFunnelId changed. Resetting selectedStageId.");
       setSelectedStageId(null);
   }, [selectedFunnelId]);
 
@@ -506,7 +506,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   useEffect(() => {
     async function fetchGroups() {
       const currentClinicId = clinicData?.id; // Capture clinicId
+      console.log("[MensagensConfigPage] fetchGroups useEffect triggered. instanceId:", instanceId, "targetType:", targetType, "clinicId:", currentClinicId); // Log trigger
       if (!instanceId || targetType !== "Grupo" || !currentClinicId) { // Add clinicId check
+        console.log("[MensagensConfigPage] fetchGroups: Conditions not met. Clearing groups."); // Log condition fail
         setGroups([]);
         setSelectedGroup(null);
         return;
@@ -514,10 +516,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       try {
         const instance = instances.find((i) => i.id === instanceId);
         if (!instance?.nome_instancia_evolution) {
+          console.log("[MensagensConfigPage] fetchGroups: Instance not found or missing nome_instancia_evolution. Clearing groups."); // Log instance issue
           setGroups([]);
           setSelectedGroup(null);
           return;
         }
+        console.log(`[MensagensConfigPage] fetchGroups: Fetching groups for instance ${instance.nome_instancia_evolution}...`); // Log fetch attempt
         // Fetch groups using the webhook (assuming this webhook is correct for groups)
         const res = await fetch(
           `https://n8n-n8n.sbw0pc.easypanel.host/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`,
@@ -527,22 +531,28 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             body: JSON.stringify({ nome_instancia_evolution: instance.nome_instancia_evolution }),
           }
         );
-        if (!res.ok) throw new Error("Falha ao carregar grupos");
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error("[MensagensConfigPage] fetchGroups: Webhook failed:", res.status, errorText); // Log webhook error
+            throw new Error("Falha ao carregar grupos");
+        }
         const groupsData: Group[] = await res.json();
+        console.log("[MensagensConfigPage] fetchGroups: Webhook returned groupsData:", groupsData); // Log fetched data
         setGroups(groupsData);
         // If current selectedGroup is not in new groups, reset
         if (selectedGroup !== null && !groupsData.find((g) => g.id_grupo === selectedGroup)) {
+          console.log("[MensagensConfigPage] fetchGroups: Selected group not found in new list. Resetting selectedGroup."); // Log reset
           setSelectedGroup(null);
         }
       } catch(e: any) {
-        console.error("Error fetching groups:", e);
+        console.error("[MensagensConfigPage] fetchGroups: Error fetching groups:", e); // Log catch error
         setGroups([]);
         setSelectedGroup(null);
         // Optionally set an error state specific to groups if needed
       }
     }
     fetchGroups();
-  }, [instanceId, targetType, instances, clinicData?.id]); // Depend on instanceId, targetType, instances, and clinicData.id
+  }, [instanceId, targetType, instances, clinicData?.id, selectedGroup]); // Depend on instanceId, targetType, instances, clinicData.id, and selectedGroup
 
   // Handle media file selection and preview
   useEffect(() => {
@@ -903,7 +913,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       if (!saveRes.ok || responseData.error || (responseData.success === false)) {
           // If HTTP status is not OK, OR if the JSON body contains an error/success: false
           const errorMessage = responseData.error || responseData.message || `Erro desconhecido (Status: ${saveRes.status})`;
-          console.error("Webhook save error:", responseData); // Log the full response data
+          console.error("[MensagensConfigPage] Webhook save error:", responseData); // Log the full response data
           throw new Error(errorMessage);
       }
       // --- END MODIFIED ---
@@ -927,7 +937,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         )}&status=${messageId ? "updated" : "created"}`;
       }, 1500);
     } catch (e: any) {
-      console.error("Error saving message:", e);
+      console.error("[MensagensConfigPage] Error saving message:", e);
       setError(e.message || "Erro ao salvar sequência");
       toast({
         title: "Erro",
@@ -1053,6 +1063,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           }, 0); // Use 0ms timeout to defer until next tick
       }
   };
+
+  console.log("[MensagensConfigPage] Rendering. selectedGroup:", selectedGroup, "groups:", groups.length, "value prop for Select:", selectedGroup === null ? undefined : selectedGroup.toString()); // Log render state
 
 
   return (
@@ -1235,9 +1247,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   <Select
                     // Corrected value prop logic
                     value={selectedGroup === null ? undefined : selectedGroup.toString()}
-                    onValueChange={(v) =>
-                      setSelectedGroup(v ? parseInt(v, 10) : null)
-                    }
+                    onValueChange={(v) => {
+                        console.log("[MensagensConfigPage] Group Select onValueChange:", v); // Log value received
+                        setSelectedGroup(v ? parseInt(v, 10) : null);
+                    }}
                     id="group"
                     disabled={groups.length === 0}
                   >
@@ -1245,11 +1258,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       <SelectValue placeholder="Selecione o grupo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {groups.map((g) => (
-                        <SelectItem key={g.id_grupo} value={g.id_grupo.toString()}>
-                          {g.nome_grupo}
-                        </SelectItem>
-                      ))}
+                      {groups.map((g) => {
+                          console.log("[MensagensConfigPage] Group SelectItem value:", g.id_grupo.toString(), "name:", g.nome_grupo); // Log SelectItem values
+                          return (
+                            <SelectItem key={g.id_grupo} value={g.id_grupo.toString()}>
+                              {g.nome_grupo}
+                            </SelectItem>
+                          );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
