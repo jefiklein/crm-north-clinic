@@ -242,15 +242,15 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                          <Filter className="h-5 w-5 text-gray-600 flex-shrink-0" />
                          <Label htmlFor="statusFilter" className="sr-only">Filtrar por Status</Label>
                          <Select
-                             value={selectedStatus || ''} // Use empty string for null
-                             onValueChange={(value) => setSelectedStatus(value === '' ? null : value)} // Set null if empty string is selected
+                             value={selectedStatus || 'all'} // Use 'all' for null state
+                             onValueChange={(value) => setSelectedStatus(value === 'all' ? null : value)} // Set null if 'all' is selected
                              disabled={isLoading}
                          >
                              <SelectTrigger id="statusFilter" className="w-[150px]">
                                  <SelectValue placeholder="Todos os Status" />
                              </SelectTrigger>
                              <SelectContent>
-                                 <SelectItem value="">Todos os Status</SelectItem> {/* Option to show all */}
+                                 <SelectItem value="all">Todos os Status</SelectItem> {/* Changed value to 'all' */}
                                  <SelectItem value="Enviado">Enviado</SelectItem>
                                  <SelectItem value="Pendente">Pendente</SelectItem>
                                  <SelectItem value="Erro">Erro</SelectItem>
