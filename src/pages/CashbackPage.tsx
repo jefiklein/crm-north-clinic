@@ -456,84 +456,89 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const isDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
 
 
+    // Render the error message if clinicData is missing
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
+    // If clinicData is available, render the main content wrapped in TooltipProvider and Fragment
     return (
-        <TooltipProvider> {/* Ensure TooltipProvider wraps the single root element */}
-            <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
-                <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                    <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback por Cliente</h1> {/* Updated Title */}
-                    <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for action buttons */}
-                        {/* Removed Date Navigation */}
-                        <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
-                            <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
-                                <Settings className="h-4 w-4" /> Configurar Regras de Cashback
-                            </Button>
-                            <Button variant="outline" onClick={handleConfigMessagesClick} className="flex items-center gap-2">
-                                <MessageSquare className="h-4 w-4" /> Configurar Mensagens
-                            </Button>
+        <> {/* Use Fragment as the single root element */}
+            <TooltipProvider> {/* TooltipProvider wraps the main content */}
+                <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
+                    <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                        <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback por Cliente</h1> {/* Updated Title */}
+                        <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for action buttons */}
+                            {/* Removed Date Navigation */}
+                            <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
+                                <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
+                                    <Settings className="h-4 w-4" /> Configurar Regras de Cashback
+                                </Button>
+                                <Button variant="outline" onClick={handleConfigMessagesClick} className="flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4" /> Configurar Mensagens
+                                </Button>
+                            </div>
                         </div>
-                    </div>
 
-                    <Card className="sales-list-container"> {/* Renamed class for clarity */}
-                        <CardContent className="p-0">
-                            {isLoading ? (
-                                <div className="status-message loading-message flex flex-col items-center justify-center p-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                                    <span className="text-gray-700">Carregando dados de cashback por cliente...</span> {/* Updated loading text */}
-                                </div>
-                            ) : error ? (
-                                <div className="status-message error-message flex flex-col items-center justify-center p-8 text-red-600">
-                                    <TriangleAlert className="h-8 w-8 mb-4" />
-                                    <span>Erro ao carregar dados de cashback: {error.message}</span> {/* Updated error text */}
-                                    <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
-                                </div>
-                            ) : (customerCashbackData?.length ?? 0) === 0 ? ( {/* Use customerCashbackData */}
-                                <div className="status-message text-gray-700 p-8 text-center">
-                                    Nenhum cliente com saldo de cashback encontrado. {/* Updated empty state text */}
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto"> {/* Add overflow for smaller screens */}
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Cliente</TableHead> {/* Updated Header */}
-                                                <TableHead className="text-right">Saldo Total Cashback</TableHead> {/* Updated Header */}
-                                                <TableHead>Validade Mais Recente</TableHead> {/* Updated Header */}
-                                                {/* Removed other headers */}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {/* Map over aggregated data */}
-                                            {customerCashbackData?.map(customer => (
-                                                <TableRow key={customer.codigo_cliente_north}> {/* Use client ID as key */}
-                                                    <TableCell className="whitespace-nowrap">{customer.nome_north || 'Cliente Desconhecido'}</TableCell> {/* Display client name */}
-                                                    <TableCell className="text-right whitespace-nowrap">
-                                                        {/* Display total cashback */}
-                                                        {customer.total_cashback !== undefined && customer.total_cashback !== null ?
-                                                            `R$ ${customer.total_cashback.toFixed(2).replace('.', ',')}` :
-                                                            'R$ 0,00'
-                                                        }
-                                                    </TableCell>
-                                                    <TableCell className="whitespace-nowrap">
-                                                        {/* Display latest validity */}
-                                                        {formatDate(customer.latest_validity)}
-                                                    </TableCell>
-                                                    {/* Removed other cells and manual inputs */}
+                        <Card className="sales-list-container"> {/* Renamed class for clarity */}
+                            <CardContent className="p-0">
+                                {isLoading ? (
+                                    <div className="status-message loading-message flex flex-col items-center justify-center p-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                                        <span className="text-gray-700">Carregando dados de cashback por cliente...</span> {/* Updated loading text */}
+                                    </div>
+                                ) : error ? (
+                                    <div className="status-message error-message flex flex-col items-center justify-center p-8 text-red-600">
+                                        <TriangleAlert className="h-8 w-8 mb-4" />
+                                        <span>Erro ao carregar dados de cashback: {error.message}</span> {/* Updated error text */}
+                                        <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
+                                    </div>
+                                ) : (customerCashbackData?.length ?? 0) === 0 ? ( {/* Use customerCashbackData */}
+                                    <div className="status-message text-gray-700 p-8 text-center">
+                                        Nenhum cliente com saldo de cashback encontrado. {/* Updated empty state text */}
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto"> {/* Add overflow for smaller screens */}
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Cliente</TableHead> {/* Updated Header */}
+                                                    <TableHead className="text-right">Saldo Total Cashback</TableHead> {/* Updated Header */}
+                                                    <TableHead>Validade Mais Recente</TableHead> {/* Updated Header */}
+                                                    {/* Removed other headers */}
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                     {/* Removed Optional: Add a button to save/process the manual cashback data */}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {/* Map over aggregated data */}
+                                                {customerCashbackData?.map(customer => (
+                                                    <TableRow key={customer.codigo_cliente_north}> {/* Use client ID as key */}
+                                                        <TableCell className="whitespace-nowrap">{customer.nome_north || 'Cliente Desconhecido'}</TableCell> {/* Display client name */}
+                                                        <TableCell className="text-right whitespace-nowrap">
+                                                            {/* Display total cashback */}
+                                                            {customer.total_cashback !== undefined && customer.total_cashback !== null ?
+                                                                `R$ ${customer.total_cashback.toFixed(2).replace('.', ',')}` :
+                                                                'R$ 0,00'
+                                                            }
+                                                        </TableCell>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            {/* Display latest validity */}
+                                                            {formatDate(customer.latest_validity)}
+                                                        </TableCell>
+                                                        {/* Removed other cells and manual inputs */}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                         {/* Removed Optional: Add a button to save/process the manual cashback data */}
+                    </div>
+                </TooltipProvider>
 
 
-                {/* Automatic Cashback Configuration Modal */}
+                {/* Automatic Cashback Configuration Modal - Rendered as a sibling */}
                 <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -646,9 +651,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-
-            </div>
-        </TooltipProvider>
+            </>
     );
 };
 
