@@ -70,7 +70,7 @@ const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // REMOVED: INSTANCE_LIST_WEBHOOK_URL
 const INSTANCE_STATUS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-a64b-d1b7fd78dddc`; // Webhook para status
 const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17-8b71d610d7c3`; // Webhook para gerar QR
-const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`; // Webhook para excluir
+const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; // Webhook para excluir - UPDATED URL
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook para criar na API Evolution
 const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; // Webhook para salvar no DB - UPDATED URL
 // TODO: Add a webhook URL for updating instance details, including id_funcionario
@@ -380,7 +380,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
             console.log(`[WhatsappInstancesPage] Attempting to delete instance with ID: ${instanceId}`);
-            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`;
+            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; // UPDATED URL HERE
             const response = await fetch(deleteWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -886,11 +886,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                             disabled={!hasChanges || isSavingThisInstance} // Disable if no changes or currently saving
                                         >
                                             {isSavingThisInstance ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <>
+                                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                    Salvar
+                                                </>
                                             ) : (
-                                                <Save className="h-3 w-3" />
+                                                <>
+                                                    <Save className="h-3 w-3 mr-1" />
+                                                    Salvar
+                                                </>
                                             )}
-                                            Salvar
                                         </Button>
 
                                         {instanceDbId ? (
@@ -982,6 +987,19 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             setAddInstanceAlert({ message: 'Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).', type: 'error' });
                             return;
                         }
+
+                        // --- NEW VALIDATION: Check for duplicate display name ---
+                        const trimmedNewName = nome_exibição.trim().toLowerCase();
+                        const isDuplicateName = instancesList?.some(instance =>
+                            instance.nome_exibição?.trim().toLowerCase() === trimmedNewName
+                        );
+
+                        if (isDuplicateName) {
+                            setAddInstanceAlert({ message: `Já existe uma instância com o nome "${nome_exibição}". Por favor, use um nome diferente.`, type: 'error' });
+                            return;
+                        }
+                        // --- END NEW VALIDATION ---
+
 
                         createInstanceMutation.mutate(addInstanceFormData);
                     }}>
