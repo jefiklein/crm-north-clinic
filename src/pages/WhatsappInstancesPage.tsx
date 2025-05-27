@@ -72,7 +72,7 @@ const INSTANCE_STATUS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-
 const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17-8b71d610d7c3`; // Webhook para gerar QR
 const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960af0d518c8`; // Webhook para excluir
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook para criar na API Evolution
-const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`; // Webhook para salvar no DB
+const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; // Webhook para salvar no DB - UPDATED URL
 // TODO: Add a webhook URL for updating instance details, including id_funcionario
 const INSTANCE_UPDATE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/5508f715-27a5-447c-86d4-2026e1517a21`; // Placeholder for update webhook
 
@@ -179,18 +179,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         staleTime: 5 * 60 * 1000, // Cache employees for 5 minutes
         refetchOnWindowFocus: false,
     });
-
-    // NEW: Memoized set of employee IDs currently linked to an instance
-    const linkedEmployeeIds = useMemo(() => {
-        const ids = new Set<number>();
-        instancesList?.forEach(instance => {
-            if (instance.id_funcionario !== null && instance.id_funcionario !== undefined) {
-                ids.add(instance.id_funcionario);
-            }
-        });
-        console.log("[WhatsappInstancesPage] Linked employee IDs:", ids);
-        return ids;
-    }, [instancesList]);
 
 
     // Effect to initialize instanceEmployeeLinks state when instancesList loads
@@ -414,7 +402,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const normalizedType = normalizeText(instanceData.tipo);
             const normalizedName = normalizeText(instanceData.nome_exibição);
             // Use a more robust unique identifier, maybe combine clinicId, type, and a timestamp/random string
-            const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}_${Date.now().toString().slice(-8)}`; // Added timestamp slice
+            // REMOVED TIMESTAMP PART
+            const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}`;
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
             const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; // Webhook URL
@@ -432,7 +421,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             // Evolution API success, now save to DB
             console.log("[WhatsappInstancesPage] Evolution instance created. Saving to database...");
-            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bccb977`;
+            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; // UPDATED URL HERE
             const dbResponse = await fetch(dbWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -484,31 +473,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
 
             return { success: true, message: 'Instância criada e salva.', qrCodeUrl: qrCodeUrl, instanceIdentifier: uniqueIdentifier };
-        },
-        onSuccess: (data) => {
-            showSuccess(data.message || 'Instância criada com sucesso!');
-            setIsAddInstanceModalOpen(false);
-            setAddInstanceFormData({ nome_exibição: '', telefone: '', tipo: '' });
-            queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
-
-            if (data.qrCodeUrl && data.instanceIdentifier) {
-                 const newInstanceInfo: InstanceInfo = {
-                     id: data.data?.id || null,
-                     nome_exibição: addInstanceFormData.nome_exibição,
-                     telefone: Number(addInstanceFormData.telefone),
-                     tipo: addInstanceFormData.tipo,
-                     nome_instancia_evolution: data.instanceIdentifier,
-                     trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false,
-                     id_funcionario: null // Default new instance to no linked employee
-                 };
-                 setCurrentInstanceForQr(newInstanceInfo);
-                 setQrCodeUrl(data.qrCodeUrl);
-                 setIsQrModalOpen(true);
-                 startQrTimer();
-                 startConnectionPolling(data.instanceIdentifier);
-            } else {
-                 showError("Instância criada, mas não foi possível gerar o QR Code automaticamente. Gere manualmente na lista.");
-            }
         },
         onError: (error: Error) => {
             showError(`Erro ao criar instância: ${error.message}`);
