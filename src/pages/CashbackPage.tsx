@@ -30,14 +30,24 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for the aggregated cashback data per customer
-interface CustomerCashbackSummary {
-    codigo_cliente_north: number;
-    total_cashback: number;
-    latest_validity: string | null; // ISO date string or null
-    nome_north: string | null; // Client name from joined table
+// Define the structure for a sale item fetched from Supabase
+interface SupabaseSale {
+    id_north: number;
+    data_venda: string; // ISO date string
+    codigo_cliente_north: number | null;
+    cod_funcionario_north: number | null;
+    nome_funcionario_north: string | null;
+    valor_venda: number | null;
+    valor_cashback: number | null; // Added new column
+    validade_cashback: string | null; // Added new column (assuming ISO date string)
+    // Removed tipo and status from interface
+    servico: string | null; // Added servico
+    produto: string | null; // Added produto
+    pacote: string | null; // Added pacote
+    // The client name comes from the joined table
+    north_clinic_clientes: { nome_north: string | null } | null; // Nested client data
+    // Add other fields if needed from the Supabase query
 }
-
 
 // Define the structure for instance details from Supabase
 interface InstanceDetails {
@@ -65,7 +75,15 @@ interface FetchedConfig {
     cashback_instancia_padrao: number | null; // Corrected name to match DB
 }
 
-// Removed ManualSavePayload interface
+// Define the structure for the payload sent to the manual save webhook
+interface ManualSavePayload {
+    id_clinica: number | string;
+    vendas: {
+        id_north: number;
+        valor_cashback: number | null;
+        validade_cashback: string | null; // ISO date string or null
+    }[];
+}
 
 
 interface CashbackPageProps {
@@ -75,7 +93,7 @@ interface CashbackPageProps {
 // Helper function to clean salesperson name (remove leading numbers and hyphen)
 function cleanSalespersonName(name: string | null): string {
     if (!name) return 'N/D';
-    // Remove leading digits, hyphen, and space (e.e., "1 - Nome" -> "Nome")
+    // Remove leading digits, hyphen, and space (e.g., "1 - Nome" -> "Nome")
     const cleaned = name.replace(/^\d+\s*-\s*/, '').trim();
     return cleaned || 'N/D'; // Return 'N/D' if name becomes empty after cleaning
 }
@@ -112,11 +130,9 @@ const formatDate = (dateString: string | null): string => {
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const navigate = useNavigate(); // Initialize navigate hook
     const queryClient = useQueryClient(); // Get query client instance
-    // Removed currentDate state and date navigation logic
-
-    // Removed state to hold manual cashback data
-    // const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor?: string, validade?: Date | null } }>({}); // Made properties optional
-
+    const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date()));
+    // State to hold manual cashback data (simple example, not persisted)
+    const [manualCashbackData, setManualCashbackData] = useState<{ [saleId: number]: { valor?: string, validade?: Date | null } }>({}); // Made properties optional
 
     // State for the automatic cashback configuration modal
     const [isAutoCashbackModalOpen, setIsAutoCashbackModalOpen] = useState(false);
@@ -151,94 +167,49 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
 
     const clinicId = clinicData?.id;
-    // Removed dateString, startDate, endDate
+    // Format dates for Supabase query filters
+    const startDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
 
-    // Fetch aggregated customer cashback data using react-query directly from Supabase
-    const { data: customerCashbackData, isLoading, error, refetch } = useQuery<CustomerCashbackSummary[]>({
-        queryKey: ['customerCashbackSummary', clinicId], // Key reflects aggregated data, no date range
+    // Fetch sales data using react-query directly from Supabase
+    const { data: salesData, isLoading, error, refetch } = useQuery<SupabaseSale[]>({
+        queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate], // Use date range in key
         queryFn: async () => {
             if (!clinicId) {
                 throw new Error("ID da clínica não disponível.");
             }
 
-            console.log(`Fetching aggregated customer cashback data for clinic ${clinicId} from Supabase`);
+            console.log(`Fetching sales for clinic ${clinicId} from Supabase for date range ${startDate} to ${endDate}`);
 
             try {
-                // --- MODIFIED SUPABASE QUERY FOR AGGREGATION ---
                 const { data, error } = await supabase
                     .from('north_clinic_vendas')
-                    .select('codigo_cliente_north, valor_cashback, validade_cashback, north_clinic_clientes(nome_north)') // Select necessary fields, including join
+                    // Select sales data and join client name - ADDED NEW COLUMNS
+                    .select('id_north, data_venda, codigo_cliente_north, cod_funcionario_north, nome_funcionario_north, valor_venda, valor_cashback, validade_cashback, servico, produto, pacote, north_clinic_clientes(nome_north)') // Removed tipo and status from select
                     .eq('id_clinica', clinicId) // Filter by clinic ID
-                    .eq('brinde', false) // Filter out gift sales
-                    .not('valor_cashback', 'is', null); // Only include sales with a cashback value
+                    .eq('brinde', false) // <-- ADDED FILTER FOR BRINDE = FALSE
+                    .gte('data_venda', startDate) // Filter by start date of the month
+                    .lte('data_venda', endDate) // Filter by end date of the month
+                    .order('data_venda', { ascending: true }); // Order by sale date
 
-                console.log('Supabase raw sales data for aggregation:', { data, error });
+                console.log('Supabase sales fetch result:', { data, error });
 
                 if (error) {
-                    console.error('Supabase sales aggregation fetch error:', error);
-                    throw new Error(`Erro ao buscar dados de cashback por cliente: ${error.message}`);
+                    console.error('Supabase sales fetch error:', error);
+                    throw new Error(`Erro ao buscar dados de vendas: ${error.message}`);
                 }
 
                 if (!data) {
-                    console.warn("Supabase sales aggregation fetch returned null data.");
+                    console.warn("Supabase sales fetch returned null data.");
                     return []; // Return empty array if data is null
                 }
 
-                // Manually aggregate the data in the client
-                const aggregatedDataMap = new Map<number, { total_cashback: number, latest_validity: Date | null, nome_north: string | null }>();
-
-                data.forEach(sale => {
-                    const clientId = sale.codigo_cliente_north;
-                    const cashback = sale.valor_cashback ?? 0;
-                    const validity = sale.validade_cashback ? new Date(sale.validade_cashback) : null;
-                    const clientName = sale.north_clinic_clientes?.nome_north || null;
-
-                    if (clientId !== null) { // Ensure client ID is not null
-                        if (!aggregatedDataMap.has(clientId)) {
-                            aggregatedDataMap.set(clientId, {
-                                total_cashback: 0,
-                                latest_validity: null,
-                                nome_north: clientName
-                            });
-                        }
-
-                        const current = aggregatedDataMap.get(clientId)!;
-                        current.total_cashback += cashback;
-
-                        // Update latest validity
-                        if (validity) {
-                            if (!current.latest_validity || validity > current.latest_validity) {
-                                current.latest_validity = validity;
-                            }
-                        }
-                    }
-                });
-
-                // Convert map values to array and format latest_validity back to ISO string
-                const aggregatedData: CustomerCashbackSummary[] = Array.from(aggregatedDataMap.entries())
-                    .filter(([clientId, summary]) => summary.total_cashback > 0) // Only include customers with positive cashback
-                    .map(([clientId, summary]) => ({
-                        codigo_cliente_north: clientId,
-                        total_cashback: summary.total_cashback,
-                        latest_validity: summary.latest_validity ? summary.latest_validity.toISOString() : null, // Format back to ISO string
-                        nome_north: summary.nome_north
-                    }));
-
-                // Sort by client name
-                aggregatedData.sort((a, b) => {
-                    const nameA = a.nome_north || '';
-                    const nameB = b.nome_north || '';
-                    return nameA.localeCompare(nameB);
-                });
-
-
-                console.log("Aggregated customer cashback data:", aggregatedData.length, "items");
-                return aggregatedData;
-                // --- END MODIFIED SUPABASE QUERY AND AGGREGATION ---
+                console.log("Sales data received from Supabase:", data.length, "items");
+                return data as SupabaseSale[]; // Cast to the defined interface
 
             } catch (err: any) {
-                console.error('Erro ao buscar dados de cashback do Supabase:', err);
+                console.error('Erro ao buscar dados de vendas do Supabase:', err);
                 throw err; // Re-throw to be caught by react-query
             }
         },
@@ -370,11 +341,8 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
             // Invalidate the config query to refetch when modal is opened again
             queryClient.invalidateQueries({ queryKey: ['cashbackConfig', clinicId] });
             // Also refetch sales data for the current month if the checkbox was checked
-            // NOTE: The checkbox now triggers a recalculation on the backend,
-            // but the main view is aggregated across all time.
-            // We should refetch the aggregated data to see if any customer balances changed.
             if (applyToCurrentMonthSales) {
-                 queryClient.invalidateQueries({ queryKey: ['customerCashbackSummary', clinicId] }); // Refetch aggregated data
+                 queryClient.invalidateQueries({ queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate] });
             }
         },
         onError: (error: Error) => {
@@ -386,16 +354,67 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         }
     });
 
-    // Removed saveManualCashbackMutation
+    // NEW: Mutation for saving manual cashback data
+    const saveManualCashbackMutation = useMutation({
+        mutationFn: async (payload: ManualSavePayload) => {
+            console.log("Sending manual cashback data to webhook:", payload);
+            const webhookUrl = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/salvar-cashback-completo'; // Your new webhook URL
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao salvar cashback manual`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; } catch (e) { errorMsg = `${errorMsg}: ${await response.text()}`; }
+                throw new Error(errorMsg);
+            }
+
+            return response.json(); // Assuming webhook returns some confirmation
+        },
+        onSuccess: () => {
+            showSuccess('Cashback manual salvo com sucesso!');
+            // Invalidate the sales query to refetch updated data
+            queryClient.invalidateQueries({ queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate] });
+            // Clear manual changes state after successful save
+            setManualCashbackData({});
+        },
+        onError: (error: Error) => {
+            showError(`Falha ao salvar cashback manual: ${error.message}`);
+        },
+    });
 
 
-    // Removed Function to navigate months
-    // Removed Check if the next month button should be disabled
+    // Function to navigate months
+    const goToPreviousMonth = () => {
+        setCurrentDate(startOfMonth(subMonths(currentDate, 1)));
+        setManualCashbackData({}); // Clear manual data on month change
+    };
+
+    const goToNextMonth = () => {
+        const today = startOfMonth(new Date());
+        const nextMonth = startOfMonth(addMonths(currentDate, 1));
+        if (!isAfter(nextMonth, today)) { // Only navigate to next month if it's not in the future
+            setCurrentDate(nextMonth);
+            setManualCashbackData({}); // Clear manual data on month change
+        }
+    };
+
+    // Check if the next month button should be disabled
+    const isNextMonthDisabled = !isBefore(currentDate, startOfMonth(new Date()));
 
 
-    // Removed Handle manual input changes
-    // Removed Handle saving manual cashback data
-
+    // Handle manual input changes (simple state update)
+    const handleCashbackInputChange = (saleId: number, field: 'valor' | 'validade', value: string | Date | null) => {
+        setManualCashbackData(prev => ({
+            ...prev,
+            [saleId]: {
+                ...prev[saleId],
+                [field]: value
+            }
+        }));
+    };
 
     // Handle navigation to Messages Config page
     const handleConfigMessagesClick = () => {
@@ -451,205 +470,356 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         // The onSettled callback will set isSavingConfig back to false
     };
 
+    // NEW: Handle saving manual cashback data
+    const handleSaveManualCashback = () => {
+        if (!clinicId) {
+            showError("ID da clínica não disponível para salvar.");
+            return;
+        }
+
+        if (!salesData || salesData.length === 0) {
+             showError("Nenhuma venda para salvar.");
+             return;
+        }
+
+        // Prepare the payload for the manual save webhook
+        const salesToSave = salesData.map(sale => {
+            const saleId = sale.id_north;
+            const manualChanges = manualCashbackData[saleId];
+
+            // Determine cashback value: manual input (parsed) or original fetched value
+            let valorCashback: number | null = null;
+            if (manualChanges?.valor !== undefined && manualChanges.valor !== '') {
+                 const parsedValue = parseFloat(manualChanges.valor.replace(',', '.'));
+                 valorCashback = isNaN(parsedValue) ? null : parsedValue; // Send null if parsing fails
+            } else {
+                 valorCashback = sale.valor_cashback; // Use original fetched value
+            }
+
+            // Determine validity date: manual input (formatted) or original fetched value
+            let validadeCashback: string | null = null;
+            if (manualChanges?.validade !== undefined) { // Check if validity was manually touched (even if set to null)
+                 if (manualChanges.validade instanceof Date && !isNaN(manualChanges.validade.getTime())) {
+                     validadeCashback = format(manualChanges.validade, 'yyyy-MM-dd'); // Format Date object to ISO string
+                 } else {
+                     validadeCashback = null; // Send null if manually set to null or invalid Date
+                 }
+            } else {
+                 validadeCashback = sale.validade_cashback; // Use original fetched value (already ISO string or null)
+            }
+
+
+            return {
+                id_north: saleId,
+                valor_cashback: valorCashback,
+                validade_cashback: validadeCashback,
+            };
+        });
+
+        const payload: ManualSavePayload = {
+            id_clinica: clinicId,
+            vendas: salesToSave,
+        };
+
+        saveManualCashbackMutation.mutate(payload); // Trigger the manual save mutation
+    };
+
 
     // Determine if data is ready to render the form
     const isDataReady = !isLoadingConfig && !configError && !isLoadingInstances && !instancesError;
 
 
-    // Render the error message if clinicData is missing
     if (!clinicData) {
-        return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+        return <div className="text-center text-red-500">Erro: Dados da clínica não disponíveis.</div>;
     }
 
     return (
-        <>
-            {/* Use Fragment as the single root element */}
-            <TooltipProvider> {/* TooltipProvider wraps the main content */}
-                <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
-                    <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                        <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback por Cliente</h1> {/* Updated Title */}
-                        <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for action buttons */}
-                            {/* Removed Date Navigation */}
-                            <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
-                                <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
-                                    <Settings className="h-4 w-4" /> Configurar Regras de Cashback
-                                </Button>
-                                <Button variant="outline" onClick={handleConfigMessagesClick} className="flex items-center gap-2">
-                                    <MessageSquare className="h-4 w-4" /> Configurar Mensagens
-                                </Button>
-                            </div>
-                        </div>
-
-                        <Card className="sales-list-container"> {/* Renamed class for clarity */}
-                            <CardContent className="p-0">
-                                {isLoading ? (
-                                    <div className="status-message loading-message flex flex-col items-center justify-center p-8">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                                        <span className="text-gray-700">Carregando dados de cashback por cliente...</span> {/* Updated loading text */}
-                                    </div>
-                                ) : error ? (
-                                    <div className="status-message error-message flex flex-col items-center justify-center p-8 text-red-600">
-                                        <TriangleAlert className="h-8 w-8 mb-4" />
-                                        <span>Erro ao carregar dados de cashback: {error.message}</span> {/* Updated error text */}
-                                        <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
-                                    </div>
-                                ) : (customerCashbackData?.length ?? 0) === 0 ? ( {/* Use customerCashbackData */}
-                                    <div className="status-message text-gray-700 p-8 text-center">
-                                        Nenhum cliente com saldo de cashback encontrado. {/* Updated empty state text */}
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto"> {/* Add overflow for smaller screens */}
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Cliente</TableHead> {/* Updated Header */}
-                                                    <TableHead className="text-right">Saldo Total Cashback</TableHead> {/* Updated Header */}
-                                                    <TableHead>Validade Mais Recente</TableHead> {/* Updated Header */}
-                                                    {/* Removed other headers */}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {/* Map over aggregated data */}
-                                                {customerCashbackData?.map(customer => (
-                                                    <TableRow key={customer.codigo_cliente_north}> {/* Use client ID as key */}
-                                                        <TableCell className="whitespace-nowrap">{customer.nome_north || 'Cliente Desconhecido'}</TableCell> {/* Display client name */}
-                                                        <TableCell className="text-right whitespace-nowrap">
-                                                            {/* Display total cashback */}
-                                                            {customer.total_cashback !== undefined && customer.total_cashback !== null ?
-                                                                `R$ ${customer.total_cashback.toFixed(2).replace('.', ',')}` :
-                                                                'R$ 0,00'
-                                                            }
-                                                        </TableCell>
-                                                        <TableCell className="whitespace-nowrap">
-                                                            {/* Display latest validity */}
-                                                            {formatDate(customer.latest_validity)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+        <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback</h1>
+                <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for date nav and action buttons */}
+                    <div className="date-navigation flex items-center gap-4">
+                        <Button variant="outline" size="icon" onClick={goToPreviousMonth} title="Mês Anterior">
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <strong id="monthYearDisplay" className="text-lg font-bold text-primary whitespace-nowrap">
+                            {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+                        </strong>
+                        <Button variant="outline" size="icon" onClick={goToNextMonth} disabled={isNextMonthDisabled} title="Próximo Mês">
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
                     </div>
-                </TooltipProvider>
+                    <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
+                        <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
+                            <Settings className="h-4 w-4" /> Configurar Regras de Cashback
+                        </Button>
+                        <Button variant="outline" onClick={handleConfigMessagesClick} className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4" /> Configurar Mensagens
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <Card className="sales-list-container">
+                <CardContent className="p-0">
+                    {isLoading ? (
+                        <div className="status-message loading-message flex flex-col items-center justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                            <span className="text-gray-700">Carregando vendas para {format(currentDate, 'MMMM yyyy', { locale: ptBR })}...</span>
+                        </div>
+                    ) : error ? (
+                        <div className="status-message error-message flex flex-col items-center justify-center p-8 text-red-600">
+                            <TriangleAlert className="h-8 w-8 mb-4" />
+                            <span>Erro ao carregar vendas: {error.message}</span>
+                            <Button variant="outline" onClick={() => refetch()} className="mt-4">Tentar Novamente</Button>
+                        </div>
+                    ) : (salesData?.length ?? 0) === 0 ? (
+                        <div className="status-message text-gray-700 p-8 text-center">
+                            Nenhuma venda encontrada para este mês.
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto"> {/* Add overflow for smaller screens */}
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Data Venda</TableHead>
+                                        <TableHead>Cliente</TableHead>
+                                        <TableHead>Vendedora</TableHead>
+                                        {/* Removed Tipo and Status TableHead */}
+                                        {/* Removed Item TableHead */}
+                                        <TableHead className="text-right">Valor Venda</TableHead>
+                                        <TableHead>Valor Cashback</TableHead>
+                                        <TableHead>Validade Cashback</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TooltipProvider> {/* Wrap TableBody with TooltipProvider */}
+                                        {salesData?.map(sale => {
+                                            const saleId = sale.id_north; // Use id_north as unique key
+                                            // Prioritize manual input state, fallback to fetched data
+                                            const currentCashbackValue = manualCashbackData[saleId]?.valor ?? sale.valor_cashback?.toFixed(2).replace('.', ',') ?? ''; // Format fetched number for display
+                                            const currentCashbackValidity = manualCashbackData[saleId]?.validade ?? (sale.validade_cashback ? new Date(sale.validade_cashback) : null);
+
+                                            // Determine the item name (Serviço, Produto, or Pacote)
+                                            const itemName = sale.servico || sale.produto || sale.pacote || 'N/D';
 
 
-                {/* Automatic Cashback Configuration Modal - Rendered as a sibling */}
-                <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Configurar Regras de Cashback Automático</DialogTitle> {/* Changed title */}
-                        </DialogHeader>
-                        {isLoadingConfig || isLoadingInstances ? ( // Show loading if either config or instances are loading
-                             <div className="flex items-center justify-center gap-2 text-primary py-8">
-                                 <Loader2 className="animate-spin" />
-                                 Carregando configurações...
-                             </div>
-                        ) : configError || instancesError ? ( // Show error if either config or instances failed
-                             <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
-                        ) : (
-                            // NEW: Use local isSavingConfig state for dimming and disabling pointer events
-                            <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
-                                <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
-                                <div className="form-group">
-                                    <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
-                                    <Input
-                                        id="cashbackPercentual"
-                                        type="number"
-                                        placeholder="Ex: 5"
-                                        value={autoCashbackConfig.percentual}
-                                        onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
-                                        disabled={saveConfigMutation.isLoading} // Disable while saving
-                                    />
-                                </div>
-                                {/* Changed Validity field */}
-                                <div className="form-group">
-                                    <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda) *</Label> {/* Added asterisk */}
-                                    <Input
-                                        id="cashbackValidadeDias"
-                                        type="number"
-                                        placeholder="Ex: 30"
-                                        value={autoCashbackConfig.validadeDias}
-                                        onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
-                                        disabled={saveConfigMutation.isLoading} // Disable while saving
-                                    />
-                                     <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
-                                </div>
-                                {/* Added Sending Instance field */}
-                                 <div className="form-group">
-                                    <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão (Fallback)</Label> {/* Updated label */}
-                                    {(instancesList?.length ?? 0) === 0 ? (
-                                        <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
-                                    ) : (
-                                        <Select
-                                            // Add key here to force re-render when data is ready
-                                            key={isDataReady ? 'data-ready' : 'loading'}
-                                            value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
-                                            onValueChange={(value) => {
-                                                console.log("[CashbackPage] Select onValueChange:", value);
-                                                setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
-                                            }}
-                                            disabled={saveConfigMutation.isLoading} // Disable while saving
-                                        >
-                                            <SelectTrigger id="idInstanciaEnvioPadrao">
-                                                <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {/* Added option for no default instance */}
-                                                <SelectItem value="none">-- Nenhuma instância padrão --</SelectItem> {/* Use 'none' as value */}
-                                                {instancesList?.map(inst => (
-                                                    <SelectItem key={inst.id} value={inst.id.toString()}>
-                                                        {inst.nome_exibição} ({formatPhone(inst.telefone)})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                     <p className="text-xs text-gray-500 mt-1">Esta instância será usada para enviar mensagens automáticas de cashback *apenas* se a instância da venda não tiver um funcionário vinculado. Se nenhuma for selecionada aqui e a instância da venda também não tiver funcionário, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
-                                </div>
+                                            return (
+                                                <Tooltip key={saleId}> {/* Add Tooltip to each TableRow */}
+                                                    <TooltipTrigger asChild>
+                                                        <TableRow data-sale-id={saleId}> {/* Add data attribute for potential future use */}
+                                                            <TableCell className="whitespace-nowrap">{formatDate(sale.data_venda)}</TableCell>
+                                                            {/* Access client name from the nested object */}
+                                                            <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
+                                                            <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell> {/* Apply cleanup here */}
+                                                            {/* Removed Tipo and Status TableCell */}
+                                                            {/* Removed Item TableCell */}
+                                                            <TableCell className="text-right whitespace-nowrap">
+                                                                {sale.valor_venda !== null && sale.valor_venda !== undefined ?
+                                                                    `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :
+                                                                    'R$ 0,00'
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell className="w-[150px]"> {/* Fixed width for input */}
+                                                                <div className="flex items-center"> {/* Wrap input for R$ prefix */}
+                                                                    <span className="mr-1 text-gray-600 text-sm">R$</span> {/* R$ prefix */}
+                                                                    <Input
+                                                                        type="text" // Changed to text
+                                                                        placeholder="0,00" // Updated placeholder
+                                                                        value={currentCashbackValue} // Use current value (string)
+                                                                        onChange={(e) => {
+                                                                            const rawValue = e.target.value;
+                                                                            // Allow empty string
+                                                                            if (rawValue === '') {
+                                                                                 handleCashbackInputChange(saleId, 'valor', '');
+                                                                                 return;
+                                                                            }
+                                                                            // Replace comma with dot for internal processing
+                                                                            const valueWithDot = rawValue.replace(',', '.');
+                                                                            // Regex to allow digits, at most one dot, and at most two digits after the dot
+                                                                            // Also handle cases where the user types '.' first
+                                                                            const validRegex = /^\d*\.?\d{0,2}$/;
+                                                                            if (validRegex.test(valueWithDot)) {
+                                                                                 // Convert dot back to comma for display in the input field
+                                                                                 handleCashbackInputChange(saleId, 'valor', valueWithDot.replace('.', ','));
+                                                                             } else if (rawValue === ',') { // Allow typing ',' first
+                                                                                 handleCashbackInputChange(saleId, 'valor', '0,');
+                                                                             }
+                                                                            // If invalid, the state is not updated, keeping the last valid value
+                                                                        }}
+                                                                        className="h-8 text-right flex-grow" // Smaller input, right align text, flex-grow
+                                                                    />
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="w-[150px]"> {/* Fixed width for date picker */}
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            className="w-full h-8 text-left"
+                                                                        >
+                                                                            {currentCashbackValidity ? format(currentCashbackValidity, 'dd/MM/yyyy') : 'Selecione a data'} {/* Use current value */}
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                            <Calendar
+                                                                                mode="single"
+                                                                                selected={currentCashbackValidity ?? undefined} // Use current value, handle null/undefined
+                                                                                onSelect={(date) => {
+                                                                                    handleCashbackInputChange(saleId, 'validade', date);
+                                                                                }}
+                                                                                disabled={(date) => date < startOfMonth(new Date())} // Disable dates before the current month
+                                                                                initialFocus
+                                                                            />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent> {/* Tooltip content */}
+                                                        <p>Item: {itemName}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </TooltipProvider>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+             {/* Optional: Add a button to save/process the manual cashback data */}
+             {salesData && salesData.length > 0 && (
+                 <div className="mt-6 text-right">
+                     <Button onClick={handleSaveManualCashback} disabled={isLoading || saveManualCashbackMutation.isLoading}>
+                         {saveManualCashbackMutation.isLoading ? (
+                             <>
+                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                 Salvando...
+                             </>
+                         ) : (
+                             'Salvar Cashback Manual'
+                         )}
+                     </Button>
+                 </div>
+             )}
 
-                                {/* NEW: Checkbox to apply to current month sales */}
-                                <div className="flex items-center space-x-2 mt-4">
-                                    <Checkbox
-                                        id="applyToCurrentMonthSales"
-                                        checked={applyToCurrentMonthSales}
-                                        onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
-                                        disabled={saveConfigMutation.isLoading} // Disable while saving
-                                    />
-                                    <Label
-                                        htmlFor="applyToCurrentMonthSales"
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                        Aplicar esta regra para todas as vendas do mês atual
-                                    </Label>
-                                </div>
-                                 <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p>
-
-                                 {/* Add more configuration fields here as needed */}
+            {/* Automatic Cashback Configuration Modal */}
+            <Dialog open={isAutoCashbackModalOpen} onOpenChange={setIsAutoCashbackModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Configurar Regras de Cashback</DialogTitle> {/* Changed title */}
+                    </DialogHeader>
+                    {isLoadingConfig || isLoadingInstances ? ( // Show loading if either config or instances are loading
+                         <div className="flex items-center justify-center gap-2 text-primary py-8">
+                             <Loader2 className="animate-spin" />
+                             Carregando configurações...
+                         </div>
+                    ) : configError || instancesError ? ( // Show error if either config or instances failed
+                         <div className="text-red-600 font-semibold py-8">{configError?.message || instancesError?.message || 'Erro ao carregar dados.'}</div>
+                    ) : (
+                        // NEW: Use local isSavingConfig state for dimming and disabling pointer events
+                        <div className={cn("grid gap-4 py-4", saveConfigMutation.isLoading && "opacity-50 pointer-events-none")}> {/* Apply dimming and disable pointer events when saving */}
+                            <p className="text-sm text-gray-600">Defina regras para preencher automaticamente o valor e a validade do cashback para novas vendas.</p>
+                            <div className="form-group">
+                                <Label htmlFor="cashbackPercentual">Percentual de Cashback (%) *</Label> {/* Added asterisk */}
+                                <Input
+                                    id="cashbackPercentual"
+                                    type="number"
+                                    placeholder="Ex: 5"
+                                    value={autoCashbackConfig.percentual}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, percentual: e.target.value })}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                />
                             </div>
-                        )}
-                        <DialogFooter>
-                            {/* NEW: Disable Cancel button based on local saving state */}
-                            <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
-                                Cancelar
-                            </Button>
-                            {/* NEW: Use local isSavingConfig state for button loading indicator */}
-                            <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
-                                {saveConfigMutation.isLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Salvando...
-                                    </>
+                            {/* Changed Validity field */}
+                            <div className="form-group">
+                                <Label htmlFor="cashbackValidadeDias">Validade (dias após a venda) *</Label> {/* Added asterisk */}
+                                <Input
+                                    id="cashbackValidadeDias"
+                                    type="number"
+                                    placeholder="Ex: 30"
+                                    value={autoCashbackConfig.validadeDias}
+                                    onChange={(e) => setAutoCashbackConfig({ ...autoCashbackConfig, validadeDias: e.target.value })}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                />
+                                 <p className="text-xs text-gray-500 mt-1">O cashback será válido por este número de dias a partir da data da venda.</p>
+                            </div>
+                            {/* Added Sending Instance field */}
+                             <div className="form-group">
+                                <Label htmlFor="idInstanciaEnvioPadrao">Instância de Envio Padrão (Fallback)</Label> {/* Updated label */}
+                                {(instancesList?.length ?? 0) === 0 ? (
+                                    <p className="text-sm text-orange-600">Nenhuma instância disponível para seleção.</p>
                                 ) : (
-                                    'Salvar Configurações'
+                                    <Select
+                                        // Add key here to force re-render when data is ready
+                                        key={isDataReady ? 'data-ready' : 'loading'}
+                                        value={autoCashbackConfig.idInstanciaEnvioPadrao?.toString() || 'none'} // Use 'none' string for null/undefined
+                                        onValueChange={(value) => {
+                                            console.log("[CashbackPage] Select onValueChange:", value);
+                                            setAutoCashbackConfig({ ...autoCashbackConfig, idInstanciaEnvioPadrao: value === 'none' ? null : parseInt(value, 10) });
+                                        }}
+                                        disabled={saveConfigMutation.isLoading} // Disable while saving
+                                    >
+                                        <SelectTrigger id="idInstanciaEnvioPadrao">
+                                            <SelectValue placeholder="Selecione a instância padrão" /> {/* Updated placeholder */}
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {/* Added option for no default instance */}
+                                            <SelectItem value="none">-- Nenhuma instância padrão --</SelectItem> {/* Use 'none' as value */}
+                                            {instancesList?.map(inst => (
+                                                <SelectItem key={inst.id} value={inst.id.toString()}>
+                                                    {inst.nome_exibição} ({formatPhone(inst.telefone)})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 )}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </>
+                                 <p className="text-xs text-gray-500 mt-1">Esta instância será usada para enviar mensagens automáticas de cashback *apenas* se a instância da venda não tiver um funcionário vinculado. Se nenhuma for selecionada aqui e a instância da venda também não tiver funcionário, as mensagens automáticas de cashback não serão enviadas.</p> {/* Clarified text */}
+                            </div>
+
+                            {/* NEW: Checkbox to apply to current month sales */}
+                            <div className="flex items-center space-x-2 mt-4">
+                                <Checkbox
+                                    id="applyToCurrentMonthSales"
+                                    checked={applyToCurrentMonthSales}
+                                    onCheckedChange={(checked) => setApplyToCurrentMonthSales(!!checked)}
+                                    disabled={saveConfigMutation.isLoading} // Disable while saving
+                                />
+                                <Label
+                                    htmlFor="applyToCurrentMonthSales"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    Aplicar esta regra para todas as vendas do mês atual
+                                </Label>
+                            </div>
+                             <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p> {/* Clarified text */}
+
+                             {/* Add more configuration fields here as needed */}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        {/* NEW: Disable Cancel button based on local saving state */}
+                        <Button type="button" variant="secondary" onClick={() => setIsAutoCashbackModalOpen(false)} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                            Cancelar
+                        </Button>
+                        {/* NEW: Use local isSavingConfig state for button loading indicator */}
+                        <Button onClick={handleSaveAutoCashbackConfig} disabled={saveConfigMutation.isLoading || isLoadingConfig || !!configError || isLoadingInstances || !!instancesError}> {/* Disable based on all loading/error states */}
+                            {saveConfigMutation.isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Salvando...
+                                </>
+                            ) : (
+                                'Salvar Configurações'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+        </div>
     );
 };
 
