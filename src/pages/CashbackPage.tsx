@@ -463,7 +463,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
 
     // If clinicData is available, render the main content wrapped in TooltipProvider and Fragment
     return (
-        <> {/* Use Fragment as the single root element */}
+        <>
             <TooltipProvider> {/* TooltipProvider wraps the main content */}
                 <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
                     <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
@@ -627,6 +627,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                 </div>
                                  <p className="text-xs text-gray-500 mt-1">Marque esta opção para recalcular e aplicar o cashback para todas as vendas já registradas neste mês, usando as regras acima.</p>
 
+                                 {/* Add more configuration fields here as needed */}
                             </div>
                         )}
                         <DialogFooter>
