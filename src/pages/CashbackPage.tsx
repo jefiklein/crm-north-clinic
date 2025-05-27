@@ -461,7 +461,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
 
-    // If clinicData is available, render the main content wrapped in TooltipProvider and Fragment
     return (
         <> {/* Use Fragment as the single root element */}
             <TooltipProvider> {/* TooltipProvider wraps the main content */}
@@ -524,7 +523,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                             {/* Display latest validity */}
                                                             {formatDate(customer.latest_validity)}
                                                         </TableCell>
-                                                        {/* Removed other cells and manual inputs */}
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -533,7 +531,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                 )}
                             </CardContent>
                         </Card>
-                         {/* Removed Optional: Add a button to save/process the manual cashback data */}
                     </div>
                 </TooltipProvider>
 
