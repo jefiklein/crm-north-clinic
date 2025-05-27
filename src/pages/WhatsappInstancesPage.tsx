@@ -180,6 +180,18 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         refetchOnWindowFocus: false,
     });
 
+    // NEW: Memoized set of employee IDs currently linked to an instance
+    const linkedEmployeeIds = useMemo(() => {
+        const ids = new Set<number>();
+        instancesList?.forEach(instance => {
+            if (instance.id_funcionario !== null && instance.id_funcionario !== undefined) {
+                ids.add(instance.id_funcionario);
+            }
+        });
+        console.log("[WhatsappInstancesPage] Linked employee IDs:", ids);
+        return ids;
+    }, [instancesList]);
+
 
     // Effect to initialize instanceEmployeeLinks state when instancesList loads
     useEffect(() => {
@@ -472,7 +484,35 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             }
 
 
-            return { success: true, message: 'Instância criada e salva.', qrCodeUrl: qrCodeUrl, instanceIdentifier: uniqueIdentifier };
+            // Return the uniqueIdentifier and qrCodeUrl from this mutation
+            return { success: true, message: 'Instância criada e salva.', qrCodeUrl: qrCodeUrl, instanceIdentifier: uniqueIdentifier, dbData: dbData };
+        },
+        onSuccess: (data) => {
+            showSuccess(data.message || 'Instância criada com sucesso!');
+            setIsAddInstanceModalOpen(false);
+            setAddInstanceFormData({ nome_exibição: '', telefone: '', tipo: '' });
+            // Invalidate and refetch the instances list immediately
+            queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
+
+            // Check if QR code data is available and trigger QR modal
+            if (data.qrCodeUrl && data.instanceIdentifier && data.dbData?.id) { // Ensure dbData.id is also available
+                 const newInstanceInfo: InstanceInfo = {
+                     id: data.dbData.id, // Use the ID returned from the DB webhook
+                     nome_exibição: addInstanceFormData.nome_exibição,
+                     telefone: Number(addInstanceFormData.telefone),
+                     tipo: addInstanceFormData.tipo,
+                     nome_instancia_evolution: data.instanceIdentifier,
+                     trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false,
+                     id_funcionario: null // Default new instance to no linked employee
+                 };
+                 setCurrentInstanceForQr(newInstanceInfo);
+                 setQrCodeUrl(data.qrCodeUrl);
+                 setIsQrModalOpen(true);
+                 startQrTimer();
+                 startConnectionPolling(data.instanceIdentifier);
+            } else {
+                 showError("Instância criada, mas não foi possível gerar o QR Code automaticamente. Gere manualmente na lista.");
+            }
         },
         onError: (error: Error) => {
             showError(`Erro ao criar instância: ${error.message}`);
@@ -810,8 +850,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                             <SelectItem key={employee.id} value={employee.id.toString()}>
                                                                 <div className="flex items-center gap-2"> {/* Flex container for name and icon */}
                                                                     <span>{employee.nome}</span>
-                                                                    {/* Show icon if this employee ID is in the linkedEmployeeIds set */}
-                                                                    {linkedEmployeeIds.has(employee.id) && (
+                                                                    {/* Safely check if linkedEmployeeIds exists before using .has() */}
+                                                                    {linkedEmployeeIds && linkedEmployeeIds.has(employee.id) && (
                                                                         <MessagesSquare className="h-3 w-3 text-green-600" title="Vinculado a outra instância" />
                                                                     )}
                                                                 </div>
