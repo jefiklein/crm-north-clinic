@@ -603,7 +603,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
     if (endOfMessagesRef.current) {
-      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' }); // Changed to 'auto' for instant scroll
     }
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
