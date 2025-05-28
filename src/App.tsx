@@ -19,6 +19,7 @@ import MensagensConfigPage from "./pages/MensagensConfigPage"; // Import the new
 import CashbackMessagesPage from "./pages/CashbackMessagesPage"; // Import the new CashbackMessagesPage
 import LeadsMessagesPage from "./pages/LeadsMessagesPage"; // Import the new LeadsMessagesPage
 import MensagensSequenciaConfigPage from "./pages/MensagensSequenciaConfigPage"; // Import the NEW sequence config page
+import CashbackBalancePage from "./pages/CashbackBalancePage"; // Import the NEW CashbackBalancePage
 
 import React, { useState, useEffect } from 'react';
 
@@ -113,6 +114,10 @@ const App = () => {
               {/* Nested route for Cashback Messages page under the Cashback menu item (14) */}
               <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
 
+              {/* NEW Route for Cashback Balance page */}
+              <Route path="cashback/balance" element={<CashbackBalancePage clinicData={clinicData} />} />
+
+
               {/* Route for the Leads Messages page - Using menu item ID 9 */}
               <Route path="9" element={<LeadsMessagesPage clinicData={clinicData} />} />
 
@@ -136,7 +141,7 @@ const App = () => {
 
               {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
               {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/9, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14 */}
+              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/9, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14, /dashboard/cashback/balance */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
 
               {/* Catch-all for any other path under /dashboard */}
