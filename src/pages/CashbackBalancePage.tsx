@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 // Define the structure for clinic data
 interface ClinicData {
