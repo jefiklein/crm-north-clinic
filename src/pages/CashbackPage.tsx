@@ -147,7 +147,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const startDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-    const { data: salesData, isLoading, error, refetch } = useQuery<SupabaseSale[]>({
+    const { data: salesData, isLoading, error, refetch } = useQuery<{ id_north: any; data_venda: any; codigo_cliente_north: any; cod_funcionario_north: any; nome_funcionario_north: any; valor_venda: any; valor_cashback: any; validade_cashback: any; servico: any; produto: any; pacote: any; north_clinic_clientes: { nome_north: any; }[]; }[]>({
         queryKey: ['monthlySalesSupabase', clinicId, startDate, endDate],
         queryFn: async () => {
             if (!clinicId) {
@@ -487,7 +487,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                                                             <TableCell className="whitespace-nowrap">{sale.north_clinic_clientes?.nome_north || 'N/D'}</TableCell>
                                                             <TableCell className="whitespace-nowrap">{cleanSalespersonName(sale.nome_funcionario_north)}</TableCell>
                                                             <TableCell className="text-right whitespace-nowrap">
-                                                                {sale.valor_venda !== null && sale.valor_venda !== undefined ?
+                                                                {(sale.valor_venda !== null && sale.valor_venda !== undefined) ?
                                                                     `R$ ${sale.valor_venda.toFixed(2).replace('.', ',')}` :
                                                                     'R$ 0,00'
                                                                 }
@@ -554,6 +554,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </div>
                     )}
                 </CardContent>
+            </Card>
              {salesData && salesData.length > 0 && (
                  <div className="mt-6 text-right">
                      <Button onClick={handleSaveManualCashback} disabled={isLoading || saveManualCashbackMutation.isLoading}>

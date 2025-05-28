@@ -10,6 +10,7 @@ import { format, isAfter, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -42,6 +43,14 @@ const formatDate = (dateString: string | null): string => {
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) {
+             const parts = dateString.split('-');
+             if (parts.length === 3) {
+                 const [year, month, day] = parts;
+                 const fallbackDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+                  if (!isNaN(fallbackDate.getTime())) {
+                      return format(fallbackDate, 'dd/MM/yyyy');
+                  }
+             }
              return 'Data inválida';
         }
         return format(date, 'dd/MM/yyyy');
@@ -232,7 +241,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                 </Button> */}
             </div>
 
-            <Card className="balance-list-container h-full flex flex-col">
+            <Card className="balance-list-container">
                 <CardContent className="p-0 flex-grow overflow-y-auto">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center h-full text-primary p-8">
@@ -247,12 +256,12 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                         </div>
                     ) : totalItems === 0 && searchTerm !== '' ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
+                            <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
                             <span className="text-lg text-center">Nenhum cliente encontrado com o filtro "{searchTerm}".</span>
                         </div>
                     ) : totalItems === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
+                            <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
                             <span className="text-lg text-center">Nenhum cliente com saldo de cashback ativo encontrado.</span>
                         </div>
                     ) : (
@@ -269,34 +278,36 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paginatedData.map(client => (
-                                        <TableRow key={client.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewClientDetails(client)}>
-                                            <TableCell className="font-medium text-gray-900 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <User className="h-5 w-5 text-primary" />
-                                                    {client.nome_north || "S/ Nome"}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-gray-700 whitespace-nowrap">
-                                                {formatPhone(client.telefone_north)}
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap">
-                                                {client.total_cashback !== undefined && client.total_cashback !== null ?
-                                                    `R$ ${client.total_cashback.toFixed(2).replace('.', ',')}` :
-                                                    'R$ 0,00'
-                                                }
-                                            </TableCell>
-                                            <TableCell className="text-right text-gray-700 whitespace-nowrap">
-                                                {formatDate(client.nearest_expiry)}
-                                            </TableCell>
-                                            {/* Removed "Cashbacks Ativos" Cell */}
-                                            <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleViewClientDetails(client); }}>
-                                                    Ver Detalhes
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    <TooltipProvider>
+                                        {paginatedData.map(client => (
+                                            <TableRow key={client.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewClientDetails(client)}>
+                                                <TableCell className="font-medium text-gray-900 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="h-5 w-5 text-primary" />
+                                                        {client.nome_north || "S/ Nome"}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-gray-700 whitespace-nowrap">
+                                                    {formatPhone(client.telefone_north)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap">
+                                                    {client.total_cashback !== undefined && client.total_cashback !== null ?
+                                                        `R$ ${client.total_cashback.toFixed(2).replace('.', ',')}` :
+                                                        'R$ 0,00'
+                                                    }
+                                                </TableCell>
+                                                <TableCell className="text-right text-gray-700 whitespace-nowrap">
+                                                    {formatDate(client.nearest_expiry)}
+                                                </TableCell>
+                                                {/* Removed "Cashbacks Ativos" Cell */}
+                                                <TableCell className="text-right">
+                                                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleViewClientDetails(client); }}>
+                                                        Ver Detalhes
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TooltipProvider>
                                 </TableBody>
                             </Table>
                         </div>
