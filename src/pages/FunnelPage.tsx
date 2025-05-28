@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass } from "lucide-react"; // Added MessageSquarePlus, Clock, Hourglass
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // Import useQueryClient
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip
+import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -75,9 +76,8 @@ interface FunnelPageProps {
     clinicData: ClinicData | null;
 }
 
-// Placeholder for the update webhook URL - KEEP THIS IF NEEDED FOR FUTURE DRAG-AND-DROP UPDATES
-const UPDATE_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/seu-webhook-real-para-atualizar-etapa'; // Keep this if needed for future drag-and-drop updates
-// Removed LEAD_DETAILS_WEBHOOK_URL as we are no longer opening a new tab
+// Webhook URL for updating lead stage
+const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/update-lead-stage';
 
 
 // Helper functions (adapted from HTML)
@@ -383,9 +383,39 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     }, [stageMessages]);
 
 
+    // Mutation for updating lead stage
+    const updateLeadStageMutation = useMutation({
+        mutationFn: async ({ leadId, targetStageId, clinicId }: { leadId: number; targetStageId: number; clinicId: string | number }) => {
+            console.log(`[FunnelPage] Calling webhook to update lead ${leadId} to stage ${targetStageId} for clinic ${clinicId}`);
+            const response = await fetch(UPDATE_LEAD_STAGE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId, targetStageId, clinicId }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Erro ${response.status}: ${errorText.substring(0, 100)}...`);
+            }
+            return response.json();
+        },
+        onSuccess: (_, variables) => {
+            showSuccess(`Lead ${variables.leadId} movido para a etapa ${variables.targetStageId} com sucesso!`);
+            // Invalidate the leads query to refetch the actual data and ensure consistency
+            queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
+        },
+        onError: (error: Error, variables) => {
+            showError(`Erro ao mover lead ${variables.leadId}: ${error.message}`);
+            // If the optimistic update was made, you might want to revert it here
+            // For now, we'll just let the next refetch correct it.
+            queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] }); // Force refetch on error
+        },
+    });
+
+
     // Combine loading states and errors (include stage messages)
-    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads || isLoadingStageMessages;
-    const fetchError = stagesError || funnelDetailsError || leadsError || stageMessagesError;
+    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads || isLoadingStageMessages || updateLeadStageMutation.isLoading;
+    const fetchError = stagesError || funnelDetailsError || leadsError || stageMessagesError || updateLeadStageMutation.error;
 
     // Data for rendering is now directly from leadsQueryData
     const leadsToDisplay = leadsQueryData?.leads || [];
@@ -485,12 +515,12 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             return { ...oldData, leads: newLeads };
         });
 
-        // TODO: Call webhook here to update lead stage in database
-        // You will need to implement a function here that calls your webhook
-        // with the leadIdNum and targetStageId.
-        // Example placeholder:
-        // updateLeadStageInDatabase(leadIdNum, targetStageId);
-        console.log(`Placeholder: Call webhook to update lead ${leadIdNum} to stage ${targetStageId}`);
+        // Call webhook here to update lead stage in database
+        if (clinicId) {
+            updateLeadStageMutation.mutate({ leadId: leadIdNum, targetStageId: targetStageId, clinicId: clinicId });
+        } else {
+            showError("Erro: ID da clínica não disponível para atualizar o lead.");
+        }
     };
 
     // Handle navigation to message config page
