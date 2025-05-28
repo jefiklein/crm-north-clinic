@@ -77,7 +77,7 @@ interface FunnelPageProps {
 }
 
 // Webhook URL for updating lead stage
-const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/update-lead-stage';
+const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/eaf897be-7829-4e59-b16c-028138e88939';
 
 
 // Helper functions (adapted from HTML)
