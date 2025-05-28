@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare } from "lucide-react"; // Added Settings and MessageSquare icons
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, DollarSign, CalendarDays, Settings, MessageSquare, ListChecks } from "lucide-react"; // Added ListChecks icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
@@ -427,6 +427,18 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         navigate(`/dashboard/14/messages?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
+    // NEW: Handle navigation to Cashback Balance page
+    const handleViewBalanceClick = () => {
+         if (!clinicData?.code) {
+             console.error("Clinic code not available for navigation.");
+             // Optionally show a toast error
+             return;
+         }
+         // Navigate to the new Cashback Balance page
+         navigate(`/dashboard/cashback/balance?clinic_code=${encodeURIComponent(clinicData.code)}`);
+    };
+
+
     // Handle saving automatic cashback configuration
     const handleSaveAutoCashbackConfig = () => {
         if (!clinicId) {
@@ -550,6 +562,10 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </Button>
                     </div>
                     <div className="action-buttons flex items-center gap-4"> {/* New div for action buttons */}
+                        {/* NEW: Button to navigate to Cashback Balance page */}
+                        <Button variant="outline" onClick={handleViewBalanceClick} className="flex items-center gap-2">
+                            <ListChecks className="h-4 w-4" /> Ver Saldo de Clientes
+                        </Button>
                         <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
                             <Settings className="h-4 w-4" /> Configurar Regras de Cashback
                         </Button>
@@ -688,7 +704,6 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                         </div>
                     )}
                 </CardContent>
-            </Card>
              {/* Optional: Add a button to save/process the manual cashback data */}
              {salesData && salesData.length > 0 && (
                  <div className="mt-6 text-right">
