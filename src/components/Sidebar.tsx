@@ -457,7 +457,7 @@ export const Sidebar: React.FC = () => {
       {/* Logo */}
       <div className="flex items-center justify-center h-16 mt-4 mb-8 flex-shrink-0">
          {/* Replace with your logo component or img tag */}
-         <img src="/north-crm.jpeg" alt="North Clinic Logo" className="h-10 w-10 object-contain group-hover:w-12 group-hover:h-12 transition-all duration-300" />
+         <img src="/north-crm.jpeg" alt="North Clinic Logo" className="h-12 w-12 object-contain group-hover:w-20 group-hover:h-20 transition-all duration-300" />
       </div>
 
       {/* Menu Items */}
