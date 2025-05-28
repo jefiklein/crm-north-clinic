@@ -603,7 +603,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
     if (endOfMessagesRef.current) {
-      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' }); // Changed behavior to 'auto'
     }
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
@@ -1056,6 +1056,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                             {selectedLeadDetails.origem && (
                                 <span className="origem px-2 py-1 rounded-md bg-gray-100 text-gray-800 border border-gray-800">
                                     Origem: {selectedLeadDetails.origem}
+                                
                                 </span>
                             )}
                             {/* Display SourceUrl as a link */}
