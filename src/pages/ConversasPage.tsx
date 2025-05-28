@@ -146,7 +146,7 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
