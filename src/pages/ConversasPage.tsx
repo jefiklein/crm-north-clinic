@@ -321,27 +321,30 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Fetch messages for selected conversation
   const { data: messages, isLoading: isLoadingMessages, error: messagesError } = useQuery<Message[]>({
-    queryKey: ['conversationMessages', selectedConversationId],
+    queryKey: ['conversationMessages', selectedConversationId, clinicId], // Add clinicId to query key
     queryFn: async () => {
       // Explicitly reference supabase here
       const currentSupabase = supabase;
 
-      console.log("[ConversasPage] conversationMessages queryFn started. selectedConversationId:", selectedConversationId); // Add this log
+      console.log("[ConversasPage] conversationMessages queryFn started. selectedConversationId:", selectedConversationId, "clinicId:", clinicId); // Add this log
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
+      if (!clinicId) throw new Error("ID da clínica não disponível."); // Ensure clinicId is available
+
       // Fetch messages in DESCENDING order
       const { data, error } = await currentSupabase // Use currentSupabase here
         .from('whatsapp_historico')
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
+        .eq('id_clinica', clinicId) // <-- ADDED FILTER BY CLINIC ID
         .order('message_timestamp', { ascending: false }); // <-- Changed to DESCENDING
       if (error) {
           console.error("[ConversasPage] Supabase messages fetch error:", error); // Log fetch error
           throw new Error(error.message);
       }
-      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId}:`, data?.length, "items"); // Log messages count
+      console.log(`[ConversasPage] Fetched messages for ${selectedConversationId} (clinic ${clinicId}):`, data?.length, "items"); // Log messages count
       return data || [];
     },
-    enabled: hasPermission && !!selectedConversationId,
+    enabled: hasPermission && !!selectedConversationId && !!clinicId, // Enable only if user has permission, conversation selected, AND clinicId is available
     staleTime: 10 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -402,7 +405,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Fetch lead details (specifically id_etapa, origem, sourceUrl) for the selected conversation - UPDATED SELECT
   const { data: selectedLeadDetails, isLoading: isLoadingSelectedLead, error: selectedLeadError } = useQuery<ConversationLeadDetails | null>({
-      queryKey: ['selectedLeadDetails', selectedConversationId],
+      queryKey: ['selectedLeadDetails', selectedConversationId, clinicId], // Add clinicId to query key
       queryFn: async () => {
           // Explicitly reference supabase here
           const currentSupabase = supabase;
@@ -603,7 +606,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
     if (endOfMessagesRef.current) {
-      endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' }); // Changed to 'auto' for instant scroll
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' });
     }
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
