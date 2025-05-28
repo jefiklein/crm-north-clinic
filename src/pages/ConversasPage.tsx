@@ -602,9 +602,14 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
-    if (endOfMessagesRef.current) {
-      endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' }); // Changed behavior to 'auto'
-    }
+    // Add a small delay to ensure content has rendered and height is calculated
+    const timer = setTimeout(() => {
+      if (endOfMessagesRef.current) {
+        endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' });
+        console.log("[ConversasPage] Scrolled to bottom after delay.");
+      }
+    }, 100); // 100ms delay
+    return () => clearTimeout(timer);
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
   // Effect to set the default sending instance when conversation or instances change
