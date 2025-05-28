@@ -328,12 +328,12 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
       console.log("[ConversasPage] conversationMessages queryFn started. selectedConversationId:", selectedConversationId); // Add this log
       if (!selectedConversationId) throw new Error("Conversa não selecionada.");
-      // Fetch messages in ASCENDING order for direct display
+      // Fetch messages in DESCENDING order
       const { data, error } = await currentSupabase // Use currentSupabase here
         .from('whatsapp_historico')
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
-        .order('message_timestamp', { ascending: true }); // <-- Keep ASCENDING for rendering with column-reverse
+        .order('message_timestamp', { ascending: false }); // <-- Changed to DESCENDING
       if (error) {
           console.error("[ConversasPage] Supabase messages fetch error:", error); // Log fetch error
           throw new Error(error.message);
@@ -486,7 +486,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
               const funnelLower = funnelName.toLowerCase();
                if (funnelLower.includes('vendas')) { funilClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
-               else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border text-red-800'; } // Using red for recovery
+               else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
                else if (funnelLower.includes('compareceram')) { funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
                else { funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
           }
@@ -602,14 +602,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Scroll to bottom of messages when messages load or change, using scrollIntoView on sentinel div
   useEffect(() => {
-    // Add a small delay to ensure content has rendered and height is calculated
-    const timer = setTimeout(() => {
-      if (endOfMessagesRef.current) {
-        endOfMessagesRef.current.scrollIntoView({ behavior: 'auto' });
-        console.log("[ConversasPage] Scrolled to bottom after delay.");
-      }
-    }, 100); // 100ms delay
-    return () => clearTimeout(timer);
+    if (endOfMessagesRef.current) {
+      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, mediaUrls, pendingMessages]); // Also depend on mediaUrls and pendingMessages
 
   // Effect to set the default sending instance when conversation or instances change
@@ -805,15 +800,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Combine fetched messages and pending messages for display
   const allMessages = useMemo(() => {
-      // Messages are now fetched in ASCENDING order, so no need to reverse
-      const combined = [...(messages || []), ...pendingMessages];
+      // Reverse the fetched messages array before combining
+      const fetchedMessagesReversed = (messages || []).slice().reverse(); // Use slice() to avoid mutating the original array
+      const combined = [...fetchedMessagesReversed, ...pendingMessages];
       // Sort by timestamp (handle null timestamps by putting them at the end)
       combined.sort((a, b) => {
           const tsA = a.message_timestamp ?? 0; // Treat null as 0 for sorting
           const tsB = b.message_timestamp ?? 0;
           return tsA - tsB;
       });
-      console.log("[ConversasPage] useMemo computed allMessages (fetched in ASC):", combined.length, "items. First:", combined[0]?.mensagem?.substring(0, 30), "Last:", combined[combined.length - 1]?.mensagem?.substring(0, 30)); // Log combined messages
+      console.log("[ConversasPage] useMemo computed allMessages (fetched reversed):", combined.length, "items. First:", combined[0]?.mensagem?.substring(0, 30), "Last:", combined[combined.length - 1]?.mensagem?.substring(0, 30)); // Log combined messages
       return combined;
   }, [messages, pendingMessages]);
 
@@ -1061,7 +1057,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                             {selectedLeadDetails.origem && (
                                 <span className="origem px-2 py-1 rounded-md bg-gray-100 text-gray-800 border border-gray-800">
                                     Origem: {selectedLeadDetails.origem}
-                                
                                 </span>
                             )}
                             {/* Display SourceUrl as a link */}
@@ -1086,7 +1081,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               )}
             </div>
 
-            <ScrollArea className="messages-area flex-grow p-4 flex flex-col-reverse"> {/* Changed to flex-col-reverse */}
+            <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
               {!selectedConversationId ? (
                 <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
               ) : isLoadingMessages && allMessages.length === 0 ? ( // Show loading only if no messages (initial load)
@@ -1103,7 +1098,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
               ) : (
                 <>
-                  <div ref={endOfMessagesRef} /> {/* Moved ref to the top for flex-col-reverse */}
                   {allMessages.map(msg => { // Use allMessages (fetched + pending)
                     // Find the instance name using the instanceMap
                     const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
@@ -1182,6 +1176,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </div>
                     );
                   })}
+                  <div ref={endOfMessagesRef} />
                 </>
               )}
             </ScrollArea>
