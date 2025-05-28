@@ -15,14 +15,3 @@ export const showLoading = (message: string) => {
 export const dismissToast = (toastId: string) => {
   toast.dismiss(toastId);
 };
-
-// Add a generic showToast function
-export const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration?: number) => {
-  // Map the type to sonner's options
-  const options: any = { duration }; // Use 'any' for duration as it's optional in sonner's type
-  if (type !== 'info') {
-    options.type = type;
-  }
-
-  toast(message, options);
-};
