@@ -14,7 +14,7 @@ export const Header: React.FC<HeaderProps> = ({ clinicName, onLogout }) => {
         {/* You can add a logo here if needed */}
         {/* <img src="/path/to/logo.png" alt="Logo" className="h-8 mr-3" /> */}
         <h1 className="text-xl font-semibold text-primary">
-          North Clinic CRM {clinicName ? `- ${clinicName}` : ''}
+          North CRM {clinicName ? `- ${clinicName}` : ''}
         </h1>
       </div>
       <div className="user-actions">
