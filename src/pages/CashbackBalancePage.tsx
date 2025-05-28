@@ -21,24 +21,20 @@ interface ClinicData {
   id_permissao: number;
 }
 
-// Define the structure for aggregated cashback data per client (from webhook)
+// Define the structure for aggregated cashback data per client (from the Supabase RPC function)
 interface ClientCashbackBalance {
-    id_cliente: number; // The client's ID from north_clinic_clientes
-    nome_cliente: string | null; // Client's name
-    telefone_cliente: number | null; // Client's phone number
-    saldo_cashback_ativo: number; // Sum of active cashback values
-    validade_mais_proxima: string | null; // Earliest expiry date (ISO string)
-    total_cashbacks_ativos: number; // Count of active cashback entries for this client
+    id: number; // The client's ID from north_clinic_clientes
+    nome_north: string | null; // Client's name
+    telefone_north: number | null; // Client's phone number
+    total_cashback: number; // Sum of active cashback values
+    nearest_expiry: string | null; // Earliest expiry date (ISO string)
+    // The RPC function doesn't return total_cashbacks_ativos, so we won't include it here
 }
 
 
 interface CashbackBalancePageProps {
     clinicData: ClinicData | null;
 }
-
-// Placeholder webhook URL for fetching aggregated cashback data
-const CASHBACK_BALANCE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/SEU-WEBHOOK-SALDO-CASHBACK'; // TODO: Replace with your actual webhook URL
-
 
 // Helper function to format date string
 const formatDate = (dateString: string | null): string => {
@@ -58,14 +54,14 @@ const formatDate = (dateString: string | null): string => {
 
 const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortValue, setSortValue] = useState('saldo_cashback_ativo_desc'); // Default sort
+    const [sortValue, setSortValue] = useState('total_cashback_desc'); // Default sort
     const [currentPage, setCurrentPage] = useState(1);
 
     const ITEMS_PER_PAGE = 15;
 
     const clinicId = clinicData?.id;
 
-    // Fetch aggregated cashback data from the webhook using react-query
+    // Fetch aggregated cashback data from the Supabase RPC function
     const { data: balanceData, isLoading, error, refetch } = useQuery<ClientCashbackBalance[]>({
         queryKey: ['cashbackBalance', clinicId], // Key includes clinicId
         queryFn: async () => {
@@ -74,49 +70,38 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                 throw new Error("ID da clínica não disponível para buscar saldos.");
             }
 
-            console.log(`[CashbackBalancePage] Calling webhook for cashback balance for clinic ${clinicId}...`);
+            console.log(`[CashbackBalancePage] Calling Supabase RPC 'get_clients_cashback' for clinic ${clinicId}...`);
 
             try {
-                // TODO: Replace with actual fetch call to your webhook
-                // The webhook should accept clinic_id and return the aggregated data
-                const response = await fetch(CASHBACK_BALANCE_WEBHOOK_URL, {
-                    method: 'POST', // Assuming POST method
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    },
-                    body: JSON.stringify({
-                        id_clinica: clinicId,
-                        // Add any other parameters needed by your webhook (e.g., current date for filtering active)
-                    })
+                // Call the RPC function
+                const { data, error } = await supabase.rpc('get_clients_cashback', {
+                    p_clinic_id: clinicId // Pass the clinic ID as a parameter
                 });
 
-                console.log('[CashbackBalancePage] Webhook response status:', {
-                    status: response.status,
-                    statusText: response.statusText
-                });
+                console.log('[CashbackBalancePage] RPC response data:', data, 'error:', error);
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error("Cashback balance webhook error response:", errorText);
-                    throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+                if (error) {
+                    console.error("Cashback balance RPC error:", error);
+                    throw new Error(`Erro ao buscar saldos: ${error.message}`);
                 }
 
-                const data = await response.json();
-                console.log('[CashbackBalancePage] Data received from webhook:', data);
-
-                // Assuming the webhook returns an array of ClientCashbackBalance objects
+                // The RPC function should return an array of objects matching ClientCashbackBalance
                 if (!Array.isArray(data)) {
-                     console.error("Cashback balance webhook returned non-array data:", data);
-                     throw new Error("Formato de resposta inesperado do webhook.");
+                     console.error("Cashback balance RPC returned non-array data:", data);
+                     throw new Error("Formato de resposta inesperado da função RPC.");
                 }
 
-                // Filter out clients with 0 active balance if needed, or handle it in the webhook
-                // For now, let's assume the webhook only returns clients with active balance > 0
-                return data as ClientCashbackBalance[];
+                // Ensure numeric values are parsed correctly if needed (RPC usually handles this)
+                // Also ensure telefone_north is treated as string for formatPhone
+                return data.map(item => ({
+                    ...item,
+                    total_cashback: parseFloat(item.total_cashback as any), // Cast to any to allow parseFloat
+                    telefone_north: item.telefone_north ? String(item.telefone_north) : null, // Ensure telefone is string or null
+                })) as ClientCashbackBalance[]; // Cast the mapped result
+
 
             } catch (err: any) {
-                console.error('Erro na chamada ao webhook de saldo de cashback:', err);
+                console.error('Erro na chamada da função RPC de saldo de cashback:', err);
                 throw err; // Re-throw to be caught by react-query
             }
         },
@@ -125,14 +110,14 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
         refetchOnWindowFocus: false,
     });
 
-    // Apply filtering and sorting on the frontend for now
+    // Apply filtering and sorting on the frontend
     const filteredAndSortedData = useMemo(() => {
         if (!balanceData) return [];
 
         const lowerSearchTerm = searchTerm.toLowerCase();
         const filtered = balanceData.filter(client => {
-            const name = client.nome_cliente?.toLowerCase() || '';
-            const phone = client.telefone_cliente ? String(client.telefone_cliente).toLowerCase() : '';
+            const name = client.nome_north?.toLowerCase() || '';
+            const phone = client.telefone_north ? String(client.telefone_north).toLowerCase() : '';
             // Filter by name or phone
             return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm);
         });
@@ -140,23 +125,23 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
         // Apply sorting
         filtered.sort((a, b) => {
             switch (sortValue) {
-                case 'saldo_cashback_ativo_desc':
-                    return (b.saldo_cashback_ativo || 0) - (a.saldo_cashback_ativo || 0);
-                case 'saldo_cashback_ativo_asc':
-                    return (a.saldo_cashback_ativo || 0) - (b.saldo_cashback_ativo || 0);
+                case 'total_cashback_desc':
+                    return (b.total_cashback || 0) - (a.total_cashback || 0);
+                case 'total_cashback_asc':
+                    return (a.total_cashback || 0) - (b.total_cashback || 0);
                 case 'nome_cliente_asc':
-                    return (a.nome_cliente || '').localeCompare(b.nome_cliente || '');
+                    return (a.nome_north || '').localeCompare(b.nome_north || '');
                 case 'nome_cliente_desc':
-                    return (b.nome_cliente || '').localeCompare(a.nome_cliente || '');
+                    return (b.nome_north || '').localeCompare(a.nome_north || '');
                 case 'validade_mais_proxima_asc':
                     // Treat null validity as very far in the future for sorting
-                    const dateA = a.validade_mais_proxima ? new Date(a.validade_mais_proxima).getTime() : Infinity;
-                    const dateB = b.validade_mais_proxima ? new Date(b.validade_mais_proxima).getTime() : Infinity;
+                    const dateA = a.nearest_expiry ? new Date(a.nearest_expiry).getTime() : Infinity;
+                    const dateB = b.nearest_expiry ? new Date(b.nearest_expiry).getTime() : Infinity;
                     return dateA - dateB;
                 case 'validade_mais_proxima_desc':
                      // Treat null validity as very far in the future for sorting
-                    const dateA_desc = a.validade_mais_proxima ? new Date(a.validade_mais_proxima).getTime() : Infinity;
-                    const dateB_desc = b.validade_mais_proxima ? new Date(b.validade_mais_proxima).getTime() : Infinity;
+                    const dateA_desc = a.nearest_expiry ? new Date(a.nearest_expiry).getTime() : Infinity;
+                    const dateB_desc = b.nearest_expiry ? new Date(b.nearest_expiry).getTime() : Infinity;
                     return dateB_desc - dateA_desc;
                 default:
                     return 0; // No sort
@@ -198,7 +183,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
     // Placeholder for viewing client details (log to console for now)
     const handleViewClientDetails = (client: ClientCashbackBalance) => {
         console.log("Detalhes do Cliente e Cashbacks:", client);
-        alert(`Detalhes do cliente ${client.nome_cliente || 'S/ Nome'} (ID: ${client.id_cliente}) logados no console do navegador.`);
+        alert(`Detalhes do cliente ${client.nome_north || 'S/ Nome'} (ID: ${client.id}) logados no console do navegador.`);
         // TODO: Implement navigation or modal to show detailed cashback history for this client
     };
 
@@ -232,8 +217,8 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                             <SelectValue placeholder="Ordenar por..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="saldo_cashback_ativo_desc">Saldo (Maior Primeiro)</SelectItem>
-                            <SelectItem value="saldo_cashback_ativo_asc">Saldo (Menor Primeiro)</SelectItem>
+                            <SelectItem value="total_cashback_desc">Saldo (Maior Primeiro)</SelectItem>
+                            <SelectItem value="total_cashback_asc">Saldo (Menor Primeiro)</SelectItem>
                             <SelectItem value="nome_cliente_asc">Nome (A-Z)</SelectItem>
                             <SelectItem value="nome_cliente_desc">Nome (Z-A)</SelectItem>
                             <SelectItem value="validade_mais_proxima_asc">Validade (Mais Próxima)</SelectItem>
@@ -279,34 +264,32 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                                         <TableHead>Telefone</TableHead>
                                         <TableHead className="text-right">Saldo Ativo</TableHead>
                                         <TableHead className="text-right">Validade Mais Próxima</TableHead>
-                                        <TableHead className="text-center">Cashbacks Ativos</TableHead>
+                                        {/* Removed "Cashbacks Ativos" column as RPC doesn't return count */}
                                         <TableHead className="text-right">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedData.map(client => (
-                                        <TableRow key={client.id_cliente} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewClientDetails(client)}>
+                                        <TableRow key={client.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewClientDetails(client)}>
                                             <TableCell className="font-medium text-gray-900 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
                                                     <User className="h-5 w-5 text-primary" />
-                                                    {client.nome_cliente || "S/ Nome"}
+                                                    {client.nome_north || "S/ Nome"}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-gray-700 whitespace-nowrap">
-                                                {formatPhone(client.telefone_cliente)}
+                                                {formatPhone(client.telefone_north)}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap">
-                                                {client.saldo_cashback_ativo !== undefined && client.saldo_cashback_ativo !== null ?
-                                                    `R$ ${client.saldo_cashback_ativo.toFixed(2).replace('.', ',')}` :
+                                                {client.total_cashback !== undefined && client.total_cashback !== null ?
+                                                    `R$ ${client.total_cashback.toFixed(2).replace('.', ',')}` :
                                                     'R$ 0,00'
                                                 }
                                             </TableCell>
                                             <TableCell className="text-right text-gray-700 whitespace-nowrap">
-                                                {formatDate(client.validade_mais_proxima)}
+                                                {formatDate(client.nearest_expiry)}
                                             </TableCell>
-                                            <TableCell className="text-center text-gray-700">
-                                                {client.total_cashbacks_ativos ?? 0}
-                                            </TableCell>
+                                            {/* Removed "Cashbacks Ativos" Cell */}
                                             <TableCell className="text-right">
                                                 <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleViewClientDetails(client); }}>
                                                     Ver Detalhes
