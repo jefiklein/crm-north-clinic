@@ -333,7 +333,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
         .from('whatsapp_historico')
         .select('id, remoteJid, nome_lead, mensagem, message_timestamp, from_me, tipo_mensagem, id_whatsapp, transcrito, id_instancia, url_arquivo') // Select nome_lead here
         .eq('remoteJid', selectedConversationId)
-        .order('message_timestamp', { ascending: true }); // <-- CHANGED TO ASCENDING
+        .order('message_timestamp', { ascending: true }); // <-- Keep ASCENDING for rendering with column-reverse
       if (error) {
           console.error("[ConversasPage] Supabase messages fetch error:", error); // Log fetch error
           throw new Error(error.message);
@@ -486,7 +486,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
               const funnelLower = funnelName.toLowerCase();
                if (funnelLower.includes('vendas')) { funilClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
-               else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
+               else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border text-red-800'; } // Using red for recovery
                else if (funnelLower.includes('compareceram')) { funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
                else { funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
           }
@@ -1086,7 +1086,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               )}
             </div>
 
-            <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
+            <ScrollArea className="messages-area flex-grow p-4 flex flex-col-reverse"> {/* Changed to flex-col-reverse */}
               {!selectedConversationId ? (
                 <div className="status-message text-gray-700 text-center">Selecione uma conversa na lista à esquerda.</div>
               ) : isLoadingMessages && allMessages.length === 0 ? ( // Show loading only if no messages (initial load)
@@ -1103,6 +1103,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <div className="status-message text-gray-700 text-center">Nenhuma mensagem nesta conversa.</div>
               ) : (
                 <>
+                  <div ref={endOfMessagesRef} /> {/* Moved ref to the top for flex-col-reverse */}
                   {allMessages.map(msg => { // Use allMessages (fetched + pending)
                     // Find the instance name using the instanceMap
                     const instance = msg.id_instancia !== null && msg.id_instancia !== undefined
@@ -1181,7 +1182,6 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                       </div>
                     );
                   })}
-                  <div ref={endOfMessagesRef} />
                 </>
               )}
             </ScrollArea>
