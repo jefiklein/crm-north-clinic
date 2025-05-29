@@ -35,19 +35,18 @@ interface ClinicData {
 type MessageStepType = 'texto' | 'imagem' | 'video' | 'audio' | 'atraso';
 
 interface MessageStep {
-  id: string; 
-  db_id?: number; 
+  id: string; // Client-side unique ID for the step instance
+  db_id?: number; // ID from the database, if it's an existing step
   type: MessageStepType; 
   text?: string; 
-  mediaFile?: File | null; 
-  mediaKey?: string | null; // Stores the key/path of the uploaded file
-  previewUrl?: string | null; // Stores blob URL or signed URL for preview
+  mediaFile?: File | null; // For new file uploads
+  mediaKey?: string | null; // Key/path of the file in storage (after upload or when loaded)
   originalFileName?: string; 
   delayValue?: number; 
   delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias'; 
 }
 
-// ... (constants for file validation remain the same) ...
+// Constants for file validation
 const MAX_IMAGE_SIZE_MB = 5;
 const MAX_VIDEO_SIZE_MB = 10;
 const MAX_AUDIO_SIZE_MB = 10;
@@ -72,6 +71,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const [messageName, setMessageName] = useState<string>("");
   const [messageSteps, setMessageSteps] = useState<MessageStep[]>([]);
 
+  // State for media previews, similar to ConversasPage
+  const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string | null>>({});
+  const [mediaPreviewStatus, setMediaPreviewStatus] = useState<Record<string, { isLoading: boolean, error: string | null }>>({});
+
   const urlParams = new URLSearchParams(location.search);
   const messageIdParam = urlParams.get("id");
   const isEditing = !!messageIdParam;
@@ -84,37 +87,69 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
   const N8N_SAVE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5";
 
+  // Function to fetch signed URL (copied & adapted from previous logic)
+  const fetchSignedUrlForPreview = async (fileKey: string, stepId: string): Promise<void> => {
+    if (!fileKey || !clinicCode) {
+      setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
+      setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: "Chave do arquivo ou código da clínica ausente." } }));
+      return;
+    }
 
-  const fetchSignedUrl = async (fileKey: string): Promise<string | null> => {
-    if (!fileKey) return null;
+    setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: true, error: null } }));
+    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); // Clear previous URL
+
     try {
-      // console.log(`[MensagensConfigPage] Fetching signed URL for key: ${fileKey} using clinicCode: ${clinicCode}`);
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: fileKey, clinicId: clinicCode }), // Assuming clinicCode is needed for namespacing/bucket
+        body: JSON.stringify({ filePath: fileKey, clinicId: clinicCode }),
       });
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[MensagensConfigPage] Failed to fetch signed URL for ${fileKey}: ${response.status} ${errorText}`);
-        throw new Error(`Falha ao obter URL assinada para ${fileKey}. Status: ${response.status}`);
+        throw new Error(`Falha (${response.status}) ao obter URL: ${errorText.substring(0,100)}`);
       }
       const data = await response.json();
-      // console.log(`[MensagensConfigPage] Received signed URL data for ${fileKey}:`, data);
-      if (data && data.signedURL) { // N8N usually returns signedURL in caps
-        return data.signedURL;
-      } else if (data && data.url) { // Fallback if it's just 'url'
-        return data.url;
+      const signedUrl = data?.signedURL || data?.url || null;
+
+      if (signedUrl) {
+        setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
+        setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
+      } else {
+        throw new Error('URL assinada não encontrada na resposta.');
       }
-      console.warn(`[MensagensConfigPage] Signed URL not found in response for ${fileKey}:`, data);
-      return null;
     } catch (e: any) {
-      console.error(`[MensagensConfigPage] Error fetching signed URL for ${fileKey}:`, e);
-      toast({ title: "Erro de Preview", description: `Não foi possível carregar o preview para um arquivo: ${e.message}`, variant: "destructive" });
-      return null;
+      console.error(`[MensagensConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
+      setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
+      setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: e.message || 'Erro ao carregar preview.' } }));
     }
   };
   
+  // useEffect to fetch signed URLs for existing mediaKeys when messageSteps are loaded/changed
+  useEffect(() => {
+    // console.log("[MensagensConfigPage] useEffect for fetching media triggered. Steps count:", messageSteps.length);
+    if (!messageSteps || messageSteps.length === 0) {
+      // console.log("[MensagensConfigPage] No steps to process for media fetching.");
+      return;
+    }
+  
+    messageSteps.forEach(step => {
+      const isMediaStep = step.type === 'imagem' || step.type === 'video' || step.type === 'audio';
+      if (isMediaStep && step.mediaKey && !step.mediaFile) { // Has a saved key, not a new file
+        // Check if we already have a URL or are processing it
+        const currentStatus = mediaPreviewStatus[step.id];
+        const currentUrl = mediaPreviewUrls[step.id];
+
+        if (!currentUrl && (!currentStatus || !currentStatus.isLoading)) {
+          // console.log(`[MensagensConfigPage] Step ${step.id} (key: ${step.mediaKey}): Needs signed URL. Fetching...`);
+          fetchSignedUrlForPreview(step.mediaKey, step.id);
+        } else {
+          // console.log(`[MensagensConfigPage] Step ${step.id} (key: ${step.mediaKey}): Already has URL/status. URL: ${!!currentUrl}, Loading: ${currentStatus?.isLoading}`);
+        }
+      }
+    });
+  }, [messageSteps, clinicCode]); // Depend on messageSteps and clinicCode (for webhook)
+
 
   useEffect(() => {
     async function loadMessageForEditing() {
@@ -123,12 +158,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         setLoading(false);
         return;
       }
+      setLoading(true);
+      setError(null);
+      setMediaPreviewUrls({}); // Clear old previews
+      setMediaPreviewStatus({}); // Clear old statuses
 
       if (isEditing && messageIdToEdit !== null) { 
         try {
           const { data: msgData, error: msgError } = await supabase
               .from('north_clinic_mensagens_sequencias') 
-              .select('id, nome_sequencia, contexto, ativo') 
+              .select('id, nome_sequencia') 
               .eq('id', messageIdToEdit)
               .eq('id_clinica', clinicId) 
               .single();
@@ -139,33 +178,26 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setMessageName(msgData.nome_sequencia); 
           const { data: stepsData, error: stepsError } = await supabase
             .from('north_clinic_mensagens_sequencia_passos') 
-            .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade') // url_arquivo is the mediaKey
+            .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade')
             .eq('id_sequencia', msgData.id) 
             .order('ordem', { ascending: true });
 
           if (stepsError) throw stepsError;
 
-          const loadedStepsPromises: Promise<MessageStep>[] = (stepsData || [])
-            .filter(step => step.tipo_passo !== 'documento')
-            .map(async (step) => {
-              let previewUrl = null;
-              if (step.url_arquivo && (step.tipo_passo === 'imagem' || step.tipo_passo === 'video' || step.tipo_passo === 'audio')) {
-                previewUrl = await fetchSignedUrl(step.url_arquivo);
-              }
-              return {
-                id: step.id.toString(), 
-                db_id: step.id,
-                type: step.tipo_passo as MessageStepType,
-                text: step.conteudo_texto || undefined,
-                mediaKey: step.url_arquivo || undefined, // url_arquivo from DB is the mediaKey
-                previewUrl: previewUrl,
-                originalFileName: step.nome_arquivo_original || undefined,
-                delayValue: step.atraso_valor || undefined,
-                delayUnit: step.atraso_unidade as MessageStep['delayUnit'] || undefined,
-              };
-          });
-          const resolvedSteps = await Promise.all(loadedStepsPromises);
-          setMessageSteps(resolvedSteps);
+          const loadedSteps: MessageStep[] = (stepsData || [])
+            .filter(stepDb => stepDb.tipo_passo !== 'documento')
+            .map((stepDb) => ({
+                id: stepDb.id.toString() + "_loaded_" + Math.random().toString(36).substring(7), // Ensure unique client ID even if DB ID is reused by mistake
+                db_id: stepDb.id,
+                type: stepDb.tipo_passo as MessageStepType,
+                text: stepDb.conteudo_texto || undefined,
+                mediaKey: stepDb.url_arquivo || undefined, // url_arquivo from DB is the mediaKey
+                originalFileName: stepDb.nome_arquivo_original || undefined,
+                delayValue: stepDb.atraso_valor || undefined,
+                delayUnit: stepDb.atraso_unidade as MessageStep['delayUnit'] || undefined,
+                // previewUrl will be fetched by the useEffect
+            }));
+          setMessageSteps(loadedSteps);
 
         } catch (e: any) {
           console.error("[MensagensConfigPage] Error loading message for editing:", e);
@@ -180,16 +212,15 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         setLoading(false);
       }
     }
-    setLoading(true); 
-    setError(null);   
     loadMessageForEditing();
-  }, [clinicId, isEditing, messageIdToEdit, toast, clinicCode]); // Added clinicCode dependency for fetchSignedUrl
+  }, [clinicId, isEditing, messageIdToEdit, toast]); // Removed clinicCode from here, added to media fetching useEffect
 
   const handleAddStep = (type: MessageStepType = 'texto') => {
+      const newStepId = Date.now().toString() + Math.random().toString().slice(2, 8);
       setMessageSteps(prev => [
           ...prev,
           { 
-            id: Date.now().toString() + Math.random().toString().slice(2, 8), 
+            id: newStepId, 
             type, 
             text: type === 'texto' ? '' : undefined, 
             delayValue: type === 'atraso' ? 60 : undefined, 
@@ -198,153 +229,141 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       ]);
   };
 
-  const handleRemoveStep = (id: string) => {
-      setMessageSteps(prev => {
-        const stepToRemove = prev.find(s => s.id === id);
-        if (stepToRemove?.previewUrl && stepToRemove.previewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(stepToRemove.previewUrl);
+  const handleRemoveStep = (idToRemove: string) => {
+      setMessageSteps(prevSteps => {
+        const stepToRemove = prevSteps.find(s => s.id === idToRemove);
+        if (stepToRemove) {
+            // Revoke blob URL if it exists in mediaPreviewUrls
+            const currentPreviewUrl = mediaPreviewUrls[idToRemove];
+            if (currentPreviewUrl && currentPreviewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(currentPreviewUrl);
+            }
         }
-        return prev.filter(step => step.id !== id);
+        // Remove from states
+        setMediaPreviewUrls(prev => { const newState = {...prev}; delete newState[idToRemove]; return newState; });
+        setMediaPreviewStatus(prev => { const newState = {...prev}; delete newState[idToRemove]; return newState; });
+        return prevSteps.filter(step => step.id !== idToRemove);
       });
   };
 
-  const handleUpdateStep = (id: string, updates: Partial<MessageStep>) => {
-      setMessageSteps(prev => prev.map(step =>
-          step.id === id ? { ...step, ...updates } : step
+  const handleUpdateStep = (idToUpdate: string, updates: Partial<MessageStep>) => {
+      setMessageSteps(prevSteps => prevSteps.map(step =>
+          step.id === idToUpdate ? { ...step, ...updates } : step
       ));
   };
 
   const handleMediaFileChange = (stepId: string, file: File | null) => {
-    const step = messageSteps.find(s => s.id === stepId);
-    if (!step) return;
+    const stepIndex = messageSteps.findIndex(s => s.id === stepId);
+    if (stepIndex === -1) return;
+    const currentStep = messageSteps[stepIndex];
 
     // Revoke old blob URL if it exists
-    if (step.previewUrl && step.previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(step.previewUrl);
+    const oldPreviewUrl = mediaPreviewUrls[stepId];
+    if (oldPreviewUrl && oldPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldPreviewUrl);
     }
+    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); // Clear preview while processing
+    setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
+
 
     if (file) {
-        let maxSizeMB: number;
-        let allowedTypes: string[];
-        let typeName: string;
-
-        switch (step.type) {
+        let maxSizeMB: number, allowedTypes: string[], typeName: string;
+        switch (currentStep.type) {
             case 'imagem': maxSizeMB = MAX_IMAGE_SIZE_MB; allowedTypes = ALLOWED_IMAGE_TYPES; typeName = 'Imagem'; break;
             case 'video': maxSizeMB = MAX_VIDEO_SIZE_MB; allowedTypes = ALLOWED_VIDEO_TYPES; typeName = 'Vídeo'; break;
             case 'audio': maxSizeMB = MAX_AUDIO_SIZE_MB; allowedTypes = ALLOWED_AUDIO_TYPES; typeName = 'Áudio'; break;
-            default: toast({ title: "Erro", description: "Tipo de passo inválido para mídia.", variant: "destructive" }); return;
+            default: toast({ title: "Erro", description: "Tipo de passo inválido.", variant: "destructive" }); return;
         }
 
         if (file.size > maxSizeMB * 1024 * 1024) {
-            toast({ title: "Arquivo Muito Grande", description: `${typeName} não pode exceder ${maxSizeMB}MB.`, variant: "destructive" });
-            handleUpdateStep(stepId, { mediaFile: null, previewUrl: null, originalFileName: undefined });
-            const inputElement = document.getElementById(`step-media-${stepId}`) as HTMLInputElement;
-            if (inputElement) inputElement.value = "";
+            toast({ title: "Arquivo Grande", description: `${typeName} excede ${maxSizeMB}MB.`, variant: "destructive" });
+            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); // Clear file info in step
+            const inputEl = document.getElementById(`step-media-${stepId}`) as HTMLInputElement; if (inputEl) inputEl.value = "";
             return;
         }
-
         if (!allowedTypes.includes(file.type)) {
-            toast({ title: "Formato de Arquivo Inválido", description: `Formato de ${typeName.toLowerCase()} não suportado.`, variant: "destructive" });
-            handleUpdateStep(stepId, { mediaFile: null, previewUrl: null, originalFileName: undefined });
-            const inputElement = document.getElementById(`step-media-${stepId}`) as HTMLInputElement;
-            if (inputElement) inputElement.value = "";
+            toast({ title: "Formato Inválido", description: `Formato de ${typeName.toLowerCase()} não suportado.`, variant: "destructive" });
+            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined });
+            const inputEl = document.getElementById(`step-media-${stepId}`) as HTMLInputElement; if (inputEl) inputEl.value = "";
             return;
         }
 
         const newPreviewUrl = URL.createObjectURL(file);
-        handleUpdateStep(stepId, { mediaFile: file, previewUrl: newPreviewUrl, originalFileName: file.name, mediaKey: null }); // Clear mediaKey if a new file is selected
+        setMediaPreviewUrls(prev => ({ ...prev, [stepId]: newPreviewUrl }));
+        handleUpdateStep(stepId, { mediaFile: file, originalFileName: file.name, mediaKey: null }); // Set file, clear key
     } else {
-        handleUpdateStep(stepId, { mediaFile: null, previewUrl: null, originalFileName: undefined });
+        // File removed by user
+        handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); // Clear all file info
     }
   };
 
+  // Cleanup blob URLs
   useEffect(() => {
       return () => {
-          messageSteps.forEach(step => {
-              if (step.previewUrl && step.previewUrl.startsWith('blob:')) {
-                  URL.revokeObjectURL(step.previewUrl);
+          Object.values(mediaPreviewUrls).forEach(url => {
+              if (url && url.startsWith('blob:')) {
+                  URL.revokeObjectURL(url);
               }
           });
       };
-  }, [messageSteps]);
+  }, [mediaPreviewUrls]);
 
   const handleSave = async () => {
     const currentClinicCode = clinicData?.code;
     const currentClinicId = clinicData?.id;
 
     if (!currentClinicId || !currentClinicCode) {
-      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" });
-      return;
+      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" }); return;
     }
     if (!messageName.trim()) {
-        toast({ title: "Erro", description: "O nome da mensagem é obrigatório.", variant: "destructive" });
-        return;
+      toast({ title: "Erro", description: "Nome da mensagem obrigatório.", variant: "destructive" }); return;
     }
     if (messageSteps.length === 0) {
-        toast({ title: "Erro", description: "Adicione pelo menos um passo à mensagem.", variant: "destructive" });
-        return;
+      toast({ title: "Erro", description: "Adicione pelo menos um passo.", variant: "destructive" }); return;
     }
 
      for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
-             toast({ title: "Erro", description: "O texto não pode ser vazio para passos de texto.", variant: "destructive" });
-             return;
+             toast({ title: "Erro", description: "Texto não pode ser vazio.", variant: "destructive" }); return;
          }
-         // If it's a media step, it must have a mediaKey (if already saved) or a mediaFile (if new)
          if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && !step.mediaKey && !step.mediaFile) {
-              toast({ title: "Erro", description: `Anexe um arquivo para o passo de ${step.type}.`, variant: "destructive" });
-              return;
+              toast({ title: "Erro", description: `Anexe um arquivo para ${step.type}.`, variant: "destructive" }); return;
          }
-         if (step.type === 'atraso') {
-            if (step.delayValue === undefined || isNaN(step.delayValue) || step.delayValue <= 0) {
-                toast({ title: "Erro", description: "O valor do atraso deve ser um número positivo.", variant: "destructive" });
-                return;
-            }
-            if (!step.delayUnit) {
-                toast({ title: "Erro", description: "A unidade do atraso é obrigatória.", variant: "destructive" });
-                return;
-            }
+         if (step.type === 'atraso' && (step.delayValue === undefined || step.delayValue <= 0 || !step.delayUnit)) {
+            toast({ title: "Erro", description: "Atraso inválido.", variant: "destructive" }); return;
          }
      }
 
-    setSaving(true);
-    setError(null);
+    setSaving(true); setError(null);
 
     try {
-      const stepsToSave = await Promise.all(
+      const processedSteps = await Promise.all(
         messageSteps.map(async (step) => {
+          let currentMediaKey = step.mediaKey;
           if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio')) {
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
-              formData.append("clinicId", currentClinicCode); // clinicCode is used for namespacing/bucket
+              formData.append("clinicId", currentClinicCode);
               
               const uploadRes = await fetch(ENVIAR_ARQUIVO_WEBHOOK_URL, { method: "POST", body: formData });
-
               if (!uploadRes.ok) {
                 const errorText = await uploadRes.text();
-                throw new Error(`Falha ao enviar mídia (${step.mediaFile.name}): ${errorText.substring(0, 150)}...`);
+                throw new Error(`Upload falhou (${step.mediaFile.name}): ${errorText.substring(0,150)}`);
               }
               const uploadData = await uploadRes.json();
-              const savedMediaKey = (Array.isArray(uploadData) && uploadData[0]?.Key) || uploadData.Key || uploadData.key || null;
-              if (!savedMediaKey) throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
-              
-              // Fetch signed URL for immediate preview update if needed, though navigation will occur
-              // const newPreviewUrl = await fetchSignedUrl(savedMediaKey);
-
-              return { 
-                ...step, 
-                mediaKey: savedMediaKey, 
-                // previewUrl: newPreviewUrl || step.previewUrl, // Keep blob if signed fails, or update
-                mediaFile: undefined // Clear the file object
-              };
+              currentMediaKey = (Array.isArray(uploadData) && uploadData[0]?.Key) || uploadData.Key || uploadData.key || null;
+              if (!currentMediaKey) throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
           }
-          return step; // Return step as is if no new file to upload
+          return { 
+            ...step, 
+            mediaKey: currentMediaKey, // Use the newly uploaded key or existing one
+            mediaFile: undefined // Clear file object after processing
+          };
       }));
       
-      // Update state with new mediaKeys and potentially new previewUrls from signed URLs
-      // This ensures the state is consistent if we don't navigate away immediately
-      // setMessageSteps(stepsToSave); // This might be too quick if navigation is immediate
+      // Update messageSteps state with the new mediaKeys so UI can reflect it if needed before navigation
+      // setMessageSteps(processedSteps); // This might be too quick if navigation is immediate
 
       const messagePayloadForN8N = { 
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
@@ -354,55 +373,39 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         sequenceName: messageName, 
         contexto: 'leads', 
         ativo: true, 
-        steps: stepsToSave.map((step, index) => ({
+        steps: processedSteps.map((step, index) => ({
           db_id: step.db_id, 
           ordem: index + 1,
           tipo_passo: step.type,
           conteudo_texto: step.text || null,
-          url_arquivo: step.mediaKey || null, // Save mediaKey as url_arquivo
+          url_arquivo: step.mediaKey || null, // This is the mediaKey
           nome_arquivo_original: step.originalFileName || null,
           atraso_valor: step.type === 'atraso' ? step.delayValue : null,
           atraso_unidade: step.type === 'atraso' ? step.delayUnit : null,
         })),
       };
 
-      console.log("[MensagensConfigPage] Sending payload to n8n sequence webhook:", messagePayloadForN8N);
-
       const webhookResponse = await fetch(N8N_SAVE_SEQUENCE_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(messagePayloadForN8N),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(messagePayloadForN8N),
       });
 
       if (!webhookResponse.ok) {
-        const webhookErrorText = await webhookResponse.text();
-        console.error(`[MensagensConfigPage] n8n Sequence Webhook call failed: ${webhookErrorText}`);
-        let parsedError = webhookErrorText;
-        try { const jsonError = JSON.parse(webhookErrorText); parsedError = jsonError.message || jsonError.error || webhookErrorText; } catch (parseErr) {}
-        throw new Error(`Falha ao salvar sequência via n8n: ${parsedError.substring(0, 250)}`);
+        const errTxt = await webhookResponse.text();
+        throw new Error(`Salvar sequência falhou: ${errTxt.substring(0,250)}`);
       }
-
-      const webhookResult = await webhookResponse.json();
-      console.log("[MensagensConfigPage] n8n Sequence Webhook call successful:", webhookResult);
       
       toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
-
-      if (currentClinicId) { 
-        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
-      }
+      if (currentClinicId) queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
       
       setTimeout(() => {
-        if (currentClinicCode) {
-            navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
-        } else {
-            navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
-        }
-      }, 1500);
+        if (currentClinicCode) navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
+        else navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
+      }, 1000);
 
     } catch (e: any) {
       console.error("[MensagensConfigPage] Error in handleSave:", e);
-      setError(e.message || "Erro ao processar a mensagem");
-      toast({ title: "Erro no Processamento", description: e.message, variant: "destructive" });
+      setError(e.message || "Erro ao salvar.");
+      toast({ title: "Erro ao Salvar", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -414,22 +417,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   };
 
   const pageTitle = isEditing ? "Editar Mensagem" : "Nova Mensagem";
-  const isLoadingData = loading; 
-  const fetchError = error; 
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full">
       <Card className="w-full shadow-lg">
         <CardHeader><CardTitle>{pageTitle}</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {isLoadingData ? (
-            <div className="flex items-center justify-center gap-2 text-primary py-10">
-              <Loader2 className="animate-spin h-8 w-8" /> Carregando...
-            </div>
-          ) : fetchError ? (
-            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md">
-              <TriangleAlert className="h-5 w-5" /> {fetchError}
-            </div>
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 text-primary py-10"><Loader2 className="animate-spin h-8 w-8" /> Carregando...</div>
+          ) : error ? (
+            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md"><TriangleAlert className="h-5 w-5" /> {error}</div>
           ) : (
             <>
               <div>
@@ -442,109 +439,119 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3>
                 {messageSteps.length === 0 && <div className="text-center text-gray-600 italic py-6">Nenhum passo. Adicione um abaixo.</div>}
 
-                {messageSteps.map((step, index) => (
-                  <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white">
-                    <CardContent className="p-0 flex flex-col gap-4">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-gray-700">Passo {index + 1}</span>
-                        <Button variant="destructive" size="sm" onClick={() => handleRemoveStep(step.id)} disabled={saving}>
-                          <Trash2 className="h-4 w-4 mr-1" /> Remover
-                        </Button>
-                      </div>
-                      <div>
-                        <label htmlFor={`step-type-${step.id}`} className="block mb-1 font-medium text-gray-700">Tipo</label>
-                        <Select
-                          value={step.type}
-                          onValueChange={(value) => {
-                            const newType = value as MessageStepType;
-                            handleUpdateStep(step.id, {
-                              type: newType, text: newType === 'texto' ? (step.text || '') : undefined,
-                              mediaFile: undefined, mediaKey: undefined, previewUrl: undefined, originalFileName: undefined,
-                              delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
-                              delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
-                            });
-                          }}
-                          id={`step-type-${step.id}`} disabled={saving}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="texto">Texto</SelectItem>
-                            <SelectItem value="imagem">Imagem</SelectItem>
-                            <SelectItem value="video">Vídeo</SelectItem>
-                            <SelectItem value="audio">Áudio</SelectItem>
-                            <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                {messageSteps.map((step, index) => {
+                  const previewUrl = mediaPreviewUrls[step.id];
+                  const status = mediaPreviewStatus[step.id];
+                  const isLoadingMedia = status?.isLoading ?? false;
+                  const mediaError = status?.error ?? null;
 
-                      {step.type === 'texto' && (
-                        <div>
-                          <label htmlFor={`step-text-${step.id}`} className="block mb-1 font-medium text-gray-700">Texto</label>
-                          <Textarea id={`step-text-${step.id}`} rows={4} value={step.text || ''} onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })} placeholder="Digite o texto..." disabled={saving} />
+                  return (
+                    <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white">
+                      <CardContent className="p-0 flex flex-col gap-4">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-gray-700">Passo {index + 1}</span>
+                          <Button variant="destructive" size="sm" onClick={() => handleRemoveStep(step.id)} disabled={saving}>
+                            <Trash2 className="h-4 w-4 mr-1" /> Remover
+                          </Button>
                         </div>
-                      )}
-
-                      {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
                         <div>
-                          <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">Anexar Arquivo ({step.type})</label>
-                          <Input type="file" id={`step-media-${step.id}`}
-                            accept={
-                              step.type === 'imagem' ? ALLOWED_IMAGE_TYPES.join(',') :
-                              step.type === 'video' ? ALLOWED_VIDEO_TYPES.join(',') :
-                              step.type === 'audio' ? ALLOWED_AUDIO_TYPES.join(',') : '*'
-                            }
-                            onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
-                            disabled={saving}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            {step.type === 'imagem' && `Max ${MAX_IMAGE_SIZE_MB}MB. Tipos: JPG, PNG, GIF, WEBP`}
-                            {step.type === 'video' && `Max ${MAX_VIDEO_SIZE_MB}MB. Tipos: MP4, WEBM, MOV`}
-                            {step.type === 'audio' && `Max ${MAX_AUDIO_SIZE_MB}MB. Tipos: MP3, OGG, WAV`}
-                          </p>
-                          {step.previewUrl && ( // Use previewUrl for display
-                            <div className="mt-2">
-                              {step.type === 'imagem' && <img src={step.previewUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
-                              {step.type === 'video' && <video src={step.previewUrl} controls className="max-w-xs rounded" />}
-                              {step.type === 'audio' && <audio src={step.previewUrl} controls />}
+                          <label htmlFor={`step-type-${step.id}`} className="block mb-1 font-medium text-gray-700">Tipo</label>
+                          <Select
+                            value={step.type}
+                            onValueChange={(value) => {
+                              const newType = value as MessageStepType;
+                              handleUpdateStep(step.id, {
+                                type: newType, text: newType === 'texto' ? (step.text || '') : undefined,
+                                mediaFile: undefined, mediaKey: undefined, originalFileName: undefined,
+                                delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
+                                delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
+                              });
+                              // Clear preview for this step if type changes from media
+                              if (!(newType === 'imagem' || newType === 'video' || newType === 'audio')) {
+                                setMediaPreviewUrls(prev => ({...prev, [step.id]: null}));
+                                setMediaPreviewStatus(prev => ({...prev, [step.id]: {isLoading: false, error: null}}));
+                              }
+                            }}
+                            id={`step-type-${step.id}`} disabled={saving}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="texto">Texto</SelectItem>
+                              <SelectItem value="imagem">Imagem</SelectItem>
+                              <SelectItem value="video">Vídeo</SelectItem>
+                              <SelectItem value="audio">Áudio</SelectItem>
+                              <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {step.type === 'texto' && (
+                          <div>
+                            <label htmlFor={`step-text-${step.id}`} className="block mb-1 font-medium text-gray-700">Texto</label>
+                            <Textarea id={`step-text-${step.id}`} rows={4} value={step.text || ''} onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })} placeholder="Digite o texto..." disabled={saving} />
+                          </div>
+                        )}
+
+                        {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
+                          <div>
+                            <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">Anexar Arquivo ({step.type})</label>
+                            <Input type="file" id={`step-media-${step.id}`}
+                              accept={
+                                step.type === 'imagem' ? ALLOWED_IMAGE_TYPES.join(',') :
+                                step.type === 'video' ? ALLOWED_VIDEO_TYPES.join(',') :
+                                step.type === 'audio' ? ALLOWED_AUDIO_TYPES.join(',') : '*'
+                              }
+                              onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
+                              disabled={saving}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              {step.type === 'imagem' && `Max ${MAX_IMAGE_SIZE_MB}MB. Tipos: JPG, PNG, GIF, WEBP`}
+                              {step.type === 'video' && `Max ${MAX_VIDEO_SIZE_MB}MB. Tipos: MP4, WEBM, MOV`}
+                              {step.type === 'audio' && `Max ${MAX_AUDIO_SIZE_MB}MB. Tipos: MP3, OGG, WAV`}
+                            </p>
+                            
+                            {isLoadingMedia && <div className="mt-2 text-sm text-primary"><Loader2 className="inline h-4 w-4 animate-spin mr-1" />Carregando preview...</div>}
+                            {mediaError && <div className="mt-2 text-sm text-red-600"><TriangleAlert className="inline h-4 w-4 mr-1" />{mediaError}</div>}
+                            
+                            {previewUrl && !mediaError && (
+                              <div className="mt-2">
+                                {step.type === 'imagem' && <img src={previewUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
+                                {step.type === 'video' && <video src={previewUrl} controls className="max-w-xs rounded" />}
+                                {step.type === 'audio' && <audio src={previewUrl} controls />}
+                              </div>
+                            )}
+                            {/* Show original file name if it exists and no preview is available/loading/error */}
+                            {step.originalFileName && !previewUrl && !isLoadingMedia && !mediaError && (
+                               <p className="text-sm text-gray-600 mt-1">Arquivo: {step.originalFileName} (preview indisponível)</p>
+                            )}
+                          </div>
+                        )}
+
+                        {step.type === 'atraso' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">Duração *</label>
+                              <Input id={`step-delay-value-${step.id}`} type="number" placeholder="Ex: 30" value={step.delayValue?.toString() || ''} onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })} min="1" disabled={saving} />
                             </div>
-                          )}
-                          {/* Display original file name if available, especially if preview fails or for context */}
-                          {step.originalFileName && !step.previewUrl && (
-                             <p className="text-sm text-gray-600 mt-1">Arquivo: {step.originalFileName} (preview indisponível)</p>
-                          )}
-                           {!step.previewUrl && step.mediaFile && ( // Fallback for newly selected file if blob URL isn't ready
-                            <p className="text-sm text-gray-600 mt-1">Selecionado: {step.mediaFile.name}</p>
-                          )}
-                           {step.mediaKey && step.originalFileName && ( // Show if it's a saved file
-                            <p className="text-sm text-gray-600 mt-1">Arquivo salvo: {step.originalFileName}</p>
-                          )}
-                        </div>
-                      )}
-
-                      {step.type === 'atraso' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">Duração *</label>
-                            <Input id={`step-delay-value-${step.id}`} type="number" placeholder="Ex: 30" value={step.delayValue?.toString() || ''} onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })} min="1" disabled={saving} />
+                            <div>
+                              <label htmlFor={`step-delay-unit-${step.id}`} className="block mb-1 font-medium text-gray-700">Unidade *</label>
+                              <Select value={step.delayUnit || 'segundos'} onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })} id={`step-delay-unit-${step.id}`} disabled={saving}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="segundos">Segundos</SelectItem>
+                                  <SelectItem value="minutos">Minutos</SelectItem>
+                                  <SelectItem value="horas">Horas</SelectItem>
+                                  <SelectItem value="dias">Dias</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera.</p>
                           </div>
-                          <div>
-                            <label htmlFor={`step-delay-unit-${step.id}`} className="block mb-1 font-medium text-gray-700">Unidade *</label>
-                            <Select value={step.delayUnit || 'segundos'} onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })} id={`step-delay-unit-${step.id}`} disabled={saving}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="segundos">Segundos</SelectItem>
-                                <SelectItem value="minutos">Minutos</SelectItem>
-                                <SelectItem value="horas">Horas</SelectItem>
-                                <SelectItem value="dias">Dias</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera.</p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
 
                 <div className="flex flex-wrap justify-center gap-2 mt-4">
                   <Button variant="outline" onClick={() => handleAddStep('texto')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Texto</Button>
@@ -557,7 +564,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
               <div className="flex justify-end gap-4 pt-4 border-t mt-4">
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>Cancelar</Button>
-                <Button onClick={handleSave} disabled={saving || isLoadingData || !!fetchError}>
+                <Button onClick={handleSave} disabled={saving || loading || !!error}>
                   {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : (isEditing ? "Salvar Alterações" : "Criar Mensagem")}
                 </Button>
               </div>
