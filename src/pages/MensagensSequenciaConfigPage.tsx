@@ -295,13 +295,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
 
       if (currentClinicId) { 
-        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); // Updated queryKey to match LeadsMessagesPage
+        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
       } else {
         console.warn("[MensagensConfigPage] Clinic ID not available for query invalidation.");
       }
       
       if (isEditing && messageIdToEdit) {
-        // If you have a specific query for a single message/sequence, invalidate it here
         // queryClient.invalidateQueries({ queryKey: ['messageData', messageIdToEdit] }); 
       }
 
@@ -340,19 +339,19 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const fetchError = error; 
 
   return (
-    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
-      <Card className="max-w-4xl mx-auto">
+    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full"> {/* MODIFIED: Added w-full and adjusted padding */}
+      <Card className="w-full shadow-lg"> {/* MODIFIED: Removed max-w-4xl, added w-full and shadow-lg for better appearance */}
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {isLoadingData ? (
-            <div className="flex items-center justify-center gap-2 text-primary">
-              <Loader2 className="animate-spin" />
+            <div className="flex items-center justify-center gap-2 text-primary py-10"> {/* Added py-10 for better spacing */}
+              <Loader2 className="animate-spin h-8 w-8" /> {/* Increased spinner size */}
               Carregando dados da mensagem... 
             </div>
           ) : fetchError ? (
-            <div className="text-red-600 font-semibold flex items-center gap-2">
+            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md"> {/* Added styling for error */}
                 <TriangleAlert className="h-5 w-5" />
                 {fetchError || "Erro ao carregar dados."}
             </div>
@@ -377,11 +376,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3> 
 
                   {messageSteps.length === 0 && (
-                      <div className="text-center text-gray-600 italic">Nenhum passo na mensagem ainda. Adicione um abaixo.</div> 
+                      <div className="text-center text-gray-600 italic py-6">Nenhum passo na mensagem ainda. Adicione um abaixo.</div>  {/* Added py-6 */}
                   )}
 
                   {messageSteps.map((step, index) => (
-                      <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200">
+                      <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white"> {/* Added bg-white */}
                           <CardContent className="p-0 flex flex-col gap-4">
                               <div className="flex justify-between items-center">
                                   <span className="font-medium text-gray-700">Passo {index + 1}</span>
@@ -480,7 +479,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                               )}
 
                               {step.type === 'atraso' && (
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* MODIFIED: Responsive grid for delay */}
                                       <div>
                                           <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">
                                               Duração do Atraso *
@@ -516,7 +515,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                                               </SelectContent>
                                           </Select>
                                       </div>
-                                      <p className="text-sm text-gray-500 mt-1 col-span-2">Tempo de espera antes de prosseguir para o próximo passo.</p>
+                                      <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera antes de prosseguir para o próximo passo.</p> {/* MODIFIED: md:col-span-2 */}
                                   </div>
                               )}
                           </CardContent>
@@ -545,7 +544,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   </div>
               </div>
 
-              <div className="flex justify-end gap-4 pt-4 border-t">
+              <div className="flex justify-end gap-4 pt-4 border-t mt-4"> {/* Added mt-4 */}
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
                   Cancelar
                 </Button>
