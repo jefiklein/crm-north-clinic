@@ -38,6 +38,8 @@ interface QueueItem {
     tipo_evolution: string;
     id_server_evolution: number;
     url_arquivo: string | null;
+    nome_grupo?: string | null;
+    nome_instancia_enviado?: string | null;
 }
 
 interface InstanceDetails {
@@ -110,7 +112,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
 
             let query = supabase
                 .from('north_clinic_fila_mensagens')
-                .select('*')
+                .select('*, nome_grupo, nome_instancia_enviado')
                 .eq('id_clinica', clinicId)
                 .gte('agendado_para', `${dateString}T00:00:00Z`)
                 .lte('agendado_para', `${dateString}T23:59:59Z`);
@@ -127,7 +129,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                 console.error("Error fetching queue items from Supabase:", error);
                 throw new Error(error.message);
             }
-
+            console.log("Fetched queue items:", data);
             return data || [];
         },
         enabled: !!clinicId,
@@ -276,10 +278,12 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
 
                             const needsExpansion = plainText.length > 150 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>'); 
 
-                            const instanceOriginalName = item.instancia || 'N/A';
-                            const instanceDetails = instanceDetailsMap.get(instanceOriginalName);
-
-                            const displayInstanceName = instanceDetails?.nome_exibição || instanceOriginalName;
+                            const instanceNameFromQueue = item.nome_instancia_enviado;
+                            const instanceDetailsFromConfig = instanceDetailsMap.get(item.instancia);
+                            const instanceNameFromConfig = instanceDetailsFromConfig?.nome_exibição;
+                            
+                            const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
+                            const displayRecipient = item.nome_grupo || item.recipiente || 'N/D'; 
 
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
@@ -289,8 +293,8 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         </span>
                                         <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
                                             <span><strong>Agendado:</strong> {scheduledTime}</span>
-                                            <span><strong>Instância:</strong> {displayInstanceName}</span>
-                                            <span><strong>Recipiente:</strong> {item.recipiente || 'N/D'}</span> 
+                                            <span><strong>Instância:</strong> {finalDisplayInstanceName}</span> 
+                                            <span><strong>Recipiente:</strong> {displayRecipient}</span> 
                                             {item.status?.toLowerCase() === 'enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
                                             {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
                                         </div>
