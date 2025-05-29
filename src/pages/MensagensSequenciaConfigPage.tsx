@@ -96,7 +96,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
 
     setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: true, error: null } }));
-    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); // Clear previous URL
+    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
 
     try {
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
@@ -105,18 +105,27 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         body: JSON.stringify({ filePath: fileKey, clinicId: clinicCode }),
       });
 
+      const responseText = await response.text();
+
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Falha (${response.status}) ao obter URL: ${errorText.substring(0,100)}`);
+        throw new Error(`Falha (${response.status}) ao obter URL: ${responseText.substring(0,150)}`);
       }
-      const data = await response.json();
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error(`[MensagensConfigPage] JSON Parse Error for key ${fileKey} (step ${stepId}):`, jsonError, "Response Text:", responseText);
+        throw new Error(`Resposta inesperada do servidor (não JSON): ${responseText.substring(0,100)}`);
+      }
+      
       const signedUrl = data?.signedURL || data?.url || null;
 
       if (signedUrl) {
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
       } else {
-        throw new Error('URL assinada não encontrada na resposta.');
+        throw new Error(`URL assinada não encontrada na resposta JSON: ${responseText.substring(0,100)}`);
       }
     } catch (e: any) {
       console.error(`[MensagensConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
@@ -127,29 +136,23 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   
   // useEffect to fetch signed URLs for existing mediaKeys when messageSteps are loaded/changed
   useEffect(() => {
-    // console.log("[MensagensConfigPage] useEffect for fetching media triggered. Steps count:", messageSteps.length);
     if (!messageSteps || messageSteps.length === 0) {
-      // console.log("[MensagensConfigPage] No steps to process for media fetching.");
       return;
     }
   
     messageSteps.forEach(step => {
       const isMediaStep = step.type === 'imagem' || step.type === 'video' || step.type === 'audio';
-      if (isMediaStep && step.mediaKey && !step.mediaFile) { // Has a saved key, not a new file
-        // Check if we already have a URL or are processing it
+      if (isMediaStep && step.mediaKey && !step.mediaFile) { 
         const currentStatus = mediaPreviewStatus[step.id];
         const currentUrl = mediaPreviewUrls[step.id];
 
         if (!currentUrl && (!currentStatus || !currentStatus.isLoading)) {
-          // console.log(`[MensagensConfigPage] Step ${step.id} (key: ${step.mediaKey}): Needs signed URL. Fetching...`);
           fetchSignedUrlForPreview(step.mediaKey, step.id);
         } else {
-          // console.log(`[MensagensConfigPage] Step ${step.id} (key: ${step.mediaKey}): Already has URL/status. URL: ${!!currentUrl}, Loading: ${currentStatus?.isLoading}`);
         }
       }
     });
-  }, [messageSteps, clinicCode]); // Depend on messageSteps and clinicCode (for webhook)
-
+  }, [messageSteps, clinicCode]); 
 
   useEffect(() => {
     async function loadMessageForEditing() {
@@ -160,8 +163,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
       setLoading(true);
       setError(null);
-      setMediaPreviewUrls({}); // Clear old previews
-      setMediaPreviewStatus({}); // Clear old statuses
+      setMediaPreviewUrls({}); 
+      setMediaPreviewStatus({}); 
 
       if (isEditing && messageIdToEdit !== null) { 
         try {
@@ -187,15 +190,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           const loadedSteps: MessageStep[] = (stepsData || [])
             .filter(stepDb => stepDb.tipo_passo !== 'documento')
             .map((stepDb) => ({
-                id: stepDb.id.toString() + "_loaded_" + Math.random().toString(36).substring(7), // Ensure unique client ID even if DB ID is reused by mistake
+                id: stepDb.id.toString() + "_loaded_" + Math.random().toString(36).substring(7), 
                 db_id: stepDb.id,
                 type: stepDb.tipo_passo as MessageStepType,
                 text: stepDb.conteudo_texto || undefined,
-                mediaKey: stepDb.url_arquivo || undefined, // url_arquivo from DB is the mediaKey
+                mediaKey: stepDb.url_arquivo || undefined, 
                 originalFileName: stepDb.nome_arquivo_original || undefined,
                 delayValue: stepDb.atraso_valor || undefined,
                 delayUnit: stepDb.atraso_unidade as MessageStep['delayUnit'] || undefined,
-                // previewUrl will be fetched by the useEffect
             }));
           setMessageSteps(loadedSteps);
 
@@ -213,7 +215,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
     }
     loadMessageForEditing();
-  }, [clinicId, isEditing, messageIdToEdit, toast]); // Removed clinicCode from here, added to media fetching useEffect
+  }, [clinicId, isEditing, messageIdToEdit, toast]); 
 
   const handleAddStep = (type: MessageStepType = 'texto') => {
       const newStepId = Date.now().toString() + Math.random().toString().slice(2, 8);
@@ -233,13 +235,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       setMessageSteps(prevSteps => {
         const stepToRemove = prevSteps.find(s => s.id === idToRemove);
         if (stepToRemove) {
-            // Revoke blob URL if it exists in mediaPreviewUrls
             const currentPreviewUrl = mediaPreviewUrls[idToRemove];
             if (currentPreviewUrl && currentPreviewUrl.startsWith('blob:')) {
                 URL.revokeObjectURL(currentPreviewUrl);
             }
         }
-        // Remove from states
         setMediaPreviewUrls(prev => { const newState = {...prev}; delete newState[idToRemove]; return newState; });
         setMediaPreviewStatus(prev => { const newState = {...prev}; delete newState[idToRemove]; return newState; });
         return prevSteps.filter(step => step.id !== idToRemove);
@@ -257,12 +257,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     if (stepIndex === -1) return;
     const currentStep = messageSteps[stepIndex];
 
-    // Revoke old blob URL if it exists
     const oldPreviewUrl = mediaPreviewUrls[stepId];
     if (oldPreviewUrl && oldPreviewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(oldPreviewUrl);
     }
-    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); // Clear preview while processing
+    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); 
     setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
 
 
@@ -277,7 +276,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
         if (file.size > maxSizeMB * 1024 * 1024) {
             toast({ title: "Arquivo Grande", description: `${typeName} excede ${maxSizeMB}MB.`, variant: "destructive" });
-            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); // Clear file info in step
+            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); 
             const inputEl = document.getElementById(`step-media-${stepId}`) as HTMLInputElement; if (inputEl) inputEl.value = "";
             return;
         }
@@ -290,14 +289,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
         const newPreviewUrl = URL.createObjectURL(file);
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: newPreviewUrl }));
-        handleUpdateStep(stepId, { mediaFile: file, originalFileName: file.name, mediaKey: null }); // Set file, clear key
+        setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
+        handleUpdateStep(stepId, { mediaFile: file, originalFileName: file.name, mediaKey: null }); 
     } else {
-        // File removed by user
-        handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); // Clear all file info
+        handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); 
     }
   };
 
-  // Cleanup blob URLs
   useEffect(() => {
       return () => {
           Object.values(mediaPreviewUrls).forEach(url => {
@@ -357,14 +355,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           }
           return { 
             ...step, 
-            mediaKey: currentMediaKey, // Use the newly uploaded key or existing one
-            mediaFile: undefined // Clear file object after processing
+            mediaKey: currentMediaKey, 
+            mediaFile: undefined 
           };
       }));
       
-      // Update messageSteps state with the new mediaKeys so UI can reflect it if needed before navigation
-      // setMessageSteps(processedSteps); // This might be too quick if navigation is immediate
-
       const messagePayloadForN8N = { 
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
@@ -378,7 +373,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           ordem: index + 1,
           tipo_passo: step.type,
           conteudo_texto: step.text || null,
-          url_arquivo: step.mediaKey || null, // This is the mediaKey
+          url_arquivo: step.mediaKey || null, 
           nome_arquivo_original: step.originalFileName || null,
           atraso_valor: step.type === 'atraso' ? step.delayValue : null,
           atraso_unidade: step.type === 'atraso' ? step.delayUnit : null,
@@ -466,7 +461,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                                 delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
                                 delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
                               });
-                              // Clear preview for this step if type changes from media
                               if (!(newType === 'imagem' || newType === 'video' || newType === 'audio')) {
                                 setMediaPreviewUrls(prev => ({...prev, [step.id]: null}));
                                 setMediaPreviewStatus(prev => ({...prev, [step.id]: {isLoading: false, error: null}}));
@@ -520,7 +514,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                                 {step.type === 'audio' && <audio src={previewUrl} controls />}
                               </div>
                             )}
-                            {/* Show original file name if it exists and no preview is available/loading/error */}
                             {step.originalFileName && !previewUrl && !isLoadingMedia && !mediaError && (
                                <p className="text-sm text-gray-600 mt-1">Arquivo: {step.originalFileName} (preview indisponível)</p>
                             )}
