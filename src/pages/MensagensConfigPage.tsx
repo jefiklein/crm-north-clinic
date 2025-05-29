@@ -1,12 +1,675 @@
-// ... (rest of the code remains the same until the end)
+"use client";
+
+import React, { useEffect, useState, useRef, useMemo } from "react"; 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "@/components/ui/loader"; 
+import { TriangleAlert } from "@/components/ui/triangle-alert"; 
+import { Smile } from "lucide-react";
+import MultiSelectServices from "@/components/MultiSelectServices";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  orderedCategoriesGeneral,
+  defaultTemplates,
+  placeholderData,
+} from "@/data/placeholders";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+
+interface ClinicData {
+  code: string;
+  id: number;
+  nome?: string; 
+  acesso_crm?: boolean;
+  acesso_config_msg?: boolean;
+  id_permissao?: number;
+}
+
+interface Instance {
+  id: number;
+  nome_exibicao: string;
+  nome_instancia_evolution?: string | null;
+}
+
+interface Service {
+  id: number;
+  nome: string;
+}
+
+interface Group {
+  id_grupo: string; 
+  nome_grupo: string;
+}
+
+interface FunnelDetails {
+  id: number;
+  nome_funil: string;
+}
+
+interface FunnelStage {
+  id: number;
+  nome_etapa: string;
+  id_funil?: number;
+  ordem?: number | null;
+}
+
+interface FetchedMessageData {
+  id: number;
+  categoria: string | null;
+  id_instancia: number | null;
+  modelo_mensagem: string;
+  ativo: boolean;
+  hora_envio: string | null;
+  grupo: string | null;
+  url_arquivo: string | null;
+  variacao_1?: string | null;
+  variacao_2?: string | null;
+  variacao_3?: string | null;
+  variacao_4?: string | null;
+  variacao_5?: string | null;
+  para_cliente: boolean;
+  para_funcionario: boolean;
+  context: string | null;
+  dias_mensagem_cashback: number | null;
+  tipo_mensagem_cashback: string | null;
+  id_funil?: number | null;
+  id_etapa?: number | null;
+  timing_type?: string | null;
+  delay_value?: number | null;
+  delay_unit?: string | null;
+  sending_order: string | null;
+  north_clinic_mensagens_servicos?: { id_servico: number }[];
+  nome_grupo?: string | null;
+}
+
+interface WebhookResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  Key?: string;
+  key?: string;
+}
 
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
-  // ... (rest of the code remains the same until the end)
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [messageId, setMessageId] = useState<number | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+  const [instanceId, setInstanceId] = useState<number | null>(null);
+  const [messageText, setMessageText] = useState<string>("");
+  const [active, setActive] = useState<boolean>(true);
+  const [services, setServices] = useState<Service[]>([]);
+  const [linkedServices, setLinkedServices] = useState<number[]>([]);
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [scheduledTime, setScheduledTime] = useState<string | null>(null);
+  const [targetType, setTargetType] = useState<"Grupo" | "Cliente" | "Funcionário" | null>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+  const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
+  const [messageContext, setMessageContext] = useState<string | null>(null);
+  const [diasMensagemCashback, setDiasMensagemCashback] = useState<string | null>(null);
+  const [tipoMensagemCashback, setTipoMensagemCashback] = useState<string | null>(null);
+  const [selectedFunnelId, setSelectedFunnelId] = useState<number | null>(null);
+  const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
+  const [timingType, setTimingType] = useState<string | null>("immediate");
+  const [delayValue, setDelayValue] = useState<string | null>(null);
+  const [delayUnit, setDelayUnit] = useState<string | null>("hours");
+  const [sendingOrder, setSendingOrder] = useState<string | null>("both");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const messageTextRef = useRef<HTMLTextAreaElement>(null);
+
+  const urlParams = new URLSearchParams(location.search);
+  const contextParam = urlParams.get("context");
+
+  const isGeneralContext = messageContext === "clientes" || messageContext === null;
+  const isCashbackContext = messageContext === "cashback";
+  const isLeadsContext = messageContext === "leads";
+
+  const allFunnels = useQuery<FunnelDetails[], Error>(
+    ["allFunnels", clinicData?.id, messageContext], 
+    async () => {
+      if (!clinicData?.id || messageContext !== "leads") return []; 
+      const { data, error: dbError } = await supabase.from("north_clinic_crm_funil").select("id, nome_funil");
+      if (dbError) throw new Error(dbError.message);
+      return data || [];
+    },
+    { enabled: !!clinicData?.id && messageContext === "leads" }
+  );
+
+  const stagesForSelectedFunnel = useQuery<FunnelStage[], Error>(
+    ["stagesForFunnel", selectedFunnelId, clinicData?.id, messageContext], 
+    async () => {
+      if (!selectedFunnelId || !clinicData?.id || messageContext !== "leads") return []; 
+      const { data, error: dbError } = await supabase.from("north_clinic_crm_etapa").select("id, nome_etapa").eq("id_funil", selectedFunnelId);
+      if (dbError) throw new Error(dbError.message);
+      return data || [];
+    },
+    { enabled: !!selectedFunnelId && !!clinicData?.id && messageContext === "leads" }
+  );
+
+  useEffect(() => {
+    const currentClinicData = clinicData;
+    if (!currentClinicData?.id) {
+      setError("ID da clínica não disponível.");
+      setLoading(false);
+      return;
+    }
+
+    const idParam = urlParams.get("id");
+    const isEditing = !!idParam;
+    const messageIdToEdit = idParam ? parseInt(idParam, 10) : null;
+
+    if (!isEditing && contextParam) {
+        setMessageContext(contextParam);
+    }
+
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+       const currentMessageContextForFetch = isEditing ? messageContext : contextParam; 
+
+        if (instancesError) throw instancesError;
+        setInstances(instancesData || []);
+
+        let servicesData: Service[] = [];
+        if (currentMessageContextForFetch === 'clientes' && servicesError) throw servicesError;
+        if (currentMessageContextForFetch === 'clientes') {
+             servicesData = fetchedServicesData || [];
+        }
+        setServices(servicesData);
+
+        if (isEditing && messageIdToEdit !== null) {
+          const { data: msgData, error: messageError } = await supabase
+            .from('north_clinic_config_mensagens')
+            .select('*, north_clinic_mensagens_servicos(id_servico)') 
+            .eq('id', messageIdToEdit) 
+            .eq('id_clinica', currentClinicData.id) 
+            .single(); 
+
+          if (messageError && messageError.code !== 'PGRST116') { 
+              throw messageError;
+          }
+
+          if (msgData) {
+            const messageData = msgData as FetchedMessageData;
+            setMessageContext(messageData.context); 
+
+            const fetchedLinkedServices = messageData.context === 'clientes' && messageData.north_clinic_mensagens_servicos
+                ? messageData.north_clinic_mensagens_servicos
+                    .map(link => link.id_servico)
+                    .filter((id): id is number => id !== null) 
+                : []; 
+
+            setMessageId(messageData.id);
+            setCategory(messageData.categoria || null); 
+            setInstanceId(messageData.id_instancia);
+            setMessageText(messageData.modelo_mensagem);
+            setActive(messageData.ativo ?? true);
+            setLinkedServices(fetchedLinkedServices); 
+            
+            const fetchedScheduledTime = messageData.hora_envio;
+            let formattedScheduledTime = null;
+            if (fetchedScheduledTime) {
+                try {
+                    const parts = fetchedScheduledTime.split(':');
+                    if (parts.length >= 2) {
+                        formattedScheduledTime = `${parts[0]}:${parts[1]}`;
+                    } else {
+                         formattedScheduledTime = fetchedScheduledTime; 
+                    }
+                } catch (e) {
+                    formattedScheduledTime = fetchedScheduledTime; 
+                }
+            }
+            setScheduledTime(formattedScheduledTime); 
+            setSelectedGroup(messageData.grupo ?? null); 
+            setMediaSavedUrl(messageData.url_arquivo ?? null);
+            setTargetType(
+              messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
+            );
+            setDiasMensagemCashback(messageData.dias_mensagem_cashback?.toString() || null);
+            setTipoMensagemCashback(messageData.tipo_mensagem_cashback || null);
+            if (messageData.context === 'leads') {
+                 setSelectedFunnelId(messageData.id_funil ?? null);
+                 setSelectedStageId(messageData.id_etapa ?? null);
+                 setTimingType(messageData.timing_type || 'immediate');
+                 setDelayValue(messageData.delay_value?.toString() || null);
+                 setDelayUnit(messageData.delay_unit || 'hours');
+            }
+            setSendingOrder(messageData.sending_order || 'both');
+          } else {
+              setError("Mensagem não encontrada ou você não tem permissão para editá-la.");
+              setMessageId(null); 
+              if (contextParam) setMessageContext(contextParam);
+          }
+        } else { 
+          setMessageId(null);
+          setCategory(null);
+          setInstanceId(null);
+          setMessageText("");
+          setActive(true); 
+          setLinkedServices([]);
+          setScheduledTime(null);
+          setSelectedGroup(null); 
+          setMediaSavedUrl(null);
+          setTargetType(contextParam === 'cashback' || contextParam === 'leads' ? 'Cliente' : 'Grupo'); 
+          setDiasMensagemCashback(null);
+          setTipoMensagemCashback(null);
+          setSelectedFunnelId(urlParams.get('funnelId') ? parseInt(urlParams.get('funnelId')!, 10) : null); 
+          setSelectedStageId(urlParams.get('stageId') ? parseInt(urlParams.get('stageId')!, 10) : null); 
+          setTimingType('immediate');
+          setDelayValue(null);
+          setDelayUnit('hours');
+          setSendingOrder('both');
+          if (contextParam) setMessageContext(contextParam);
+        }
+      } catch (e: any) {
+        setError(e.message || "Erro ao carregar dados iniciais");
+        if (contextParam && !messageContext) setMessageContext(contextParam);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [clinicData?.id, location.search]); 
+
+  useEffect(() => {
+    setSelectedStageId(null); 
+  }, [selectedFunnelId]);
+
+  useEffect(() => {
+    async function fetchGroups() {
+      const currentClinicId = clinicData?.id; 
+      if (!instanceId || targetType !== "Grupo" || !currentClinicId) { 
+        setGroups([]);
+        setSelectedGroup(null); 
+        return;
+      }
+      try {
+        const instance = instances.find((i) => i.id === instanceId);
+        if (!instance?.nome_instancia_evolution) {
+          setGroups([]);
+          setSelectedGroup(null); 
+          return;
+        }
+        const res = await fetch(
+          `https://n8n-n8n.sbw0pc.easypanel.host/webhook/29203acf-7751-4b18-8d69-d4bdb380810e`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nome_instancia_evolution: instance.nome_instancia_evolution }),
+          }
+        );
+        if (!res.ok) {
+            throw new Error("Falha ao carregar grupos");
+        }
+        const groupsData: Group[] = await res.json();
+        setGroups(groupsData);
+        if (selectedGroup !== null && !groupsData.find((g) => g.id_grupo === selectedGroup)) {
+          setSelectedGroup(null); 
+        }
+      } catch(e: any) {
+        setGroups([]);
+        setSelectedGroup(null); 
+      }
+    }
+    fetchGroups();
+  }, [instanceId, targetType, instances, clinicData?.id]);
+  
+  useEffect(() => {
+    if (!mediaFile) {
+      setMediaPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(mediaFile);
+    setMediaPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl); 
+  }, [mediaFile]);
+  
+  const toggleEmojiPicker = () => setShowEmojiPicker((v) => !v);
+
+  const onEmojiSelect = (emojiData: EmojiClickData) => { 
+    const emoji = emojiData.emoji;
+    if (messageTextRef.current) {
+      const el = messageTextRef.current;
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? 0;
+      const text = messageText;
+      const newText = text.slice(0, start) + emoji + text.slice(end);
+      setMessageText(newText);
+      el.selectionStart = el.selectionEnd = start + emoji.length;
+      el.focus();
+    }
+  };
+
+  const handleSave = async () => {
+    const currentClinicCode = clinicData?.code;
+    const currentClinicId = clinicData?.id;
+
+    if (!currentClinicCode || !currentClinicId) {
+      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" });
+      return;
+    }
+    if (!instanceId) {
+      toast({ title: "Erro", description: "Selecione uma instância.", variant: "destructive" });
+      return;
+    }
+    if (!messageText.trim()) {
+      toast({ title: "Erro", description: "Digite o texto da mensagem.", variant: "destructive" });
+      return;
+    }
+
+    if (isGeneralContext) {
+        if (!category) { 
+          toast({ title: "Erro", description: "Selecione uma categoria.", variant: "destructive" });
+          return;
+        }
+        if (category !== "Aniversário" && linkedServices.length === 0 && category !== "Chegou" && category !== "Liberado") {
+          toast({ title: "Erro", description: "Selecione pelo menos um serviço vinculado.", variant: "destructive" });
+          return;
+        }
+        if ((category === "Confirmar Agendamento" || category === "Aniversário") && !scheduledTime) {
+          toast({ title: "Erro", description: "Selecione a hora programada.", variant: "destructive" });
+          return;
+        }
+        if ((category === "Chegou" || category === "Liberado") && targetType === "Grupo" && selectedGroup === null ) {
+          toast({ title: "Erro", description: "Selecione o grupo alvo.", variant: "destructive" });
+          return;
+        }
+    }
+
+    if (isCashbackContext) {
+        const offsetNum = diasMensagemCashback ? parseInt(diasMensagemCashback, 10) : NaN; 
+        if (diasMensagemCashback === null || diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
+             toast({ title: "Erro", description: "Informe um número válido de dias (>= 0).", variant: "destructive" });
+             return;
+        }
+        if (!tipoMensagemCashback) { 
+             toast({ title: "Erro", description: "Selecione o tipo de agendamento (Após Venda ou Antes da Validade).", variant: "destructive" });
+             return;
+        }
+         const showScheduledTimeCashbackInternal = true; 
+         if (showScheduledTimeCashbackInternal && !scheduledTime) { 
+              toast({ title: "Erro", description: "Selecione a hora programada.", variant: "destructive" });
+             return;
+         }
+    }
+
+    if (isLeadsContext) {
+        if (selectedFunnelId === null) {
+             toast({ title: "Erro", description: "Selecione um Funil.", variant: "destructive" });
+             return;
+        }
+         if (selectedStageId === null) {
+             toast({ title: "Erro", description: "Selecione uma Etapa.", variant: "destructive" });
+             return;
+         }
+         if (!timingType) {
+              toast({ title: "Erro", description: "Selecione o tipo de agendamento.", variant: "destructive" });
+              return;
+         }
+         if (timingType === 'delay') {
+             const delayNum = delayValue ? parseInt(delayValue, 10) : NaN;
+             if (delayValue === null || delayValue.trim() === '' || isNaN(delayNum) || delayNum < 0) {
+                  toast({ title: "Erro", description: "Informe um valor de atraso válido (número >= 0).", variant: "destructive" });
+                  return;
+             }
+             if (!delayUnit) {
+                  toast({ title: "Erro", description: "Selecione a unidade do atraso (minutos, horas, dias).", variant: "destructive" });
+                  return;
+             }
+         }
+    }
+
+    if (!messageContext) { 
+         toast({ title: "Erro", description: "Contexto da mensagem não definido.", variant: "destructive" });
+         return;
+    }
+
+    if ((mediaFile || mediaSavedUrl) && (!sendingOrder || sendingOrder === 'none')) {
+         toast({ title: "Erro", description: "Selecione a ordem de envio para a mensagem com anexo.", variant: "destructive" });
+         return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      let final_url_arquivo = mediaSavedUrl;
+      if (mediaFile) {
+        const formData = new FormData();
+        formData.append("data", mediaFile, mediaFile.name);
+        formData.append("fileName", mediaFile.name);
+        formData.append("clinicId", currentClinicCode);
+        const uploadRes = await fetch(
+          "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
+          { method: "POST", body: formData, }
+        );
+        if (!uploadRes.ok) { throw new Error("Falha ao enviar mídia"); }
+        const uploadData: WebhookResponse = await uploadRes.json();
+        final_url_arquivo = uploadData.Key || uploadData.key || null;
+      }
+
+      const saveData: any = {
+        id_clinica: currentClinicCode,
+        id: messageId,
+        categoria: category || null,
+        id_instancia: instanceId,
+        modelo_mensagem: messageText,
+        ativo: active,
+        hora_envio: scheduledTime || null,
+        url_arquivo: final_url_arquivo,
+        prioridade: 1,
+        context: messageContext,
+        servicos_vinculados: [],
+        para_cliente: false,
+        para_funcionario: false,
+        para_grupo: false,
+        grupo: null,
+        nome_grupo: null,
+        dias_mensagem_cashback: null,
+        tipo_mensagem_cashback: null,
+        id_funil: null,
+        id_etapa: null,
+        timing_type: null,
+        delay_value: null,
+        delay_unit: null,
+        sending_order: sendingOrder,
+      };
+
+      if (isGeneralContext) {
+          saveData.servicos_vinculados = linkedServices;
+          saveData.para_cliente = targetType === "Cliente";
+          saveData.para_funcionario = targetType === "Funcionário";
+          saveData.para_grupo = targetType === "Grupo";
+          saveData.grupo = selectedGroup || null;
+          if (targetType === "Grupo" && selectedGroup) {
+              const groupObject = groups.find(g => g.id_grupo === selectedGroup);
+              saveData.nome_grupo = groupObject ? groupObject.nome_grupo : null;
+          }
+          saveData.dias_mensagem_cashback = null;
+          saveData.tipo_mensagem_cashback = null;
+          saveData.id_funil = null;
+          saveData.id_etapa = null;
+          saveData.timing_type = null;
+          saveData.delay_value = null;
+          saveData.delay_unit = null;
+      } else if (isCashbackContext) {
+          saveData.dias_mensagem_cashback = diasMensagemCashback ? parseInt(diasMensagemCashback, 10) : null;
+          saveData.tipo_mensagem_cashback = tipoMensagemCashback;
+          saveData.para_cliente = true;
+          saveData.para_funcionario = false;
+          saveData.para_grupo = false;
+          saveData.grupo = null;
+          saveData.nome_grupo = null;
+          saveData.servicos_vinculados = [];
+          saveData.id_funil = null;
+          saveData.id_etapa = null;
+          saveData.timing_type = null;
+          saveData.delay_value = null;
+          saveData.delay_unit = null;
+          saveData.categoria = category || "Cashback";
+      } else if (isLeadsContext) {
+          saveData.id_funil = selectedFunnelId;
+          saveData.id_etapa = selectedStageId;
+          saveData.para_cliente = true;
+          saveData.timing_type = timingType;
+          saveData.delay_value = timingType === 'delay' && delayValue ? parseInt(delayValue, 10) : null;
+          saveData.delay_unit = timingType === 'delay' ? delayUnit : null;
+          saveData.para_funcionario = false;
+          saveData.para_grupo = false;
+          saveData.grupo = null;
+          saveData.nome_grupo = null;
+          saveData.servicos_vinculados = [];
+          saveData.dias_mensagem_cashback = null;
+          saveData.tipo_mensagem_cashback = null;
+          saveData.categoria = null;
+          saveData.hora_envio = null;
+      }
+
+      const saveUrl = messageId
+        ? "https://n8n-n8n.sbw0pc.easypanel.host/webhook/04d103eb-1a13-411f-a3a7-fd46a789daa4"
+        : "https://n8n-n8n.sbw0pc.easypanel.host/webhook/542ce8db-6b1d-40f5-b58b-23c9154c424d";
+      const saveRes = await fetch(saveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(saveData),
+      });
+      const responseData: WebhookResponse = await saveRes.json();
+      if (!saveRes.ok || responseData.error || (responseData.success === false)) {
+          const errorMessage = responseData.error || responseData.message || `Erro desconhecido (Status: ${saveRes.status})`;
+          throw new Error(errorMessage);
+      }
+      toast({ title: "Sucesso", description: "Mensagem salva com sucesso." });
+      setTimeout(() => {
+        let redirectPath = '/dashboard';
+        if (messageContext === 'clientes') redirectPath = '/dashboard/11';
+        else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
+        else if (messageContext === 'leads') redirectPath = '/dashboard/9';
+        navigate(`${redirectPath}?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${messageId ? "updated" : "created"}`);
+      }, 1500);
+    } catch (e: any) {
+      setError(e.message || "Erro ao salvar mensagem");
+      toast({ title: "Erro", description: e.message || "Erro ao salvar mensagem", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    if (messageId === null) {
+        const currentContext = messageContext || contextParam;
+        if (currentContext === 'clientes' && defaultTemplates.general && defaultTemplates.general[value]) { 
+            setMessageText(defaultTemplates.general[value]);
+        } else if (currentContext === 'cashback' && defaultTemplates.cashback && defaultTemplates.cashback[value]) { 
+             setMessageText(defaultTemplates.cashback[value]);
+        } else {
+            setMessageText("");
+        }
+    }
+  };
+
+  const showCategoryGeneral = isGeneralContext;
+  const showTargetTypeSelectGeneral = isGeneralContext && category && (category === "Chegou" || category === "Liberado");
+  const showGroupSelectGeneral = isGeneralContext && category && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
+  const showServicesLinkedGeneral = isGeneralContext && category && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
+  const showScheduledTimeGeneral = isGeneralContext && category && (category === "Confirmar Agendamento" || category === "Aniversário");
+  const showCashbackTiming = isCashbackContext;
+  const showScheduledTimeCashback = isCashbackContext;
+  const showFunnelStageSelectLeads = isLeadsContext;
+  const showTimingFieldsLeads = isLeadsContext;
+  const showSendingOrder = !!mediaFile || !!mediaSavedUrl; 
+
+  const handleCancel = () => {
+    if (!clinicData?.code) return;
+    let redirectPath = '/dashboard';
+    if (messageContext === 'clientes') redirectPath = '/dashboard/11';
+    else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
+    else if (messageContext === 'leads') redirectPath = '/dashboard/9';
+    navigate(`${redirectPath}?clinic_code=${encodeURIComponent(clinicData.code)}`);
+  };
+
+  const pageTitle = messageId
+    ? `Editar Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`
+    : `Configurar Nova Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`;
+
+  const isLoadingData = loading || (isLeadsContext && (allFunnels.isFetching || stagesForSelectedFunnel.isFetching));
+  const currentFetchError = error || (isLeadsContext && (allFunnels.error?.message || stagesForSelectedFunnel.error?.message));
+
+  const availablePlaceholders = useMemo(() => {
+      const allKeys = Object.keys(placeholderData);
+      if (isCashbackContext) {
+          return allKeys.filter(key => key.startsWith('primeiro_nome_cliente') || key.startsWith('nome_completo_cliente') || key.startsWith('valor_cashback') || key.startsWith('validade_cashback'));
+      }
+      if (isLeadsContext) {
+          return allKeys.filter(key =>
+              key.startsWith('primeiro_nome_cliente') ||
+              key.startsWith('nome_completo_cliente') ||
+              key.startsWith('primeiro_nome_funcionario') || 
+              key.startsWith('nome_completo_funcionario') ||
+              key.startsWith('nome_servico_principal') || 
+              key.startsWith('lista_servicos') ||
+              key.startsWith('data_agendamento') || 
+              key.startsWith('dia_agendamento_num') ||
+              key.startsWith('dia_semana_relativo_extenso') ||
+              key.startsWith('mes_agendamento_num') ||
+              key.startsWith('mes_agendamento_extenso') ||
+              key.startsWith('hora_agendamento')
+          );
+      }
+      return allKeys; 
+  }, [isCashbackContext, isLeadsContext]);
+
+  const handlePlaceholderClick = (placeholder: string) => {
+      const placeholderText = `{${placeholder}}`;
+      const textarea = messageTextRef.current;
+      if (textarea) {
+          const start = textarea.selectionStart ?? 0;
+          const end = textarea.selectionEnd ?? 0;
+          const text = messageText;
+          const newText = text.slice(0, start) + placeholderText + text.slice(end);
+          setMessageText(newText);
+          const newCursorPosition = start + placeholderText.length;
+          setTimeout(() => {
+              if (textarea) {
+                textarea.selectionStart = textarea.selectionEnd = newCursorPosition;
+                textarea.focus(); 
+              }
+          }, 0); 
+      }
+  };
 
   return (
-    // ... (rest of the code remains the same until the end)
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
       <Card className="w-full"> 
         <CardHeader>
@@ -59,41 +722,41 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                           <Select
                             value={selectedFunnelId?.toString() || ''}
                             onValueChange={(value) => setSelectedFunnelId(value ? parseInt(value, 10) : null)}
-                            disabled={isLoadingFunnels || !!funnelsError}
+                            disabled={allFunnels.isFetching || allFunnels.error}
                           >
                             <SelectTrigger id="funnel">
                               <SelectValue placeholder="Selecione o funil" />
                             </SelectTrigger>
                             <SelectContent>
-                              {allFunnels?.map(funnel => (
+                              {allFunnels.data?.map(funnel => (
                                   <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                           {funnelsError && <p className="text-sm text-red-600 mt-1">{funnelsError.message}</p>}
+                           {allFunnels.error && <p className="text-sm text-red-600 mt-1">{allFunnels.error.message}</p>}
                       </div>
                       <div>
                           <Label htmlFor="stage" className="block mb-1 font-medium text-gray-700">Etapa *</Label>
                           <Select
                             value={selectedStageId?.toString() || ''}
                             onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)}
-                            disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}
+                            disabled={selectedFunnelId === null || stagesForSelectedFunnel.isFetching || stagesForSelectedFunnel.error || (stagesForSelectedFunnel.data?.length ?? 0) === 0}
                           >
                             <SelectTrigger id="stage">
                               <SelectValue placeholder="Selecione a etapa" />
                             </SelectTrigger>
                             <SelectContent>
-                               {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
+                               {(stagesForSelectedFunnel.data?.length ?? 0) === 0 && !stagesForSelectedFunnel.isFetching && !stagesForSelectedFunnel.error ? (
                                    <SelectItem value="none" disabled>Nenhuma etapa disponível</SelectItem>
                                ) : (
-                                   stagesForSelectedFunnel?.map(stage => (
+                                   stagesForSelectedFunnel.data?.map(stage => (
                                        <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
                                    ))
                                )}
                             </SelectContent>
                           </Select>
-                           {stagesError && <p className="text-sm text-red-600 mt-1">{stagesError.message}</p>}
-                           {selectedFunnelId !== null && (stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError && (
+                           {stagesForSelectedFunnel.error && <p className="text-sm text-red-600 mt-1">{stagesForSelectedFunnel.error.message}</p>}
+                           {selectedFunnelId !== null && (stagesForSelectedFunnel.data?.length ?? 0) === 0 && !stagesForSelectedFunnel.isFetching && !stagesForSelectedFunnel.error && (
                                 <p className="text-sm text-orange-600 mt-1">Nenhuma etapa encontrada para este funil.</p>
                            )}
                       </div>
@@ -422,6 +1085,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       </Card>
     </div>
   );
-}; 
+};
 
 export default MensagensConfigPage;
