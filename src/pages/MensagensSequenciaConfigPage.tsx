@@ -86,12 +86,13 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       }
 
       if (isEditing && sequenceIdToEdit !== null) { 
-        const { data: seqData, error: seqError } = await supabase
-            .from('north_clinic_mensagens_sequencias')
-            .select('id, nome_sequencia, contexto, ativo')
-            .eq('id', sequenceIdToEdit)
-            .eq('id_clinica', clinicId) 
-            .single();
+        try {
+          const { data: seqData, error: seqError } = await supabase
+              .from('north_clinic_mensagens_sequencias')
+              .select('id, nome_sequencia, contexto, ativo')
+              .eq('id', sequenceIdToEdit)
+              .eq('id_clinica', clinicId) 
+              .single();
 
           if (seqError) throw seqError;
           if (!seqData) throw new Error("Sequência não encontrada ou acesso negado.");
@@ -130,6 +131,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         setLoading(false);
       }
     }
+    setLoading(true); 
+    setError(null);   
     loadSequenceForEditing();
   }, [clinicId, isEditing, sequenceIdToEdit, toast]);
 
