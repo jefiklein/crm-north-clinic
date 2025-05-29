@@ -219,7 +219,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             <div className="funnel-config-container flex flex-col h-full p-6 bg-gray-100">
                 <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                     <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                        Configuração de Mensagens - {funnelName}
+                        Configuração do Funil - {funnelName}
                     </h1>
                     <Button onClick={() => navigate(`/dashboard/${menuIdParam}`)} variant="outline" className="flex-shrink-0">
                         Voltar para o Funil
