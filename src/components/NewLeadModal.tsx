@@ -19,10 +19,10 @@ import { supabase } from '@/integrations/supabase/client'; // For fetching first
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 interface FunnelStage {
-    id: number;
-    nome_etapa: string;
-    ordem: number | null;
-    id_funil: number;
+  id: number;
+  nome_etapa: string;
+  ordem: number | null;
+  id_funil: number;
 }
 
 interface NewLeadModalProps {
@@ -32,6 +32,8 @@ interface NewLeadModalProps {
   funnelIdForQuery: number | undefined; // The actual funnel ID for DB queries
   onLeadAdded: () => void; // Callback to refresh leads list
 }
+
+const NEW_LEAD_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/d5c35a3e-7919-4ef9-b284-cdf70a7650fb'; // Webhook URL
 
 const NewLeadModal: React.FC<NewLeadModalProps> = ({
   isOpen,
@@ -130,25 +132,38 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({
         remoteJid: `${rawPhone}@s.whatsapp.net` // Basic construction, might need refinement
       };
 
-      console.log("[NewLeadModal] Saving new lead:", leadData);
+      console.log("[NewLeadModal] Sending new lead data to webhook:", leadData);
 
-      const { error: insertError } = await supabase
-        .from('north_clinic_leads_API')
-        .insert([leadData]);
+      // Call webhook instead of direct Supabase insert
+      const response = await fetch(NEW_LEAD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(leadData),
+      });
 
-      if (insertError) {
-        console.error("[NewLeadModal] Error inserting lead:", insertError);
-        setError(`Erro ao salvar lead: ${insertError.message}`);
-        showError(`Erro ao salvar lead: ${insertError.message.substring(0,100)}`);
-        throw insertError;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[NewLeadModal] Webhook error response:", errorText);
+        setError(`Erro ao salvar lead via webhook: ${response.status} ${errorText.substring(0, 100)}`);
+        showError(`Erro no webhook: ${response.status} ${errorText.substring(0,100)}`);
+        throw new Error(`Webhook failed with status ${response.status}`);
       }
+
+      const responseData = await response.json();
+      console.log("[NewLeadModal] Webhook success response:", responseData);
 
       showSuccess("Lead adicionado com sucesso!");
       onLeadAdded(); // Trigger refresh
       handleClose();
     } catch (e: any) {
-      // Error already set or toast shown by Supabase error
       console.error("[NewLeadModal] Save failed:", e);
+      // Error state and toast are handled within the try block if response is not ok
+      if (!error) { // If error wasn't set by a non-ok response
+        setError(e.message || "Ocorreu um erro desconhecido ao salvar.");
+        showError(e.message || "Erro desconhecido.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -210,12 +225,12 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({
               <p className="text-sm">{error}</p>
             </div>
           )}
-           {funnelIdForQuery !== undefined && firstStageId === null && !error && (
-             <div className="col-span-4 p-2 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-md flex items-center gap-2">
-               <Loader2 className="h-4 w-4 animate-spin" />
-               <p className="text-sm">Carregando configuração da etapa inicial...</p>
-             </div>
-           )}
+          {funnelIdForQuery !== undefined && firstStageId === null && !error && (
+            <div className="col-span-4 p-2 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-md flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <p className="text-sm">Carregando configuração da etapa inicial...</p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <DialogClose asChild>
