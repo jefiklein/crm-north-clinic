@@ -20,6 +20,7 @@ import CashbackMessagesPage from "./pages/CashbackMessagesPage"; // Import the n
 import LeadsMessagesPage from "./pages/LeadsMessagesPage"; // Import the new LeadsMessagesPage
 import MensagensSequenciaConfigPage from "./pages/MensagensSequenciaConfigPage"; // Import the NEW sequence config page
 import CashbackBalancePage from "./pages/CashbackBalancePage"; // Import the NEW CashbackBalancePage
+import FunnelConfigPage from "./pages/FunnelConfigPage"; // Import the NEW FunnelConfigPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -124,6 +125,9 @@ const App = () => {
               {/* NEW Route for the Message Sequence Config page */}
               {/* This route will be used for configuring sequences for Leads */}
               <Route path="config-sequencia" element={<MensagensSequenciaConfigPage clinicData={clinicData} />} />
+
+              {/* NEW Route for Funnel Configuration page */}
+              <Route path="funnel-config/:funnelId" element={<FunnelConfigPage clinicData={clinicData} />} />
 
 
               {/* Route for the Conversas page - Using menu item ID 2 */}

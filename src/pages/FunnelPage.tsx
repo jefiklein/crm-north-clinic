@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass } from "lucide-react"; // Added MessageSquarePlus, Clock, Hourglass
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings } from "lucide-react"; // Added Settings icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
-import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
+import UnderConstructionPage from './UnderConstructionPage'; // Import the new UnderConstructionPage
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip
 import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
@@ -523,15 +523,14 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         }
     };
 
-    // Handle navigation to message config page
-    const handleConfigureMessage = (stageId: number, messageId?: number) => {
+    // Handle navigation to message config page (NOW POINTS TO FunnelConfigPage)
+    const handleConfigureMessages = () => {
         if (!clinicCode || funnelIdForQuery === undefined) {
-            console.error("Clinic code or funnel ID not available for navigation.");
+            showError("Código da clínica ou ID do funil não disponível para navegação.");
             return;
         }
-        // Navigate to the config page, passing context, funnelId, stageId, and messageId (if editing)
-        const url = `/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicCode)}&context=leads&funnelId=${funnelIdForQuery}&stageId=${stageId}${messageId ? `&id=${messageId}` : ''}`;
-        navigate(url);
+        // Navigate to the new FunnelConfigPage
+        navigate(`/dashboard/funnel-config/${menuIdParam}`);
     };
 
     // Helper to format timing display
@@ -605,6 +604,10 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                             </TabsList>
                         </Tabs>
                     </div>
+                    {/* NEW: Configurar button */}
+                    <Button onClick={handleConfigureMessages} className="flex-shrink-0">
+                        <Settings className="h-4 w-4 mr-2" /> Configurar
+                    </Button>
                     <Button onClick={() => alert('Funcionalidade "Novo Lead" ainda não implementada.')} className="flex-shrink-0">
                         <User className="h-4 w-4 mr-2" /> Novo Lead
                     </Button>
@@ -669,7 +672,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     className={cn("h-6 w-6 p-0", hasMessage ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-600')}
-                                                                    onClick={() => handleConfigureMessage(stage.id, stageMessage?.id)}
+                                                                    onClick={() => handleConfigureMessages()} // Now navigates to the config page
                                                                     aria-label={hasMessage ? 'Editar Mensagem Automática' : 'Configurar Mensagem Automática'}
                                                                 >
                                                                     <MessageSquarePlus className="h-4 w-4" />
