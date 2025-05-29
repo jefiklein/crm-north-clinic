@@ -665,23 +665,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                 <CardHeader className="py-3 px-4 border-b-2 border-gray-300 bg-gray-300 rounded-t-md flex flex-row items-center justify-between">
                                                     <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
                                                         {stage.nome_etapa || 'S/Nome'}
-                                                        {/* Message Indicator and Config Button */}
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className={cn("h-6 w-6 p-0", hasMessage ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-600')}
-                                                                    onClick={() => handleConfigureMessages()} // Now navigates to the config page
-                                                                    aria-label={hasMessage ? 'Editar Mensagem Automática' : 'Configurar Mensagem Automática'}
-                                                                >
-                                                                    <MessageSquarePlus className="h-4 w-4" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{hasMessage ? 'Editar Mensagem Automática' : 'Configurar Mensagem Automática'}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                        {/* Removed Message Indicator and Config Button */}
                                                     </CardTitle>
                                                     <div className="flex items-center gap-2">
                                                         {/* Display Timing Info */}
