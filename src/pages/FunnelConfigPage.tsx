@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select for target stage
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -83,11 +84,13 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const clinicId = clinicData?.id;
     const clinicCode = clinicData?.code;
 
-    // State for the message selection modal
-    const [isSelectMessageModalOpen, setIsSelectMessageModalOpen] = useState(false);
+    // State for the action configuration modal
+    const [isActionConfigModalOpen, setIsActionConfigModalOpen] = useState(false);
     const [stageToConfigureId, setStageToConfigureId] = useState<number | null>(null);
+    const [selectedActionType, setSelectedActionType] = useState<'message' | 'change_stage'>('message'); // New state for action type
     const [selectedMessageToLink, setSelectedMessageToLink] = useState<number | null>(null);
     const [messageSearchTerm, setMessageSearchTerm] = useState('');
+    const [targetStageForChange, setTargetStageForChange] = useState<number | null>(null); // New state for target stage
 
 
     // Check if the menuIdParam corresponds to a valid funnel ID
@@ -112,6 +115,23 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
+
+    // Fetch ALL Stages (for 'Mudar Etapa' target selection)
+    const { data: allStages, isLoading: isLoadingAllStages, error: allStagesError } = useQuery<FunnelStage[]>({
+        queryKey: ['allStagesForFunnelConfig'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('north_clinic_crm_etapa')
+                .select('id, nome_etapa, ordem, id_funil')
+                .order('nome_etapa', { ascending: true }); // Order by name for selection
+            if (error) throw new Error(`Erro ao buscar todas as etapas: ${error.message}`);
+            return data || [];
+        },
+        enabled: isActionConfigModalOpen && selectedActionType === 'change_stage', // Only fetch when needed
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
 
     // Fetch Funnel Details directly from Supabase
     const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails | null>({
@@ -193,7 +213,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             if (error) throw new Error(`Erro ao buscar mensagens: ${error.message}`);
             return data || [];
         },
-        enabled: isSelectMessageModalOpen && !!clinicId, // Only fetch when modal is open
+        enabled: isActionConfigModalOpen && selectedActionType === 'message' && !!clinicId, // Only fetch when modal is open and message type selected
         staleTime: 60 * 1000,
         refetchOnWindowFocus: false,
     });
@@ -241,7 +261,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         },
         onSuccess: () => {
             showSuccess('Mensagem vinculada à etapa com sucesso!');
-            setIsSelectMessageModalOpen(false); // Close modal
+            setIsActionConfigModalOpen(false); // Close modal
             setSelectedMessageToLink(null); // Clear selection
             queryClient.invalidateQueries({ queryKey: ['stageMessagesConfig', clinicId, funnelIdForQuery] }); // Refetch stage messages
         },
@@ -251,12 +271,14 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     });
 
 
-    // Handle opening the message configuration modal
-    const handleConfigureMessage = (stageId: number) => {
+    // Handle opening the action configuration modal
+    const handleConfigureAction = (stageId: number) => {
         setStageToConfigureId(stageId);
-        setIsSelectMessageModalOpen(true);
-        setSelectedMessageToLink(null); // Clear previous selection
+        setIsActionConfigModalOpen(true);
+        setSelectedActionType('message'); // Default to 'message' when opening
+        setSelectedMessageToLink(null); // Clear previous message selection
         setMessageSearchTerm(''); // Clear search term
+        setTargetStageForChange(null); // Clear previous target stage selection
     };
 
     // Handle navigation to message sequence config page (for creating/editing)
@@ -267,7 +289,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         }
         const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&funnelId=${funnelIdForQuery}&stageId=${stageToConfigureId}${messageId ? `&id=${messageId}` : ''}`;
         navigate(url);
-        setIsSelectMessageModalOpen(false); // Close the selection modal
+        setIsActionConfigModalOpen(false); // Close the selection modal
     };
 
     const handleDeleteMessage = (messageId: number) => {
@@ -403,7 +425,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleConfigureMessage(stage.id)}
+                                                        onClick={() => handleConfigureAction(stage.id)}
                                                         className="flex items-center gap-1"
                                                     >
                                                         <MessageSquarePlus className="h-4 w-4" /> Configurar Ação
@@ -419,96 +441,185 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 </div>
             </div>
 
-            {/* Message Selection Dialog */}
-            <Dialog open={isSelectMessageModalOpen} onOpenChange={setIsSelectMessageModalOpen}>
+            {/* Action Configuration Dialog */}
+            <Dialog open={isActionConfigModalOpen} onOpenChange={setIsActionConfigModalOpen}>
                 <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]">
                     <DialogHeader>
-                        <DialogTitle>Selecionar Mensagem para Etapa</DialogTitle>
+                        <DialogTitle>Configurar Ação para Etapa</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 py-4 flex-grow overflow-hidden">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                            <Input
-                                type="text"
-                                placeholder="Buscar mensagens existentes..."
-                                value={messageSearchTerm}
-                                onChange={(e) => setMessageSearchTerm(e.target.value)}
-                                className="pl-9"
-                            />
+                        {/* Action Type Selection */}
+                        <div>
+                            <Label className="block mb-2 font-medium text-gray-700">Tipo de Ação:</Label>
+                            <RadioGroup
+                                value={selectedActionType}
+                                onValueChange={(value: 'message' | 'change_stage') => setSelectedActionType(value)}
+                                className="flex space-x-4"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="message" id="action-message" />
+                                    <Label htmlFor="action-message">Mensagem</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="change_stage" id="action-change-stage" />
+                                    <Label htmlFor="action-change-stage">Mudar Etapa</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
 
-                        {isLoadingSelectableMessages ? (
-                            <div className="flex items-center justify-center gap-2 text-primary py-8">
-                                <Loader2 className="animate-spin" />
-                                Carregando mensagens...
-                            </div>
-                        ) : selectableMessagesError ? (
-                            <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
-                                <TriangleAlert className="h-5 w-5" />
-                                Erro ao carregar mensagens: {selectableMessagesError.message}
-                            </div>
-                        ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
-                            <div className="text-gray-600 text-center py-8">
-                                Nenhuma mensagem de leads encontrada.
-                            </div>
-                        ) : (
-                            <RadioGroup
-                                value={selectedMessageToLink?.toString() || ''}
-                                onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
-                                className="flex flex-col gap-2 overflow-y-auto pr-2" // Added overflow-y-auto
-                            >
-                                {selectableLeadsMessages?.map(msg => (
-                                    <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
-                                        <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
-                                        <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
-                                            <span className="font-medium text-gray-900 line-clamp-1">{msg.modelo_mensagem || 'Mensagem sem texto'}</span>
-                                            <span className="text-xs text-gray-600 line-clamp-2">
-                                                {msg.id_funil && msg.id_etapa ? `Vinculada a Funil ${msg.id_funil} / Etapa ${msg.id_etapa}` : 'Não vinculada a funil/etapa'}
-                                            </span>
-                                        </Label>
+                        {/* Conditional Content based on selectedActionType */}
+                        {selectedActionType === 'message' && (
+                            <>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Buscar mensagens existentes..."
+                                        value={messageSearchTerm}
+                                        onChange={(e) => setMessageSearchTerm(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+
+                                {isLoadingSelectableMessages ? (
+                                    <div className="flex items-center justify-center gap-2 text-primary py-8">
+                                        <Loader2 className="animate-spin" />
+                                        Carregando mensagens...
                                     </div>
-                                ))}
-                            </RadioGroup>
+                                ) : selectableMessagesError ? (
+                                    <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
+                                        <TriangleAlert className="h-5 w-5" />
+                                        Erro ao carregar mensagens: {selectableMessagesError.message}
+                                    </div>
+                                ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
+                                    <div className="text-gray-600 text-center py-8">
+                                        Nenhuma mensagem de leads encontrada.
+                                    </div>
+                                ) : (
+                                    <RadioGroup
+                                        value={selectedMessageToLink?.toString() || ''}
+                                        onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
+                                        className="flex flex-col gap-2 overflow-y-auto pr-2"
+                                    >
+                                        {selectableLeadsMessages?.map(msg => (
+                                            <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
+                                                <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
+                                                <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
+                                                    <span className="font-medium text-gray-900 line-clamp-1">{msg.modelo_mensagem || 'Mensagem sem texto'}</span>
+                                                    <span className="text-xs text-gray-600 line-clamp-2">
+                                                        {msg.id_funil && msg.id_etapa ? `Vinculada a Funil ${msg.id_funil} / Etapa ${msg.id_etapa}` : 'Não vinculada a funil/etapa'}
+                                                    </span>
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </RadioGroup>
+                                )}
+                            </>
+                        )}
+
+                        {selectedActionType === 'change_stage' && (
+                            <div className="flex flex-col gap-4">
+                                <p className="text-sm text-gray-600">Quando um lead entrar nesta etapa, ele será automaticamente movido para a etapa selecionada abaixo.</p>
+                                <div>
+                                    <Label htmlFor="targetStageSelect" className="block mb-1 font-medium text-gray-700">
+                                        Mover para a Etapa: *
+                                    </Label>
+                                    {isLoadingAllStages ? (
+                                        <div className="flex items-center justify-center gap-2 text-primary py-4">
+                                            <Loader2 className="animate-spin" />
+                                            Carregando etapas...
+                                        </div>
+                                    ) : allStagesError ? (
+                                        <div className="text-red-600 font-semibold flex items-center gap-2 py-4">
+                                            <TriangleAlert className="h-5 w-5" />
+                                            Erro ao carregar etapas: {allStagesError.message}
+                                        </div>
+                                    ) : (allStages?.length ?? 0) === 0 ? (
+                                        <p className="text-gray-600 text-center py-4">Nenhuma etapa disponível.</p>
+                                    ) : (
+                                        <Select
+                                            value={targetStageForChange?.toString() || ''}
+                                            onValueChange={(value) => setTargetStageForChange(value ? parseInt(value, 10) : null)}
+                                            id="targetStageSelect"
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione a etapa de destino" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {allStages?.map(stage => (
+                                                    <SelectItem key={stage.id} value={stage.id.toString()}>
+                                                        {stage.nome_etapa} (Funil: {stage.id_funil})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </div>
+                                <div className="text-sm text-orange-600">
+                                    <TriangleAlert className="h-4 w-4 inline-block mr-1" />
+                                    Esta funcionalidade está em desenvolvimento. A ação de "Mudar Etapa" não será salva ou executada ainda.
+                                </div>
+                            </div>
                         )}
                     </div>
                     <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => handleNavigateToMessageConfig()} // Navigate to create new
-                            disabled={linkMessageToStageMutation.isLoading}
-                        >
-                            <MessageSquarePlus className="h-4 w-4 mr-2" /> Criar Nova Mensagem
-                        </Button>
+                        {selectedActionType === 'message' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => handleNavigateToMessageConfig()}
+                                disabled={linkMessageToStageMutation.isLoading}
+                            >
+                                <MessageSquarePlus className="h-4 w-4 mr-2" /> Criar Nova Mensagem
+                            </Button>
+                        )}
                         <div className="flex gap-2">
                             <DialogClose asChild>
                                 <Button type="button" variant="secondary" disabled={linkMessageToStageMutation.isLoading}>
                                     Cancelar
                                 </Button>
                             </DialogClose>
-                            <Button
-                                onClick={() => {
-                                    if (selectedMessageToLink !== null && stageToConfigureId !== null && clinicId !== null && funnelIdForQuery !== undefined) {
-                                        linkMessageToStageMutation.mutate({
-                                            messageId: selectedMessageToLink,
-                                            funnelId: funnelIdForQuery,
-                                            stageId: stageToConfigureId,
-                                            clinicId: clinicId
-                                        });
-                                    } else {
-                                        showError('Selecione uma mensagem para vincular.');
-                                    }
-                                }}
-                                disabled={selectedMessageToLink === null || linkMessageToStageMutation.isLoading}
-                            >
-                                {linkMessageToStageMutation.isLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Vinculando...
-                                    </>
-                                ) : (
-                                    'Vincular Mensagem Selecionada'
-                                )}
-                            </Button>
+                            {selectedActionType === 'message' && (
+                                <Button
+                                    onClick={() => {
+                                        if (selectedMessageToLink !== null && stageToConfigureId !== null && clinicId !== null && funnelIdForQuery !== undefined) {
+                                            linkMessageToStageMutation.mutate({
+                                                messageId: selectedMessageToLink,
+                                                funnelId: funnelIdForQuery,
+                                                stageId: stageToConfigureId,
+                                                clinicId: clinicId
+                                            });
+                                        } else {
+                                            showError('Selecione uma mensagem para vincular.');
+                                        }
+                                    }}
+                                    disabled={selectedMessageToLink === null || linkMessageToStageMutation.isLoading}
+                                >
+                                    {linkMessageToStageMutation.isLoading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Vinculando...
+                                        </>
+                                    ) : (
+                                        'Vincular Mensagem Selecionada'
+                                    )}
+                                </Button>
+                            )}
+                            {selectedActionType === 'change_stage' && (
+                                <Button
+                                    onClick={() => {
+                                        if (targetStageForChange === null) {
+                                            showError('Selecione uma etapa de destino.');
+                                            return;
+                                        }
+                                        showError('Funcionalidade "Mudar Etapa" em desenvolvimento. Ação não salva.');
+                                        // TODO: Implement actual save logic for "change_stage" action
+                                        setIsActionConfigModalOpen(false); // Close modal even if not saved
+                                    }}
+                                    disabled={targetStageForChange === null}
+                                >
+                                    Salvar Ação
+                                </Button>
+                            )}
                         </div>
                     </DialogFooter>
                 </DialogContent>
