@@ -203,7 +203,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         refetchOnWindowFocus: false,
     });
 
-    // Mutation for toggling sequence status (remains the same)
+    // Mutation for toggling sequence status
     const toggleSequenceStatusMutation = useMutation({
         mutationFn: async ({ id, ativo }: { id: number; ativo: boolean }) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
@@ -226,7 +226,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         },
     });
 
-    // Mutation for deleting a sequence VIA N8N WEBHOOK (remains the same)
+    // Mutation for deleting a sequence VIA N8N WEBHOOK
     const deleteSequenceMutation = useMutation({
         mutationFn: async (sequenceId: number) => {
             if (!clinicId) throw new Error("ID da clínica não disponível."); 

@@ -309,7 +309,12 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       });
 
       // Invalidate queries to refetch list on the previous page
-      queryClient.invalidateQueries({ queryKey: ['leadSequencesList', currentClinicId] }); 
+      if (currentClinicId) { 
+        queryClient.invalidateQueries({ queryKey: ['leadSequencesListRaw', currentClinicId] }); 
+      } else {
+        console.warn("[MensagensSequenciaConfigPage] Clinic ID not available for query invalidation.");
+      }
+      
       // If editing, also invalidate specific sequence data if you have a query for it
       if (isEditing && sequenceIdToEdit) {
         queryClient.invalidateQueries({ queryKey: ['sequenceData', sequenceIdToEdit] }); 
