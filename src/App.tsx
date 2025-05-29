@@ -11,7 +11,7 @@ import FilaMensagensPage from "./pages/FilaMensagensPage"; // Added import back
 import UnderConstructionPage from "./pages/UnderConstructionPage"; // Import the new UnderConstructionPage
 import FunnelPage from "./pages/FunnelPage"; // Import the new FunnelPage component
 import AllLeadsPage from "./pages/AllLeadsPage"; // Import the new AllLeadsPage
-import CashbackPage from "./pages/CashbackPage"; // Import the new CashbackPage
+import CashbackSalesPage from "./pages/CashbackSalesPage"; // Renamed import
 import ConversasPage from "./pages/ConversasPage"; // Import the correct ConversasPage
 import WhatsappInstancesPage from "./pages/WhatsappInstancesPage"; // Import the new WhatsappInstancesPage
 import MensagensListPage from "./pages/MensagensListPage"; // Import the new MensagensListPage
@@ -109,14 +109,17 @@ const App = () => {
               {/* Route for the All Leads page - Using menu item ID 3 */}
               <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
 
-              {/* Route for the main Cashback page - Using menu item ID 14 */}
-              <Route path="14" element={<CashbackPage clinicData={clinicData} />} />
+              {/* Route for the main Cashback page (now balance) - Using menu item ID 14 */}
+              <Route path="14" element={<CashbackBalancePage clinicData={clinicData} />} /> {/* Changed to CashbackBalancePage */}
+
+              {/* Nested route for Cashback Sales page under the Cashback menu item (14) */}
+              <Route path="14/sales" element={<CashbackSalesPage clinicData={clinicData} />} /> {/* New route for sales */}
 
               {/* Nested route for Cashback Messages page under the Cashback menu item (14) */}
               <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
 
-              {/* NEW Route for Cashback Balance page */}
-              <Route path="cashback/balance" element={<CashbackBalancePage clinicData={clinicData} />} />
+              {/* NEW Route for Cashback Balance page (removed as it's now the main 14 route) */}
+              {/* <Route path="cashback/balance" element={<CashbackBalancePage clinicData={clinicData} />} /> */}
 
 
               {/* Route for the Leads Messages page - Using menu item ID 9 */}

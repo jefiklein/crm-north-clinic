@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client'; // Import Supabase cl
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -63,6 +64,7 @@ const formatDate = (dateString: string | null): string => {
 
 
 const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData }) => {
+    const navigate = useNavigate(); // Initialize navigate
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('total_cashback_desc'); // Default sort
     const [currentPage, setCurrentPage] = useState(1);
@@ -197,6 +199,14 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
         // TODO: Implement navigation or modal to show detailed cashback history for this client
     };
 
+    const handleViewSalesClick = () => { // New function to navigate to sales page
+        if (!clinicData?.code) {
+            showError("Erro: Código da clínica não disponível.");
+            return;
+        }
+        navigate(`/dashboard/14/sales?clinic_code=${encodeURIComponent(clinicData.code)}`);
+    };
+
 
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
@@ -204,7 +214,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
 
     return (
         <div className="cashback-balance-container flex flex-col h-full p-6 bg-gray-100">
-            <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
+            <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
                     Saldo de Cashback por Cliente
                 </h1>
@@ -236,10 +246,9 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                         </SelectContent>
                     </Select>
                 </div>
-                {/* Optional: Add a button for actions like "Exportar Lista" */}
-                {/* <Button variant="outline" className="flex-shrink-0">
-                    <Download className="h-4 w-4 mr-2" /> Exportar Lista
-                </Button> */}
+                <Button variant="outline" onClick={handleViewSalesClick} className="flex-shrink-0"> {/* New button */}
+                    <DollarSign className="h-4 w-4 mr-2" /> Ver Vendas
+                </Button>
             </div>
 
             <Card className="balance-list-container">
