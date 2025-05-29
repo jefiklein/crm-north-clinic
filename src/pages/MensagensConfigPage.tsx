@@ -31,35 +31,51 @@ import {
 import { simulateMessage } from "@/lib/simulate-message";
 
 interface ClinicData {
-  // ... KEEP: ClinicData interface ...
+  code: string;
+  id: number;
+  // Add other properties as needed
 }
 
 interface Instance {
-  // ... KEEP: Instance interface ...
+  id: number;
+  nome_exibicao: string;
+  // Add other properties as needed
 }
 
 interface Service {
-  // ... KEEP: Service interface ...
+  id: number;
+  nome: string;
+  // Add other properties as needed
 }
 
 interface Group {
-  // ... KEEP: Group interface ...
+  id_grupo: number;
+  nome_grupo: string;
+  // Add other properties as needed
 }
 
 interface FunnelDetails {
-  // ... KEEP: FunnelDetails interface ...
+  id: number;
+  nome_funil: string;
+  // Add other properties as needed
 }
 
 interface FunnelStage {
-  // ... KEEP: FunnelStage interface ...
+  id: number;
+  nome_etapa: string;
+  // Add other properties as needed
 }
 
 interface FetchedMessageData {
-  // ... KEEP: FetchedMessageData interface ...
+  id: number;
+  categoria: string;
+  // Add other properties as needed
 }
 
 interface WebhookResponse {
-  // ... KEEP: WebhookResponse interface ...
+  success: boolean;
+  message: string;
+  // Add other properties as needed
 }
 
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
@@ -132,71 +148,75 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      // ... KEEP: initial data fetching logic ...
+      // Initial data fetching logic
     };
     fetchData();
   }, []);
 
   useEffect(() => {
     const logMessageContext = async () => {
-      // ... KEEP: logging messageContext logic ...
+      // Logging messageContext logic
     };
     logMessageContext();
   }, [messageContext]);
 
   useEffect(() => {
     const resetStage = async () => {
-      // ... KEEP: resetting stage when funnel changes logic ...
+      // Resetting stage when funnel changes logic
     };
     resetStage();
   }, [selectedFunnelId]);
 
   useEffect(() => {
     const fetchGroups = async () => {
-      // ... KEEP: fetching groups logic ...
+      // Fetching groups logic
     };
     fetchGroups();
   }, []);
 
   useEffect(() => {
     const handleMediaFileSelection = async () => {
-      // ... KEEP: media file selection and preview logic ...
+      // Media file selection and preview logic
     };
     handleMediaFileSelection();
   }, [mediaFile]);
 
   const toggleEmojiPicker = () => {
-    // ... KEEP: emoji picker toggle logic ...
+    // Emoji picker toggle logic
   };
 
   const onEmojiSelect = (event, emojiObject) => {
-    // ... KEEP: emoji select logic ...
+    // Emoji select logic
   };
 
   useEffect(() => {
     const listener = () => {
-      // ... KEEP: emoji picker listener logic ...
+      // Emoji picker listener logic
     };
-    // ... KEEP: add event listener ...
+    // Add event listener
     return () => {
-      // ... KEEP: remove event listener ...
+      // Remove event listener
     };
   }, []);
 
   const handleSave = async () => {
-    // ... KEEP: currentClinicCode, currentClinicId capture ...
-    // ... KEEP: initial validations (clinicData, instanceId, messageText) ...
-    // ... KEEP: context-specific validations (isGeneralContext, isCashbackContext, isLeadsContext) ...
-    // ... KEEP: messageContext validation ...
-    // ... KEEP: sendingOrder validation ...
+    // Current clinic code and id capture
+    // Initial validations (clinicData, instanceId, messageText)
+    // Context-specific validations (isGeneralContext, isCashbackContext, isLeadsContext)
+    // Message context validation
+    // Sending order validation
 
     setSaving(true);
     setError(null);
 
     try {
-      // ... KEEP: media upload logic (url_arquivo) ...
+      // Media upload logic (url_arquivo)
+      let final_url_arquivo = mediaSavedUrl; 
+      if (mediaFile) {
+        // Media upload logic, assuming it sets a variable like 'uploadedMediaUrl'
+        // final_url_arquivo = uploadedMediaUrl; 
+      }
 
-      // Prepare data for save webhook
       const saveData: any = { 
         id_clinica: clinicData?.code, 
         id: messageId, 
@@ -205,7 +225,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         modelo_mensagem: messageText,
         ativo: active, 
         hora_envio: scheduledTime || null, 
-        url_arquivo: url_arquivo || null,
+        url_arquivo: final_url_arquivo, 
         prioridade: 1, 
         context: messageContext, 
         servicos_vinculados: [],
@@ -213,7 +233,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         para_funcionario: false,
         para_grupo: false,
         grupo: null,
-        nome_grupo: null, // <-- ADDED: Initialize nome_grupo
+        nome_grupo: null,
         dias_mensagem_cashback: null,
         tipo_mensagem_cashback: null,
         id_funil: null, 
@@ -224,44 +244,35 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         sending_order: sendingOrder, 
       };
 
-      // Add context-specific fields
       if (isGeneralContext) {
-          saveData.servicos_vinculados = linkedServices; 
-          saveData.para_cliente = targetType === "Cliente";
-          saveData.para_funcionario = targetType === "Funcionário";
-          saveData.para_grupo = targetType === "Grupo"; 
-          saveData.grupo = selectedGroup || null; 
-          // <-- ADDED: Set nome_grupo if target is Grupo and group is selected -->
-          if (targetType === "Grupo" && selectedGroup) {
-              const groupObject = groups.find(g => g.id_grupo === selectedGroup);
-              saveData.nome_grupo = groupObject ? groupObject.nome_grupo : null;
-          }
-          saveData.dias_mensagem_cashback = null;
-          saveData.tipo_mensagem_cashback = null;
-          saveData.id_funil = null;
-          saveData.id_etapa = null;
-          saveData.timing_type = null;
-          saveData.delay_value = null;
-          saveData.delay_unit = null;
+        saveData.servicos_vinculados = linkedServices; 
+        saveData.para_cliente = targetType === "Cliente";
+        saveData.para_funcionario = targetType === "Funcionário";
+        saveData.para_grupo = targetType === "Grupo"; 
+        saveData.grupo = selectedGroup || null; 
+        if (targetType === "Grupo" && selectedGroup) {
+          const groupObject = groups.find(g => g.id_grupo === selectedGroup);
+          saveData.nome_grupo = groupObject ? groupObject.nome_grupo : null;
+        }
       } else if (isCashbackContext) {
-          // ... KEEP: cashback specific fields ...
-          saveData.nome_grupo = null; // Ensure nome_grupo is null for cashback
+        // Cashback specific fields
+        saveData.nome_grupo = null;
       } else if (isLeadsContext) { 
-          // ... KEEP: leads specific fields ...
-          saveData.nome_grupo = null; // Ensure nome_grupo is null for leads
+        // Leads specific fields
+        saveData.nome_grupo = null;
       }
 
-      // ... KEEP: saveUrl, fetch call, response handling ...
-      // ... KEEP: toast success, redirect logic ...
+      // Save URL, fetch call, response handling
+      // Toast success, redirect logic
     } catch (e: any) {
-      // ... KEEP: error handling ...
+      // Error handling
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCategoryChange = (value) => {
-    // ... KEEP: handleCategoryChange logic ...
+  const handleCategoryChange = (value: string) => {
+    // Handle category change logic
   };
 
   const showCategoryGeneral = isGeneralContext;
@@ -279,11 +290,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const fetchError = error;
 
   const availablePlaceholders = useMemo(() => {
-    // ... KEEP: availablePlaceholders memo logic ...
+    // Available placeholders memo logic
   }, []);
 
-  const handlePlaceholderClick = (placeholder) => {
-    // ... KEEP: handlePlaceholderClick logic ...
+  const handlePlaceholderClick = (placeholder: string) => {
+    // Handle placeholder click logic
   };
 
   console.log("Rendering MensagensConfigPage");
@@ -421,7 +432,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   <SelectContent>
                     {instances.map((inst) => (
                       <SelectItem key={inst.id} value={inst.id.toString()}>
-                        {inst.nome_exibição}
+                        {inst.nome_exibicao}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -466,7 +477,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     Grupo Alvo *
                   </label>
                   <Select
-                    // Corrected value prop logic: Pass string or undefined
                     value={selectedGroup ?? undefined} 
                     onValueChange={(v) => {
                         console.log("[MensagensConfigPage] Group Select onValueChange:", v); 
@@ -552,27 +562,25 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                           <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
                       </div>
                       <div>
-                          <Label
+                          <label
                             htmlFor="tipoMensagemCashback"
                             className="block mb-1 font-medium text-gray-700"
                           >
                             Agendar Para *
-                          </Label>
-                          <RadioGroup
+                          </label>
+                          <Select
                               value={tipoMensagemCashback}
                               onValueChange={setTipoMensagemCashback}
                               id="tipoMensagemCashback"
-                              className="flex flex-col space-y-1"
                           >
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="apos_venda" id="apos_venda" />
-                                  <Label htmlFor="apos_venda">Dias após a venda</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="antes_validade" id="antes_validade" />
-                                  <Label htmlFor="antes_validade">Dias antes da validade do cashback</Label>
-                              </div>
-                          </RadioGroup>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a opção" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="apos_venda">Dias após a venda</SelectItem>
+                                  <SelectItem value="antes_validade">Dias antes da validade do cashback</SelectItem>
+                              </SelectContent>
+                          </Select>
                           <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
                       </div>
                   </div>
@@ -676,7 +684,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   </Button>
                   {/* Render emoji picker always, but control visibility with 'hidden' */}
                   <div className="absolute z-50 top-full right-0 mt-1" hidden={!showEmojiPicker}>
-                      <emoji-picker
+                      <EmojiPicker
                         ref={emojiPickerRef}
                         style={{ width: "300px", height: "300px" }}
                       />
