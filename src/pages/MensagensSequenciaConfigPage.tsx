@@ -34,7 +34,7 @@ interface ClinicData {
   id_permissao: number;
 }
 
-interface MessageSequenceStep {
+interface MessageStep { // Renamed from MessageSequenceStep
   id: string; 
   db_id?: number; 
   type: 'texto' | 'imagem' | 'video' | 'audio' | 'documento' | 'atraso'; 
@@ -46,15 +46,15 @@ interface MessageSequenceStep {
   delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias'; 
 }
 
-interface SequenceData {
+interface MessageData { // Renamed from SequenceData
   id?: number; 
   id_clinica: number | string; 
-  nome_sequencia: string;
+  nome_mensagem: string; // Renamed from nome_sequencia
   contexto: 'leads'; 
   ativo: boolean;
 }
 
-const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
+const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // Renamed component
   clinicData,
 }) => {
   const { toast } = useToast();
@@ -66,78 +66,78 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [sequenceName, setSequenceName] = useState<string>(""); 
-  const [sequenceSteps, setSequenceSteps] = useState<MessageSequenceStep[]>([]);
+  const [messageName, setMessageName] = useState<string>(""); // Renamed from sequenceName
+  const [messageSteps, setMessageSteps] = useState<MessageStep[]>([]); // Renamed from sequenceSteps
 
   const urlParams = new URLSearchParams(location.search);
-  const sequenceIdParam = urlParams.get("id");
-  const isEditing = !!sequenceIdParam;
-  const sequenceIdToEdit = sequenceIdParam ? parseInt(sequenceIdParam, 10) : null;
+  const messageIdParam = urlParams.get("id"); // Renamed from sequenceIdParam
+  const isEditing = !!messageIdParam;
+  const messageIdToEdit = messageIdParam ? parseInt(messageIdParam, 10) : null; // Renamed
 
   const clinicId = clinicData?.id;
   const clinicCode = clinicData?.code; 
 
   useEffect(() => {
-    async function loadSequenceForEditing() {
+    async function loadMessageForEditing() { // Renamed function
       if (!clinicId) {
         setError("ID da clínica não disponível.");
         setLoading(false);
         return;
       }
 
-      if (isEditing && sequenceIdToEdit !== null) { 
+      if (isEditing && messageIdToEdit !== null) { 
         try {
-          const { data: seqData, error: seqError } = await supabase
-              .from('north_clinic_mensagens_sequencias')
-              .select('id, nome_sequencia, contexto, ativo')
-              .eq('id', sequenceIdToEdit)
+          const { data: msgData, error: msgError } = await supabase // Renamed variables
+              .from('north_clinic_mensagens_sequencias') // Table name remains for now
+              .select('id, nome_sequencia, contexto, ativo') // Column name nome_sequencia remains for now
+              .eq('id', messageIdToEdit)
               .eq('id_clinica', clinicId) 
               .single();
 
-          if (seqError) throw seqError;
-          if (!seqData) throw new Error("Sequência não encontrada ou acesso negado.");
+          if (msgError) throw msgError;
+          if (!msgData) throw new Error("Mensagem não encontrada ou acesso negado."); // Updated error message
 
-          setSequenceName(seqData.nome_sequencia);
+          setMessageName(msgData.nome_sequencia); // Assuming nome_sequencia is the field for message name
           const { data: stepsData, error: stepsError } = await supabase
-            .from('north_clinic_mensagens_sequencia_passos')
+            .from('north_clinic_mensagens_sequencia_passos') // Table name remains
             .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade')
-            .eq('id_sequencia', seqData.id)
+            .eq('id_sequencia', msgData.id) // Column name id_sequencia remains
             .order('ordem', { ascending: true });
 
           if (stepsError) throw stepsError;
 
-          const loadedSteps: MessageSequenceStep[] = (stepsData || []).map(step => ({
+          const loadedSteps: MessageStep[] = (stepsData || []).map(step => ({
             id: step.id.toString(), 
             db_id: step.id,
-            type: step.tipo_passo as MessageSequenceStep['type'],
+            type: step.tipo_passo as MessageStep['type'],
             text: step.conteudo_texto || undefined,
             mediaUrl: step.url_arquivo || undefined,
             originalFileName: step.nome_arquivo_original || undefined,
             delayValue: step.atraso_valor || undefined,
-            delayUnit: step.atraso_unidade as MessageSequenceStep['delayUnit'] || undefined,
+            delayUnit: step.atraso_unidade as MessageStep['delayUnit'] || undefined,
           }));
-          setSequenceSteps(loadedSteps);
+          setMessageSteps(loadedSteps);
 
         } catch (e: any) {
-          console.error("[MensagensSequenciaConfigPage] Error loading sequence for editing:", e);
-          setError(e.message || "Erro ao carregar dados da sequência.");
+          console.error("[MensagensConfigPage] Error loading message for editing:", e); // Updated log
+          setError(e.message || "Erro ao carregar dados da mensagem."); // Updated error message
           toast({ title: "Erro ao Carregar", description: e.message, variant: "destructive" });
         } finally {
           setLoading(false);
         }
       } else {
-        setSequenceName("");
-        setSequenceSteps([{ id: Date.now().toString(), type: 'texto', text: '' }]);
+        setMessageName("");
+        setMessageSteps([{ id: Date.now().toString(), type: 'texto', text: '' }]);
         setLoading(false);
       }
     }
     setLoading(true); 
     setError(null);   
-    loadSequenceForEditing();
-  }, [clinicId, isEditing, sequenceIdToEdit, toast]);
+    loadMessageForEditing();
+  }, [clinicId, isEditing, messageIdToEdit, toast]);
 
-  const handleAddStep = (type: MessageSequenceStep['type'] = 'texto') => {
-      setSequenceSteps(prev => [
+  const handleAddStep = (type: MessageStep['type'] = 'texto') => {
+      setMessageSteps(prev => [
           ...prev,
           { 
             id: Date.now().toString() + Math.random().toString().slice(2, 8), 
@@ -152,11 +152,11 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   };
 
   const handleRemoveStep = (id: string) => {
-      setSequenceSteps(prev => prev.filter(step => step.id !== id));
+      setMessageSteps(prev => prev.filter(step => step.id !== id));
   };
 
-  const handleUpdateStep = (id: string, updates: Partial<MessageSequenceStep>) => {
-      setSequenceSteps(prev => prev.map(step =>
+  const handleUpdateStep = (id: string, updates: Partial<MessageStep>) => {
+      setMessageSteps(prev => prev.map(step =>
           step.id === id ? { ...step, ...updates } : step
       ));
   };
@@ -166,7 +166,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           const previewUrl = URL.createObjectURL(file);
           handleUpdateStep(stepId, { mediaFile: file, mediaUrl: previewUrl });
       } else {
-          const step = sequenceSteps.find(s => s.id === stepId);
+          const step = messageSteps.find(s => s.id === stepId);
           if (step?.mediaUrl && step.mediaUrl.startsWith('blob:')) {
               URL.revokeObjectURL(step.mediaUrl); 
           }
@@ -176,13 +176,13 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
 
   useEffect(() => {
       return () => {
-          sequenceSteps.forEach(step => {
+          messageSteps.forEach(step => {
               if (step.mediaUrl && step.mediaUrl.startsWith('blob:')) {
                   URL.revokeObjectURL(step.mediaUrl);
               }
           });
       };
-  }, [sequenceSteps]);
+  }, [messageSteps]);
 
   const handleSave = async () => {
     const currentClinicCode = clinicData?.code;
@@ -192,18 +192,18 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" });
       return;
     }
-    if (!sequenceName.trim()) {
-        toast({ title: "Erro", description: "O nome da sequência é obrigatório.", variant: "destructive" });
+    if (!messageName.trim()) {
+        toast({ title: "Erro", description: "O nome da mensagem é obrigatório.", variant: "destructive" }); // Updated
         return;
     }
-    if (sequenceSteps.length === 0) {
-        toast({ title: "Erro", description: "Adicione pelo menos um passo à sequência.", variant: "destructive" });
+    if (messageSteps.length === 0) {
+        toast({ title: "Erro", description: "Adicione pelo menos um passo à mensagem.", variant: "destructive" }); // Updated
         return;
     }
 
-     for (const step of sequenceSteps) {
+     for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
-             toast({ title: "Erro", description: "O texto da mensagem não pode ser vazio para passos de texto.", variant: "destructive" });
+             toast({ title: "Erro", description: "O texto não pode ser vazio para passos de texto.", variant: "destructive" }); // Updated
              return;
          }
          if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && !step.mediaFile && !step.mediaUrl) {
@@ -226,8 +226,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
     setError(null);
 
     try {
-      // 1. Upload media files and get their URLs (this part remains, as n8n might expect URLs)
-      const stepsWithPotentiallySavedMedia = await Promise.all(sequenceSteps.map(async (step) => {
+      const stepsWithPotentiallySavedMedia = await Promise.all(messageSteps.map(async (step) => {
           if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento')) {
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
@@ -235,7 +234,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
               formData.append("clinicId", currentClinicCode);
               
               const uploadRes = await fetch(
-                "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase", // Webhook for media upload
+                "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
                 { method: "POST", body: formData }
               );
               if (!uploadRes.ok) {
@@ -248,23 +247,19 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
               
               return { ...step, mediaUrl: savedMediaUrl, originalFileName: step.mediaFile.name, mediaFile: undefined };
           }
-          // If no new file, but mediaUrl exists (from editing), keep it.
-          // If mediaFile is null and mediaUrl is also null, it's fine.
           return { ...step, mediaFile: undefined }; 
       }));
 
-      // 2. Prepare payload for n8n webhook
-      const sequencePayloadForN8N = {
-        event: isEditing && sequenceIdToEdit ? "sequence_updated" : "sequence_created",
-        sequenceId: isEditing && sequenceIdToEdit ? sequenceIdToEdit : undefined, // Send ID if editing
-        clinicCode: currentClinicCode, // n8n might need this for its own logic
+      const messagePayloadForN8N = { // Renamed
+        event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", // Event names kept for n8n compatibility for now
+        sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
+        clinicCode: currentClinicCode,
         clinicDbId: currentClinicId,
-        sequenceName: sequenceName,
-        contexto: 'leads', // Fixed for this page
-        ativo: true, // Or add a UI toggle for this
+        sequenceName: messageName, // Field name for n8n kept as sequenceName
+        contexto: 'leads', 
+        ativo: true, 
         steps: stepsWithPotentiallySavedMedia.map((step, index) => ({
-          // Client-side ID 'id' is not needed by backend for saving steps, but db_id might be if n8n needs to update specific steps
-          db_id: step.db_id, // Send db_id if it exists (for updating specific steps if n8n supports it)
+          db_id: step.db_id, 
           ordem: index + 1,
           tipo_passo: step.type,
           conteudo_texto: step.text || null,
@@ -275,66 +270,55 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         })),
       };
 
-      console.log("[MensagensSequenciaConfigPage] Sending payload to n8n webhook:", sequencePayloadForN8N);
+      console.log("[MensagensConfigPage] Sending payload to n8n webhook:", messagePayloadForN8N); // Updated log
 
-      // 3. Call the n8n webhook to save/update the sequence
       const webhookResponse = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(sequencePayloadForN8N),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(messagePayloadForN8N),
       });
 
       if (!webhookResponse.ok) {
         const webhookErrorText = await webhookResponse.text();
-        console.error(`[MensagensSequenciaConfigPage] n8n Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText}`);
-        // Try to parse JSON error if possible
+        console.error(`[MensagensConfigPage] n8n Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText}`); // Updated log
         let parsedError = webhookErrorText;
-        try {
-            const jsonError = JSON.parse(webhookErrorText);
-            parsedError = jsonError.message || jsonError.error || webhookErrorText;
-        } catch (parseErr) {
-            // Not a JSON error, use raw text
-        }
-        throw new Error(`Falha ao salvar sequência via n8n (Status: ${webhookResponse.status}): ${parsedError.substring(0, 250)}`);
+        try { const jsonError = JSON.parse(webhookErrorText); parsedError = jsonError.message || jsonError.error || webhookErrorText; } catch (parseErr) {}
+        throw new Error(`Falha ao salvar mensagem via n8n (Status: ${webhookResponse.status}): ${parsedError.substring(0, 250)}`); // Updated
       }
 
       const webhookResult = await webhookResponse.json();
-      console.log("[MensagensSequenciaConfigPage] n8n Webhook call successful, result:", webhookResult);
+      console.log("[MensagensConfigPage] n8n Webhook call successful, result:", webhookResult); // Updated log
       
       toast({
         title: "Sucesso",
-        description: `Mensagem "${sequenceName}" salva com sucesso.`,
+        description: `Mensagem "${messageName}" salva com sucesso.`, // Updated
       });
 
-      // Invalidate queries to refetch list on the previous page
       if (currentClinicId) { 
         queryClient.invalidateQueries({ queryKey: ['leadSequencesListRaw', currentClinicId] }); 
       } else {
-        console.warn("[MensagensSequenciaConfigPage] Clinic ID not available for query invalidation.");
+        console.warn("[MensagensConfigPage] Clinic ID not available for query invalidation."); // Updated log
       }
       
-      // If editing, also invalidate specific sequence data if you have a query for it
-      if (isEditing && sequenceIdToEdit) {
-        queryClient.invalidateQueries({ queryKey: ['sequenceData', sequenceIdToEdit] }); 
+      if (isEditing && messageIdToEdit) {
+        queryClient.invalidateQueries({ queryKey: ['sequenceData', messageIdToEdit] }); // Kept 'sequenceData' for now if it's a specific key
       }
 
       setTimeout(() => {
         if (currentClinicCode) {
             navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
         } else {
-            console.error("[MensagensSequenciaConfigPage] Clinic code is undefined, cannot navigate back.");
+            console.error("[MensagensConfigPage] Clinic code is undefined, cannot navigate back."); // Updated log
             navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
         }
       }, 1500);
 
     } catch (e: any) {
-      console.error("[MensagensSequenciaConfigPage] Error in handleSave:", e);
-      setError(e.message || "Erro ao processar a sequência");
+      console.error("[MensagensConfigPage] Error in handleSave:", e); // Updated log
+      setError(e.message || "Erro ao processar a mensagem"); // Updated
       toast({
         title: "Erro no Processamento",
-        description: e.message || "Ocorreu um erro inesperado ao tentar processar a sequência.",
+        description: e.message || "Ocorreu um erro inesperado ao tentar processar a mensagem.", // Updated
         variant: "destructive",
       });
     } finally {
@@ -348,8 +332,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   };
 
   const pageTitle = isEditing
-    ? "Editar Sequência de Mensagens (Leads)"
-    : "Nova Sequência de Mensagens (Leads)";
+    ? "Editar Mensagem (Leads)"  // Updated
+    : "Nova Mensagem (Leads)"; // Updated
 
   const isLoadingData = loading; 
   const fetchError = error; 
@@ -364,7 +348,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           {isLoadingData ? (
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="animate-spin" />
-              Carregando dados da sequência...
+              Carregando dados da mensagem... 
             </div>
           ) : fetchError ? (
             <div className="text-red-600 font-semibold flex items-center gap-2">
@@ -374,28 +358,28 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           ) : (
             <>
               <div>
-                  <label htmlFor="sequenceName" className="block mb-1 font-medium text-gray-700">
-                      Nome da Sequência *
+                  <label htmlFor="messageName" className="block mb-1 font-medium text-gray-700"> 
+                      Nome da Mensagem * 
                   </label>
                   <Input
-                      id="sequenceName"
-                      value={sequenceName}
-                      onChange={(e) => setSequenceName(e.target.value)}
+                      id="messageName" // Updated
+                      value={messageName}
+                      onChange={(e) => setMessageName(e.target.value)}
                       placeholder="Ex: Boas-vindas Lead Frio, Follow-up Pós-Avaliação"
                       disabled={saving}
                       maxLength={100}
                   />
-                  <p className="text-sm text-gray-500 mt-1">Um nome claro para identificar esta sequência na listagem.</p>
+                  <p className="text-sm text-gray-500 mt-1">Um nome claro para identificar esta mensagem na listagem.</p> 
               </div>
 
-              <div className="sequence-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Sequência (Contexto: Leads)</h3>
+              <div className="message-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50"> 
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem (Contexto: Leads)</h3> 
 
-                  {sequenceSteps.length === 0 && (
-                      <div className="text-center text-gray-600 italic">Nenhum passo na sequência ainda. Adicione um abaixo.</div>
+                  {messageSteps.length === 0 && (
+                      <div className="text-center text-gray-600 italic">Nenhum passo na mensagem ainda. Adicione um abaixo.</div> 
                   )}
 
-                  {sequenceSteps.map((step, index) => (
+                  {messageSteps.map((step, index) => (
                       <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200">
                           <CardContent className="p-0 flex flex-col gap-4">
                               <div className="flex justify-between items-center">
@@ -412,8 +396,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                                   <Select
                                       value={step.type}
                                       onValueChange={(value) => {
-                                          const newType = value as MessageSequenceStep['type'];
-                                          const updates: Partial<MessageSequenceStep> = { 
+                                          const newType = value as MessageStep['type'];
+                                          const updates: Partial<MessageStep> = { 
                                               type: newType, 
                                               text: newType === 'texto' ? (step.text || '') : undefined, 
                                               mediaFile: undefined, 
@@ -516,7 +500,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                                           </label>
                                           <Select
                                               value={step.delayUnit || 'segundos'}
-                                              onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageSequenceStep['delayUnit'] })}
+                                              onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })}
                                               id={`step-delay-unit-${step.id}`}
                                               disabled={saving}
                                           >
@@ -571,7 +555,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                       Salvando...
                     </>
                   ) : (
-                    isEditing ? "Salvar Alterações na Sequência" : "Criar Nova Sequência"
+                    isEditing ? "Salvar Alterações na Mensagem" : "Criar Nova Mensagem" // Updated
                   )}
                 </Button>
               </div>
@@ -583,4 +567,4 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   );
 };
 
-export default MensagensSequenciaConfigPage;
+export default MensagensConfigPage; // Renamed export
