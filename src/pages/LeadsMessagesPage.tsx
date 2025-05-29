@@ -205,31 +205,50 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         },
     });
 
-    // Mutation for deleting a sequence
+    // Mutation for deleting a sequence VIA N8N WEBHOOK
     const deleteSequenceMutation = useMutation({
-        mutationFn: async (id: number) => {
-            if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log(`[LeadsMessagesPage] Deleting sequence ${id}`);
+        mutationFn: async (sequenceId: number) => {
+            if (!clinicId) throw new Error("ID da clínica não disponível."); 
+            if (!clinicData?.code) throw new Error("Código da clínica não disponível.");
 
-            const { error } = await supabase
-                .from('north_clinic_mensagens_sequencias')
-                .delete()
-                .eq('id', id)
-                .eq('id_clinica', clinicId);
+            console.log(`[LeadsMessagesPage] Requesting deletion of sequence ${sequenceId} for clinic ID ${clinicId} via n8n webhook.`);
 
-            if (error) {
-                console.error('[LeadsMessagesPage] Error deleting sequence:', error);
-                throw new Error(error.message);
+            const payload = {
+                sequenceId: sequenceId,
+                clinicId: clinicId, 
+                clinicCode: clinicData.code 
+            };
+
+            const response = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/cb701587-26dd-4f7a-bc55-5ba70e807273", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[LeadsMessagesPage] Error deleting sequence via n8n webhook:', errorText);
+                let parsedError = errorText;
+                try {
+                    const jsonError = JSON.parse(errorText);
+                    parsedError = jsonError.message || jsonError.error || errorText;
+                } catch (parseErr) {
+                }
+                throw new Error(`Falha ao excluir sequência via n8n (Status: ${response.status}): ${parsedError.substring(0, 200)}`);
             }
-            console.log(`[LeadsMessagesPage] Sequence ${id} deletion successful`);
-            return { success: true };
+            
+            const result = await response.json(); 
+            console.log(`[LeadsMessagesPage] Sequence ${sequenceId} deletion request to n8n successful:`, result);
+            return result; 
         },
-        onSuccess: () => {
-            showSuccess('Sequência excluída com sucesso!');
+        onSuccess: (data, variables) => { 
+            showSuccess(`Solicitação para excluir sequência (ID: ${variables}) enviada com sucesso!`);
             queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
         },
         onError: (error: Error) => {
-            showError(`Erro ao excluir sequência: ${error.message}`);
+            showError(`Erro ao solicitar exclusão da sequência: ${error.message}`);
         },
     });
 
