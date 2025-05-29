@@ -34,7 +34,7 @@ interface ClinicData {
   id_permissao: number;
 }
 
-interface MessageStep { // Renamed from MessageSequenceStep
+interface MessageStep {
   id: string; 
   db_id?: number; 
   type: 'texto' | 'imagem' | 'video' | 'audio' | 'documento' | 'atraso'; 
@@ -46,15 +46,15 @@ interface MessageStep { // Renamed from MessageSequenceStep
   delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias'; 
 }
 
-interface MessageData { // Renamed from SequenceData
+interface MessageData {
   id?: number; 
   id_clinica: number | string; 
-  nome_mensagem: string; // Renamed from nome_sequencia
-  contexto: 'leads'; 
+  nome_mensagem: string;
+  contexto: 'leads'; // Contexto 'leads' is still used internally
   ativo: boolean;
 }
 
-const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // Renamed component
+const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
   const { toast } = useToast();
@@ -66,19 +66,19 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [messageName, setMessageName] = useState<string>(""); // Renamed from sequenceName
-  const [messageSteps, setMessageSteps] = useState<MessageStep[]>([]); // Renamed from sequenceSteps
+  const [messageName, setMessageName] = useState<string>("");
+  const [messageSteps, setMessageSteps] = useState<MessageStep[]>([]);
 
   const urlParams = new URLSearchParams(location.search);
-  const messageIdParam = urlParams.get("id"); // Renamed from sequenceIdParam
+  const messageIdParam = urlParams.get("id");
   const isEditing = !!messageIdParam;
-  const messageIdToEdit = messageIdParam ? parseInt(messageIdParam, 10) : null; // Renamed
+  const messageIdToEdit = messageIdParam ? parseInt(messageIdParam, 10) : null;
 
   const clinicId = clinicData?.id;
   const clinicCode = clinicData?.code; 
 
   useEffect(() => {
-    async function loadMessageForEditing() { // Renamed function
+    async function loadMessageForEditing() {
       if (!clinicId) {
         setError("ID da clínica não disponível.");
         setLoading(false);
@@ -87,21 +87,21 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
 
       if (isEditing && messageIdToEdit !== null) { 
         try {
-          const { data: msgData, error: msgError } = await supabase // Renamed variables
-              .from('north_clinic_mensagens_sequencias') // Table name remains for now
-              .select('id, nome_sequencia, contexto, ativo') // Column name nome_sequencia remains for now
+          const { data: msgData, error: msgError } = await supabase
+              .from('north_clinic_mensagens_sequencias') 
+              .select('id, nome_sequencia, contexto, ativo') 
               .eq('id', messageIdToEdit)
               .eq('id_clinica', clinicId) 
               .single();
 
           if (msgError) throw msgError;
-          if (!msgData) throw new Error("Mensagem não encontrada ou acesso negado."); // Updated error message
+          if (!msgData) throw new Error("Mensagem não encontrada ou acesso negado.");
 
-          setMessageName(msgData.nome_sequencia); // Assuming nome_sequencia is the field for message name
+          setMessageName(msgData.nome_sequencia); 
           const { data: stepsData, error: stepsError } = await supabase
-            .from('north_clinic_mensagens_sequencia_passos') // Table name remains
+            .from('north_clinic_mensagens_sequencia_passos') 
             .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade')
-            .eq('id_sequencia', msgData.id) // Column name id_sequencia remains
+            .eq('id_sequencia', msgData.id) 
             .order('ordem', { ascending: true });
 
           if (stepsError) throw stepsError;
@@ -119,8 +119,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
           setMessageSteps(loadedSteps);
 
         } catch (e: any) {
-          console.error("[MensagensConfigPage] Error loading message for editing:", e); // Updated log
-          setError(e.message || "Erro ao carregar dados da mensagem."); // Updated error message
+          console.error("[MensagensConfigPage] Error loading message for editing:", e);
+          setError(e.message || "Erro ao carregar dados da mensagem.");
           toast({ title: "Erro ao Carregar", description: e.message, variant: "destructive" });
         } finally {
           setLoading(false);
@@ -193,17 +193,17 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
       return;
     }
     if (!messageName.trim()) {
-        toast({ title: "Erro", description: "O nome da mensagem é obrigatório.", variant: "destructive" }); // Updated
+        toast({ title: "Erro", description: "O nome da mensagem é obrigatório.", variant: "destructive" });
         return;
     }
     if (messageSteps.length === 0) {
-        toast({ title: "Erro", description: "Adicione pelo menos um passo à mensagem.", variant: "destructive" }); // Updated
+        toast({ title: "Erro", description: "Adicione pelo menos um passo à mensagem.", variant: "destructive" });
         return;
     }
 
      for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
-             toast({ title: "Erro", description: "O texto não pode ser vazio para passos de texto.", variant: "destructive" }); // Updated
+             toast({ title: "Erro", description: "O texto não pode ser vazio para passos de texto.", variant: "destructive" });
              return;
          }
          if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && !step.mediaFile && !step.mediaUrl) {
@@ -250,13 +250,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
           return { ...step, mediaFile: undefined }; 
       }));
 
-      const messagePayloadForN8N = { // Renamed
-        event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", // Event names kept for n8n compatibility for now
+      const messagePayloadForN8N = { 
+        event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
         clinicCode: currentClinicCode,
         clinicDbId: currentClinicId,
-        sequenceName: messageName, // Field name for n8n kept as sequenceName
-        contexto: 'leads', 
+        sequenceName: messageName, 
+        contexto: 'leads', // Contexto 'leads' is still used internally for n8n
         ativo: true, 
         steps: stepsWithPotentiallySavedMedia.map((step, index) => ({
           db_id: step.db_id, 
@@ -270,7 +270,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
         })),
       };
 
-      console.log("[MensagensConfigPage] Sending payload to n8n webhook:", messagePayloadForN8N); // Updated log
+      console.log("[MensagensConfigPage] Sending payload to n8n webhook:", messagePayloadForN8N);
 
       const webhookResponse = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5", {
         method: "POST",
@@ -280,45 +280,46 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
 
       if (!webhookResponse.ok) {
         const webhookErrorText = await webhookResponse.text();
-        console.error(`[MensagensConfigPage] n8n Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText}`); // Updated log
+        console.error(`[MensagensConfigPage] n8n Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText}`);
         let parsedError = webhookErrorText;
         try { const jsonError = JSON.parse(webhookErrorText); parsedError = jsonError.message || jsonError.error || webhookErrorText; } catch (parseErr) {}
-        throw new Error(`Falha ao salvar mensagem via n8n (Status: ${webhookResponse.status}): ${parsedError.substring(0, 250)}`); // Updated
+        throw new Error(`Falha ao salvar mensagem via n8n (Status: ${webhookResponse.status}): ${parsedError.substring(0, 250)}`);
       }
 
       const webhookResult = await webhookResponse.json();
-      console.log("[MensagensConfigPage] n8n Webhook call successful, result:", webhookResult); // Updated log
+      console.log("[MensagensConfigPage] n8n Webhook call successful, result:", webhookResult);
       
       toast({
         title: "Sucesso",
-        description: `Mensagem "${messageName}" salva com sucesso.`, // Updated
+        description: `Mensagem "${messageName}" salva com sucesso.`,
       });
 
       if (currentClinicId) { 
-        queryClient.invalidateQueries({ queryKey: ['leadSequencesListRaw', currentClinicId] }); 
+        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); // Updated queryKey to match LeadsMessagesPage
       } else {
-        console.warn("[MensagensConfigPage] Clinic ID not available for query invalidation."); // Updated log
+        console.warn("[MensagensConfigPage] Clinic ID not available for query invalidation.");
       }
       
       if (isEditing && messageIdToEdit) {
-        queryClient.invalidateQueries({ queryKey: ['sequenceData', messageIdToEdit] }); // Kept 'sequenceData' for now if it's a specific key
+        // If you have a specific query for a single message/sequence, invalidate it here
+        // queryClient.invalidateQueries({ queryKey: ['messageData', messageIdToEdit] }); 
       }
 
       setTimeout(() => {
         if (currentClinicCode) {
             navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
         } else {
-            console.error("[MensagensConfigPage] Clinic code is undefined, cannot navigate back."); // Updated log
+            console.error("[MensagensConfigPage] Clinic code is undefined, cannot navigate back.");
             navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
         }
       }, 1500);
 
     } catch (e: any) {
-      console.error("[MensagensConfigPage] Error in handleSave:", e); // Updated log
-      setError(e.message || "Erro ao processar a mensagem"); // Updated
+      console.error("[MensagensConfigPage] Error in handleSave:", e);
+      setError(e.message || "Erro ao processar a mensagem");
       toast({
         title: "Erro no Processamento",
-        description: e.message || "Ocorreu um erro inesperado ao tentar processar a mensagem.", // Updated
+        description: e.message || "Ocorreu um erro inesperado ao tentar processar a mensagem.",
         variant: "destructive",
       });
     } finally {
@@ -332,8 +333,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
   };
 
   const pageTitle = isEditing
-    ? "Editar Mensagem (Leads)"  // Updated
-    : "Nova Mensagem (Leads)"; // Updated
+    ? "Editar Mensagem" 
+    : "Nova Mensagem";
 
   const isLoadingData = loading; 
   const fetchError = error; 
@@ -362,7 +363,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
                       Nome da Mensagem * 
                   </label>
                   <Input
-                      id="messageName" // Updated
+                      id="messageName"
                       value={messageName}
                       onChange={(e) => setMessageName(e.target.value)}
                       placeholder="Ex: Boas-vindas Lead Frio, Follow-up Pós-Avaliação"
@@ -373,7 +374,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
               </div>
 
               <div className="message-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50"> 
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem (Contexto: Leads)</h3> 
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3> 
 
                   {messageSteps.length === 0 && (
                       <div className="text-center text-gray-600 italic">Nenhum passo na mensagem ainda. Adicione um abaixo.</div> 
@@ -555,7 +556,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
                       Salvando...
                     </>
                   ) : (
-                    isEditing ? "Salvar Alterações na Mensagem" : "Criar Nova Mensagem" // Updated
+                    isEditing ? "Salvar Alterações na Mensagem" : "Criar Nova Mensagem"
                   )}
                 </Button>
               </div>
@@ -567,4 +568,4 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({ // R
   );
 };
 
-export default MensagensConfigPage; // Renamed export
+export default MensagensConfigPage;
