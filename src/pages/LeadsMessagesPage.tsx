@@ -31,7 +31,16 @@ interface SequenceItem {
     ativo: boolean;
     created_at: string;
     updated_at: string;
+    numero_passos?: number; // Added for step count
 }
+
+// Define the structure for a Sequence Step item
+interface SequenceStepItem {
+    id: number;
+    id_sequencia: number;
+    // other step fields if needed, but only id_sequencia is crucial for counting
+}
+
 
 // Define the structure for Instance Info from Supabase
 interface InstanceInfo {
@@ -62,40 +71,31 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
-    // State for filters
     const [selectedFunnelId, setSelectedFunnelId] = useState<number | null>(null);
     const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
 
     const clinicId = clinicData?.id;
 
-    // Fetch sequence list filtered by context 'leads'
-    const { data: sequencesList, isLoading: isLoadingSequences, error: sequencesError, refetch: refetchSequences } = useQuery<SequenceItem[]>({
-        queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId],
+    const { data: rawSequencesList, isLoading: isLoadingSequences, error: sequencesError, refetch: refetchSequences } = useQuery<Omit<SequenceItem, 'numero_passos'>[]>({
+        queryKey: ['leadSequencesListRaw', clinicId, selectedFunnelId, selectedStageId],
         queryFn: async () => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log(`[LeadsMessagesPage] Fetching lead sequences for clinic ${clinicId} from Supabase`);
-
+            console.log(`[LeadsMessagesPage] Fetching lead sequences (raw) for clinic ${clinicId}`);
             let query = supabase
                 .from('north_clinic_mensagens_sequencias')
                 .select('id, id_clinica, nome_sequencia, contexto, ativo, created_at, updated_at')
                 .eq('id_clinica', clinicId)
                 .eq('contexto', 'leads')
                 .order('nome_sequencia', { ascending: true });
-
-            if (selectedFunnelId !== null) {
-                console.warn("[LeadsMessagesPage] Funnel filtering based on sequence links is not yet implemented.");
-            }
-            if (selectedStageId !== null) {
-                console.warn("[LeadsMessagesPage] Stage filtering based on sequence links is not yet implemented.");
-            }
-
+            // Filtering logic (currently commented out as per original)
+            // if (selectedFunnelId !== null) { ... }
+            // if (selectedStageId !== null) { ... }
             const { data, error } = await query;
-
             if (error) {
-                 console.error("[LeadsMessagesPage] Error fetching lead sequences from Supabase:", error);
+                 console.error("[LeadsMessagesPage] Error fetching lead sequences (raw) from Supabase:", error);
                  throw new Error(error.message);
             }
-            console.log("[LeadsMessagesPage] Lead sequences fetched:", data);
+            console.log("[LeadsMessagesPage] Lead sequences (raw) fetched:", data);
             return data || [];
         },
         enabled: !!clinicId,
@@ -103,12 +103,50 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         refetchOnWindowFocus: false,
     });
 
-    // Fetch instances list
+    const sequenceIds = useMemo(() => rawSequencesList?.map(s => s.id) || [], [rawSequencesList]);
+
+    const { data: sequenceSteps, isLoading: isLoadingSteps, error: stepsError } = useQuery<SequenceStepItem[]>({
+        queryKey: ['sequenceStepsForLeads', clinicId, sequenceIds],
+        queryFn: async () => {
+            if (!clinicId || sequenceIds.length === 0) return [];
+            console.log(`[LeadsMessagesPage] Fetching steps for sequences: ${sequenceIds.join(', ')}`);
+            const { data, error } = await supabase
+                .from('north_clinic_mensagens_sequencia_passos')
+                .select('id, id_sequencia') // Only fetch necessary fields
+                .in('id_sequencia', sequenceIds);
+            
+            if (error) {
+                console.error("[LeadsMessagesPage] Error fetching sequence steps from Supabase:", error);
+                throw new Error(error.message);
+            }
+            console.log("[LeadsMessagesPage] Sequence steps fetched:", data);
+            return data || [];
+        },
+        enabled: !!clinicId && sequenceIds.length > 0,
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
+    const sequencesList = useMemo((): SequenceItem[] => {
+        if (!rawSequencesList || !sequenceSteps) return rawSequencesList || [];
+
+        const stepsCountMap = new Map<number, number>();
+        sequenceSteps.forEach(step => {
+            stepsCountMap.set(step.id_sequencia, (stepsCountMap.get(step.id_sequencia) || 0) + 1);
+        });
+
+        return rawSequencesList.map(seq => ({
+            ...seq,
+            numero_passos: stepsCountMap.get(seq.id) || 0,
+        }));
+    }, [rawSequencesList, sequenceSteps]);
+
+
+    // Fetch instances list (remains the same)
     const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
         queryKey: ['instancesListLeadsMessagesPage', clinicId],
         queryFn: async () => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log(`Fetching instances for clinic ${clinicId} for leads messages page`);
             const { data, error } = await supabase
                 .from('north_clinic_config_instancias')
                 .select('id, nome_exibição, telefone, nome_instancia_evolution')
@@ -118,27 +156,17 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                  console.error("Error fetching instances for leads messages from Supabase:", error);
                  throw new Error(error.message);
             }
-            console.log("Instances fetched for leads messages:", data);
             return data || [];
         },
         enabled: !!clinicId,
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
-
-    const instanceMap = useMemo(() => {
-        const map = new Map<string, InstanceInfo>();
-        instancesList?.forEach(instance => {
-            map.set(String(instance.id), instance);
-        });
-        return map;
-    }, [instancesList]);
-
-    // Fetch all funnels
+    
+    // Fetch all funnels (remains the same)
     const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
         queryKey: ['allFunnelsLeadsMessages'],
         queryFn: async () => {
-            console.log(`[LeadsMessagesPage] Fetching all funnels from Supabase...`);
             const { data, error } = await supabase
                 .from('north_clinic_crm_funil')
                 .select('id, nome_funil')
@@ -154,12 +182,11 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         refetchOnWindowFocus: false,
     });
 
-    // Fetch stages for the selected funnel
+    // Fetch stages for the selected funnel (remains the same)
     const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['stagesForFunnelLeadsMessages', selectedFunnelId],
         queryFn: async () => {
             if (selectedFunnelId === null) return [];
-            console.log(`[LeadsMessagesPage] Fetching stages for funnel ${selectedFunnelId} from Supabase...`);
             const { data, error } = await supabase
                 .from('north_clinic_crm_etapa')
                 .select('id, nome_etapa, id_funil')
@@ -176,97 +203,62 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         refetchOnWindowFocus: false,
     });
 
-    // Mutation for toggling sequence status
+    // Mutation for toggling sequence status (remains the same)
     const toggleSequenceStatusMutation = useMutation({
         mutationFn: async ({ id, ativo }: { id: number; ativo: boolean }) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log(`[LeadsMessagesPage] Toggling sequence ${id} to active=${ativo}`);
-            
             const { data, error } = await supabase
                 .from('north_clinic_mensagens_sequencias')
                 .update({ ativo: ativo, updated_at: new Date().toISOString() })
                 .eq('id', id)
                 .eq('id_clinica', clinicId)
                 .select();
-
-            if (error) {
-                console.error('[LeadsMessagesPage] Error toggling sequence status:', error);
-                throw new Error(error.message);
-            }
-            console.log(`[LeadsMessagesPage] Sequence ${id} toggle successful:`, data);
+            if (error) throw new Error(error.message);
             return data;
         },
         onSuccess: (_, variables) => {
             showSuccess(`Mensagem ${variables.ativo ? 'ativada' : 'desativada'} com sucesso!`);
-            queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
+            queryClient.invalidateQueries({ queryKey: ['leadSequencesListRaw', clinicId, selectedFunnelId, selectedStageId] });
+            queryClient.invalidateQueries({ queryKey: ['sequenceStepsForLeads', clinicId, sequenceIds] });
         },
         onError: (error: Error) => {
             showError(`Erro ao alterar status da mensagem: ${error.message}`);
         },
     });
 
-    // Mutation for deleting a sequence VIA N8N WEBHOOK
+    // Mutation for deleting a sequence VIA N8N WEBHOOK (remains the same)
     const deleteSequenceMutation = useMutation({
         mutationFn: async (sequenceId: number) => {
             if (!clinicId) throw new Error("ID da clínica não disponível."); 
             if (!clinicData?.code) throw new Error("Código da clínica não disponível.");
-
-            console.log(`[LeadsMessagesPage] Requesting deletion of sequence ${sequenceId} for clinic ID ${clinicId} via n8n webhook.`);
-
-            const payload = {
-                sequenceId: sequenceId,
-                clinicId: clinicId, 
-                clinicCode: clinicData.code 
-            };
-
+            const payload = { sequenceId: sequenceId, clinicId: clinicId, clinicCode: clinicData.code };
             const response = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/cb701587-26dd-4f7a-bc55-5ba70e807273", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
             });
-
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[LeadsMessagesPage] Error deleting sequence via n8n webhook:', errorText);
-                let parsedError = errorText;
-                try {
-                    const jsonError = JSON.parse(errorText);
-                    parsedError = jsonError.message || jsonError.error || errorText;
-                } catch (parseErr) {
-                }
-                throw new Error(`Falha ao excluir sequência via n8n (Status: ${response.status}): ${parsedError.substring(0, 200)}`);
+                const errorText = await response.text(); let parsedError = errorText;
+                try { const jsonError = JSON.parse(errorText); parsedError = jsonError.message || jsonError.error || errorText; } catch (parseErr) {}
+                throw new Error(`Falha ao excluir mensagem via n8n (Status: ${response.status}): ${parsedError.substring(0, 200)}`);
             }
-            
-            const result = await response.json(); 
-            console.log(`[LeadsMessagesPage] Sequence ${sequenceId} deletion request to n8n successful:`, result);
-            return result; 
+            return await response.json(); 
         },
-        onSuccess: (data, variables) => { 
+        onSuccess: () => { 
             showSuccess(`Mensagem excluída com sucesso.`); 
-            queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
+            queryClient.invalidateQueries({ queryKey: ['leadSequencesListRaw', clinicId, selectedFunnelId, selectedStageId] });
+            queryClient.invalidateQueries({ queryKey: ['sequenceStepsForLeads', clinicId, sequenceIds] });
         },
         onError: (error: Error) => {
             showError(`Erro ao solicitar exclusão da mensagem: ${error.message}`);
         },
     });
 
-    // Handle navigation to the Sequence Config Page for editing
     const handleEditSequence = (sequenceId: number) => {
-        if (!clinicData?.code) {
-            showError("Erro: Código da clínica não disponível.");
-            return;
-        }
+        if (!clinicData?.code) { showError("Erro: Código da clínica não disponível."); return; }
         navigate(`/dashboard/config-sequencia?id=${sequenceId}&clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
-    // Handle navigation to the NEW Sequence Config Page
     const handleAddSequence = () => {
-        if (!clinicData?.code) {
-            showError("Erro: Código da clínica não disponível.");
-            return;
-        }
+        if (!clinicData?.code) { showError("Erro: Código da clínica não disponível."); return; }
         navigate(`/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
@@ -279,17 +271,13 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
             deleteSequenceMutation.mutate(sequenceId);
         }
     };
-
-    // Helper to display sequence information
-    const getSequenceDisplayInfo = (sequence: SequenceItem): { name: string; context: string } => {
-        return {
-            name: sequence.nome_sequencia,
-            context: sequence.contexto,
-        };
+    
+    const getSequenceDisplayInfo = (sequence: SequenceItem): { name: string } => {
+        return { name: sequence.nome_sequencia };
     };
 
-    const isLoading = isLoadingSequences || isLoadingInstances || isLoadingFunnels || isLoadingStages || toggleSequenceStatusMutation.isPending || deleteSequenceMutation.isPending;
-    const fetchError = sequencesError || instancesError || funnelsError || stagesError;
+    const isLoading = isLoadingSequences || isLoadingSteps || isLoadingInstances || isLoadingFunnels || isLoadingStages || toggleSequenceStatusMutation.isPending || deleteSequenceMutation.isPending;
+    const fetchError = sequencesError || stepsError || instancesError || funnelsError || stagesError;
 
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
@@ -308,45 +296,27 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                 </div>
             </div>
 
+            {/* Filter section remains the same */}
             <div className="filter-section flex flex-col sm:flex-row items-center gap-4 mb-6 p-4 bg-gray-50 rounded-md border border-gray-200">
                 <Filter className="h-5 w-5 text-gray-600 flex-shrink-0" />
                 <span className="text-lg font-semibold text-gray-700 flex-shrink-0">Filtrar por:</span>
                 <div className="flex-grow min-w-[150px]">
                     <Label htmlFor="funnelFilter" className="sr-only">Funil</Label>
-                    <Select
-                        value={selectedFunnelId?.toString() || ''}
-                        onValueChange={(value) => {
-                            setSelectedFunnelId(value ? parseInt(value, 10) : null);
-                            setSelectedStageId(null);
-                        }}
-                        disabled={isLoadingFunnels || !!funnelsError}
-                    >
-                        <SelectTrigger id="funnelFilter">
-                            <SelectValue placeholder="Todos os Funis" />
-                        </SelectTrigger>
+                    <Select value={selectedFunnelId?.toString() || ''} onValueChange={(value) => { setSelectedFunnelId(value ? parseInt(value, 10) : null); setSelectedStageId(null); }} disabled={isLoadingFunnels || !!funnelsError}>
+                        <SelectTrigger id="funnelFilter"><SelectValue placeholder="Todos os Funis" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value={null as any}>Todos os Funis</SelectItem>
-                            {allFunnels?.map(funnel => (
-                                <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
-                            ))}
+                            {allFunnels?.map(funnel => (<SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="flex-grow min-w-[150px]">
                     <Label htmlFor="stageFilter" className="sr-only">Etapa</Label>
-                    <Select
-                        value={selectedStageId?.toString() || ''}
-                        onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)}
-                        disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}
-                    >
-                        <SelectTrigger id="stageFilter">
-                            <SelectValue placeholder="Todas as Etapas" />
-                        </SelectTrigger>
+                    <Select value={selectedStageId?.toString() || ''} onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)} disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}>
+                        <SelectTrigger id="stageFilter"><SelectValue placeholder="Todas as Etapas" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value={null as any}>Todas as Etapas</SelectItem>
-                            {stagesForSelectedFunnel?.map(stage => (
-                                <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
-                            ))}
+                            {stagesForSelectedFunnel?.map(stage => (<SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
@@ -359,7 +329,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                 <div className="error-message flex items-center gap-2 p-4 mb-6 bg-red-100 text-red-700 border border-red-300 rounded-md shadow-sm">
                     <TriangleAlert className="h-6 w-6 flex-shrink-0" />
                     <span className="text-lg font-semibold">Erro ao carregar dados: {fetchError.message}</span>
-                    <Button variant="outline" size="sm" onClick={() => { refetchSequences(); queryClient.invalidateQueries({ queryKey: ['instancesListLeadsMessagesPage', clinicId] }); queryClient.invalidateQueries({ queryKey: ['allFunnelsLeadsMessages'] }); queryClient.invalidateQueries({ queryKey: ['stagesForFunnelLeadsMessages', selectedFunnelId] }); }} className="ml-auto">
+                    <Button variant="outline" size="sm" onClick={() => { refetchSequences(); queryClient.invalidateQueries({ queryKey: ['sequenceStepsForLeads', clinicId, sequenceIds] }); queryClient.invalidateQueries({ queryKey: ['instancesListLeadsMessagesPage', clinicId] }); queryClient.invalidateQueries({ queryKey: ['allFunnelsLeadsMessages'] }); queryClient.invalidateQueries({ queryKey: ['stagesForFunnelLeadsMessages', selectedFunnelId] }); }} className="ml-auto">
                         Tentar Novamente
                     </Button>
                 </div>
@@ -384,7 +354,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                         <TableHeader className="bg-gray-100 border-b border-gray-300">
                             <TableRow>
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Nome da Mensagem</TableHead>
-                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Contexto</TableHead>
+                                <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Nº de Passos</TableHead>
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
                                 <TableHead className="text-right text-lg font-semibold text-gray-700 px-6 py-3">Ações</TableHead>
                             </TableRow>
@@ -394,14 +364,12 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                 const displayInfo = getSequenceDisplayInfo(sequence);
                                 return (
                                     <React.Fragment key={sequence.id}>
-                                        <TableRow data-sequence-id={sequence.id} data-context={sequence.contexto} className="hover:bg-gray-50 transition-colors">
+                                        <TableRow data-sequence-id={sequence.id} className="hover:bg-gray-50 transition-colors">
                                             <TableCell className="font-medium text-gray-900 px-6 py-4 whitespace-nowrap">
                                                 {displayInfo.name}
                                             </TableCell>
-                                            <TableCell className="text-gray-700 px-6 py-4">
-                                                <span className="inline-flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm font-medium">
-                                                    {displayInfo.context}
-                                                </span>
+                                            <TableCell className="text-center text-gray-700 px-6 py-4">
+                                                {sequence.numero_passos ?? '...'}
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <span className={cn(
@@ -416,60 +384,27 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => handleEditSequence(sequence.id)}
-                                                                    className="edit-sequence-btn p-1"
-                                                                >
+                                                                <Button variant="outline" size="sm" onClick={() => handleEditSequence(sequence.id)} className="edit-sequence-btn p-1">
                                                                     <Edit className="h-4 w-4" />
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Editar Mensagem</p>
-                                                            </TooltipContent>
+                                                            <TooltipContent><p>Editar Mensagem</p></TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant={sequence.ativo ? 'secondary' : 'default'}
-                                                                    size="sm"
-                                                                    onClick={() => handleToggleSequenceStatus(sequence)}
-                                                                    className="toggle-sequence-btn p-1"
-                                                                    disabled={toggleSequenceStatusMutation.isPending}
-                                                                >
-                                                                    {toggleSequenceStatusMutation.isPending && toggleSequenceStatusMutation.variables?.id === sequence.id ? (
-                                                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                                                    ) : sequence.ativo ? (
-                                                                        <ToggleLeft className="h-4 w-4" />
-                                                                    ) : (
-                                                                        <ToggleRight className="h-4 w-4" />
-                                                                    )}
+                                                                <Button variant={sequence.ativo ? 'secondary' : 'default'} size="sm" onClick={() => handleToggleSequenceStatus(sequence)} className="toggle-sequence-btn p-1" disabled={toggleSequenceStatusMutation.isPending}>
+                                                                    {toggleSequenceStatusMutation.isPending && toggleSequenceStatusMutation.variables?.id === sequence.id ? (<Loader2 className="h-4 w-4 animate-spin" />) : sequence.ativo ? (<ToggleLeft className="h-4 w-4" />) : (<ToggleRight className="h-4 w-4" />)}
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{sequence.ativo ? 'Desativar Mensagem' : 'Ativar Mensagem'}</p>
-                                                            </TooltipContent>
+                                                            <TooltipContent><p>{sequence.ativo ? 'Desativar Mensagem' : 'Ativar Mensagem'}</p></TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteSequence(sequence.id)}
-                                                                    className="delete-sequence-btn p-1"
-                                                                    disabled={deleteSequenceMutation.isPending}
-                                                                >
-                                                                    {deleteSequenceMutation.isPending && deleteSequenceMutation.variables === sequence.id ? (
-                                                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                                                    ) : (
-                                                                         <Trash2 className="h-4 w-4" />
-                                                                    )}
+                                                                <Button variant="destructive" size="sm" onClick={() => handleDeleteSequence(sequence.id)} className="delete-sequence-btn p-1" disabled={deleteSequenceMutation.isPending}>
+                                                                    {deleteSequenceMutation.isPending && deleteSequenceMutation.variables === sequence.id ? (<Loader2 className="h-4 w-4 animate-spin" />) : (<Trash2 className="h-4 w-4" />)}
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Excluir Mensagem</p>
-                                                            </TooltipContent>
+                                                            <TooltipContent><p>Excluir Mensagem</p></TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
                                                 </div>
