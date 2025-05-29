@@ -292,14 +292,15 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
 
 
     // Handle navigation to the *single* MensagensConfigPage for adding
-    const handleAddMessage = () => {
-        if (!clinicData?.code) {
-            showError("Erro: Código da clínica não disponível.");
-            return;
-        }
-        // Navigate to the config page, passing the context 'leads'
-        navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=leads`);
-    };
+    // REMOVED: handleAddMessage function as it's no longer needed for individual messages
+    // const handleAddMessage = () => {
+    //     if (!clinicData?.code) {
+    //         showError("Erro: Código da clínica não disponível.");
+    //         return;
+    //     }
+    //     // Navigate to the config page, passing the context 'leads'
+    //     navigate(`/dashboard/config-mensagem?clinic_code=${encodeURIComponent(clinicData.code)}&context=leads`);
+    // };
 
     // Handle navigation to the *single* MensagensConfigPage for editing
     const handleEditMessage = (messageId: number) => {
@@ -366,12 +367,12 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                     Lista de Mensagens de Leads
                 </h1>
                 <div className="flex gap-4 flex-wrap justify-center sm:justify-end"> {/* Container for buttons */}
-                    {/* Button to add a NEW single message */}
-                    <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
+                    {/* REMOVED: Button to add a NEW single message */}
+                    {/* <Button onClick={handleAddMessage} className="add-message-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
                         <Plus className="h-5 w-5 mr-2" /> Configurar Nova Mensagem Individual
-                    </Button>
+                    </Button> */}
                      {/* Button to add a NEW sequence message */}
-                    <Button onClick={handleAddSequence} className="add-sequence-btn flex-shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors shadow-md">
+                    <Button onClick={handleAddSequence} className="add-sequence-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
                         <ListOrdered className="h-5 w-5 mr-2" /> Configurar Nova Sequência
                     </Button>
                 </div>
