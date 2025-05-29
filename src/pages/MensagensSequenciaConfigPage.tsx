@@ -257,8 +257,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       const sequencePayloadForN8N = {
         event: isEditing && sequenceIdToEdit ? "sequence_updated" : "sequence_created",
         sequenceId: isEditing && sequenceIdToEdit ? sequenceIdToEdit : undefined, // Send ID if editing
-        clinicId: currentClinicId,
         clinicCode: currentClinicCode, // n8n might need this for its own logic
+        clinicDbId: currentClinicId,
         sequenceName: sequenceName,
         contexto: 'leads', // Fixed for this page
         ativo: true, // Or add a UI toggle for this
@@ -303,22 +303,17 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       const webhookResult = await webhookResponse.json();
       console.log("[MensagensSequenciaConfigPage] n8n Webhook call successful, result:", webhookResult);
       
-      // Assuming n8n returns the saved sequence ID, or some success indicator.
-      // If n8n returns the ID of the created/updated sequence:
-      // const savedSequenceIdFromN8N = webhookResult.sequenceId || (isEditing ? sequenceIdToEdit : null);
-
       toast({
         title: "Sucesso",
-        description: `Sequência "${sequenceName}" foi enviada para processamento.`,
+        description: `Mensagem "${sequenceName}" salva com sucesso.`,
       });
 
       // Invalidate queries to refetch list on the previous page
-      queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId] }); 
+      queryClient.invalidateQueries({ queryKey: ['leadSequencesList', currentClinicId] }); 
       // If editing, also invalidate specific sequence data if you have a query for it
       if (isEditing && sequenceIdToEdit) {
         queryClient.invalidateQueries({ queryKey: ['sequenceData', sequenceIdToEdit] }); 
       }
-
 
       setTimeout(() => {
         if (currentClinicCode) {
