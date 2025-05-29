@@ -1,18 +1,18 @@
-import React, { useMemo, useState } from 'react'; // Import useState
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search } from "lucide-react"; // Import Search icon
+import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { showSuccess, showError } from '@/utils/toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
-import { Input } from "@/components/ui/input"; // Import Input for search
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup
-import { Label } from "@/components/ui/label"; // Import Label
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -399,14 +399,14 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             ) : (
                                                 <div className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200 flex flex-col items-center justify-center h-32 text-center text-gray-500">
                                                     <Info className="h-8 w-8 mb-2" />
-                                                    <p className="text-sm mb-3">Nenhuma mensagem configurada para esta etapa.</p>
+                                                    <p className="text-sm mb-3">Nenhuma ação configurada para esta etapa.</p>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => handleConfigureMessage(stage.id)}
                                                         className="flex items-center gap-1"
                                                     >
-                                                        <MessageSquarePlus className="h-4 w-4" /> Configurar Mensagem
+                                                        <MessageSquarePlus className="h-4 w-4" /> Configurar Ação
                                                     </Button>
                                                 </div>
                                             )}
