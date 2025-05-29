@@ -197,11 +197,11 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
             return data;
         },
         onSuccess: (_, variables) => {
-            showSuccess(`Sequência ${variables.ativo ? 'ativada' : 'desativada'} com sucesso!`);
+            showSuccess(`Mensagem ${variables.ativo ? 'ativada' : 'desativada'} com sucesso!`);
             queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
         },
         onError: (error: Error) => {
-            showError(`Erro ao alterar status da sequência: ${error.message}`);
+            showError(`Erro ao alterar status da mensagem: ${error.message}`);
         },
     });
 
@@ -248,7 +248,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
             queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
         },
         onError: (error: Error) => {
-            showError(`Erro ao solicitar exclusão da sequência: ${error.message}`);
+            showError(`Erro ao solicitar exclusão da mensagem: ${error.message}`);
         },
     });
 
@@ -275,7 +275,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
     };
 
     const handleDeleteSequence = (sequenceId: number) => {
-        if (window.confirm(`Tem certeza que deseja excluir esta Sequência (ID: ${sequenceId})?\n\nTODOS OS PASSOS DESTA SEQUÊNCIA SERÃO PERDIDOS.\nEsta ação não pode ser desfeita!`)) {
+        if (window.confirm(`Tem certeza que deseja excluir esta Mensagem (ID: ${sequenceId})?\n\nTODOS OS PASSOS DESTA MENSAGEM SERÃO PERDIDOS.\nEsta ação não pode ser desfeita!`)) {
             deleteSequenceMutation.mutate(sequenceId);
         }
     };
@@ -299,11 +299,11 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
         <div className="leads-messages-container max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <div className="config-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h1 className="config-title text-3xl font-extrabold text-primary whitespace-nowrap">
-                    Sequências de Mensagens de Leads
+                    Mensagens de Leads
                 </h1>
                 <div className="flex gap-4 flex-wrap justify-center sm:justify-end">
                     <Button onClick={handleAddSequence} className="add-sequence-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
-                        <ListOrdered className="h-5 w-5 mr-2" /> Configurar Nova Sequência
+                        <ListOrdered className="h-5 w-5 mr-2" /> Configurar Mensagem
                     </Button>
                 </div>
             </div>
@@ -368,22 +368,22 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
             {isLoading && !fetchError && (
                 <div className="loading-indicator flex flex-col items-center justify-center p-12 text-primary">
                     <Loader2 className="h-16 w-16 animate-spin mb-6" />
-                    <span className="text-xl font-medium">Carregando sequências...</span>
+                    <span className="text-xl font-medium">Carregando mensagens...</span>
                 </div>
             )}
 
             {!isLoading && !fetchError && (sequencesList?.length ?? 0) === 0 ? (
                 <div id="noSequencesFound" className="text-center text-gray-600 p-12 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
                     <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
-                    <p className="text-2xl font-semibold">Nenhuma sequência de mensagens configurada para leads.</p>
-                    <p className="mt-2">Clique em "Configurar Nova Sequência" para começar.</p>
+                    <p className="text-2xl font-semibold">Nenhuma mensagem configurada para leads.</p>
+                    <p className="mt-2">Clique em "Configurar Mensagem" para começar.</p>
                 </div>
             ) : (
                 <div id="sequenceListContainer" className="overflow-x-auto rounded-lg border border-gray-300 shadow-md">
                     <Table className="message-table min-w-full">
                         <TableHeader className="bg-gray-100 border-b border-gray-300">
                             <TableRow>
-                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Nome da Sequência</TableHead>
+                                <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Nome da Mensagem</TableHead>
                                 <TableHead className="text-left text-lg font-semibold text-gray-700 px-6 py-3">Contexto</TableHead>
                                 <TableHead className="text-center text-lg font-semibold text-gray-700 px-6 py-3">Status</TableHead>
                                 <TableHead className="text-right text-lg font-semibold text-gray-700 px-6 py-3">Ações</TableHead>
@@ -426,7 +426,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
-                                                                <p>Editar Sequência</p>
+                                                                <p>Editar Mensagem</p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
@@ -448,7 +448,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
-                                                                <p>{sequence.ativo ? 'Desativar Sequência' : 'Ativar Sequência'}</p>
+                                                                <p>{sequence.ativo ? 'Desativar Mensagem' : 'Ativar Mensagem'}</p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
@@ -468,7 +468,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                                                                 </Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
-                                                                <p>Excluir Sequência</p>
+                                                                <p>Excluir Mensagem</p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
