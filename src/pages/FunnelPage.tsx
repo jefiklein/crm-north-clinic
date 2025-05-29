@@ -1,3 +1,4 @@
+in FunnelPage.tsx to diagnose a parsing error.">
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -561,7 +562,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
 
     return (
-        <>
+        <div className="funnel-page-wrapper">
             <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
                 <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                     <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
@@ -895,7 +896,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                     )}
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 
