@@ -7,6 +7,7 @@ import { format, subDays, addDays, isAfter, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
 import { Label } from "@/components/ui/label"; 
+import { formatPhone } from '@/lib/utils';
 
 interface ClinicData {
   code: string;
@@ -283,8 +284,14 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             const instanceNameFromConfig = instanceDetailsFromConfig?.nome_exibição;
                             
                             const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
-                            const displayRecipient = item.nome_grupo || item.recipiente || 'N/D'; 
-
+                            let displayRecipient = 'N/D';
+                            if (item.nome_grupo) {
+                                displayRecipient = item.nome_grupo;
+                            } else if (item.recipiente) {
+                                // Basic check to see if it might be a phone number before formatting
+                                const isPhoneNumber = /^\d+$/.test(item.recipiente.replace(/\D/g, ''));
+                                displayRecipient = isPhoneNumber ? formatPhone(item.recipiente) : item.recipiente;
+                            }
 
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
