@@ -373,7 +373,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
                     </Button> */}
                      {/* Button to add a NEW sequence message */}
                     <Button onClick={handleAddSequence} className="add-sequence-btn flex-shrink-0 bg-primary text-white hover:bg-primary/90 transition-colors shadow-md">
-                        <ListOrdered className="h-5 w-5 mr-2" /> Configurar Nova Sequência
+                        <ListOrdered className="h-5 w-5 mr-2" /> Configurar mensagem
                     </Button>
                 </div>
             </div>
