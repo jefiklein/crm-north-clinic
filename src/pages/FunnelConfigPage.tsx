@@ -1,14 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react'; // Import useState
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2 } from "lucide-react";
+import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search } from "lucide-react"; // Import Search icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { showSuccess, showError } from '@/utils/toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
+import { Input } from "@/components/ui/input"; // Import Input for search
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup
+import { Label } from "@/components/ui/label"; // Import Label
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -42,7 +46,16 @@ interface StageMessage {
     delay_value: number | null;
     delay_unit: string | null; // 'minutes', 'hours', 'days'
     id_etapa: number; // Link back to the stage
-    // Add other message fields if needed for display (e.g., url_arquivo)
+    id_funil: number; // Link back to the funnel
+}
+
+// Define the structure for a Message item for selection (from Supabase)
+interface SelectableMessageItem {
+    id: number;
+    modelo_mensagem: string | null;
+    id_funil: number | null;
+    id_etapa: number | null;
+    // Add other fields if needed for display in the selection list
 }
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for database queries)
@@ -69,6 +82,13 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
     const clinicId = clinicData?.id;
     const clinicCode = clinicData?.code;
+
+    // State for the message selection modal
+    const [isSelectMessageModalOpen, setIsSelectMessageModalOpen] = useState(false);
+    const [stageToConfigureId, setStageToConfigureId] = useState<number | null>(null);
+    const [selectedMessageToLink, setSelectedMessageToLink] = useState<number | null>(null);
+    const [messageSearchTerm, setMessageSearchTerm] = useState('');
+
 
     // Check if the menuIdParam corresponds to a valid funnel ID
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
@@ -130,7 +150,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
             const { data, error } = await supabase
                 .from('north_clinic_config_mensagens')
-                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa')
+                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa, id_funil') // Select id_funil
                 .eq('id_clinica', currentClinicId)
                 .eq('context', 'leads')
                 .eq('id_funil', currentFunnelIdForQuery)
@@ -153,6 +173,32 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         return map;
     }, [stageMessages]);
 
+    // Fetch all Leads messages for the selection modal
+    const { data: selectableLeadsMessages, isLoading: isLoadingSelectableMessages, error: selectableMessagesError } = useQuery<SelectableMessageItem[]>({
+        queryKey: ['selectableLeadsMessages', clinicId, messageSearchTerm],
+        queryFn: async () => {
+            if (!clinicId) throw new Error("ID da clínica não disponível.");
+            let query = supabase
+                .from('north_clinic_config_mensagens')
+                .select('id, modelo_mensagem, id_funil, id_etapa')
+                .eq('id_clinica', clinicId)
+                .eq('context', 'leads'); // Only show leads context messages
+
+            if (messageSearchTerm) {
+                query = query.ilike('modelo_mensagem', `%${messageSearchTerm}%`);
+            }
+            query = query.order('modelo_mensagem', { ascending: true });
+
+            const { data, error } = await query;
+            if (error) throw new Error(`Erro ao buscar mensagens: ${error.message}`);
+            return data || [];
+        },
+        enabled: isSelectMessageModalOpen && !!clinicId, // Only fetch when modal is open
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: false,
+    });
+
+
     // Mutation for deleting a message linked to a stage
     const deleteMessageMutation = useMutation({
         mutationFn: async (messageId: number) => {
@@ -171,20 +217,57 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         onSuccess: () => {
             showSuccess('Mensagem excluída com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['stageMessagesConfig', clinicId, funnelIdForQuery] });
+            queryClient.invalidateQueries({ queryKey: ['selectableLeadsMessages', clinicId] }); // Invalidate selectable messages too
         },
         onError: (error: Error) => {
             showError(`Erro ao excluir mensagem: ${error.message}`);
         },
     });
 
-    // Handle navigation to message sequence config page
-    const handleConfigureMessage = (stageId: number, messageId?: number) => {
-        if (!clinicCode || funnelIdForQuery === undefined) {
-            showError("Código da clínica ou ID do funil não disponível para navegação.");
+    // Mutation for linking an existing message to a stage
+    const linkMessageToStageMutation = useMutation({
+        mutationFn: async ({ messageId, funnelId, stageId, clinicId }: { messageId: number; funnelId: number; stageId: number; clinicId: string | number }) => {
+            if (!clinicId) throw new Error("ID da clínica não disponível.");
+            console.log(`Linking message ${messageId} to funnel ${funnelId} and stage ${stageId} for clinic ${clinicId}`);
+            const { data, error } = await supabase
+                .from('north_clinic_config_mensagens')
+                .update({ id_funil: funnelId, id_etapa: stageId })
+                .eq('id', messageId)
+                .eq('id_clinica', clinicId)
+                .select(); // Select the updated row to confirm
+
+            if (error) throw new Error(`Erro ao vincular mensagem: ${error.message}`);
+            return data;
+        },
+        onSuccess: () => {
+            showSuccess('Mensagem vinculada à etapa com sucesso!');
+            setIsSelectMessageModalOpen(false); // Close modal
+            setSelectedMessageToLink(null); // Clear selection
+            queryClient.invalidateQueries({ queryKey: ['stageMessagesConfig', clinicId, funnelIdForQuery] }); // Refetch stage messages
+        },
+        onError: (error: Error) => {
+            showError(`Erro ao vincular mensagem: ${error.message}`);
+        },
+    });
+
+
+    // Handle opening the message configuration modal
+    const handleConfigureMessage = (stageId: number) => {
+        setStageToConfigureId(stageId);
+        setIsSelectMessageModalOpen(true);
+        setSelectedMessageToLink(null); // Clear previous selection
+        setMessageSearchTerm(''); // Clear search term
+    };
+
+    // Handle navigation to message sequence config page (for creating/editing)
+    const handleNavigateToMessageConfig = (messageId?: number) => {
+        if (!clinicCode || funnelIdForQuery === undefined || stageToConfigureId === null) {
+            showError("Dados necessários para navegação não disponíveis.");
             return;
         }
-        const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&funnelId=${funnelIdForQuery}&stageId=${stageId}${messageId ? `&id=${messageId}` : ''}`;
+        const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&funnelId=${funnelIdForQuery}&stageId=${stageToConfigureId}${messageId ? `&id=${messageId}` : ''}`;
         navigate(url);
+        setIsSelectMessageModalOpen(false); // Close the selection modal
     };
 
     const handleDeleteMessage = (messageId: number) => {
@@ -274,7 +357,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                                         variant="outline"
                                                                         size="icon"
                                                                         className="h-6 w-6 p-0"
-                                                                        onClick={() => handleConfigureMessage(stage.id, stageMessage?.id)}
+                                                                        onClick={() => handleNavigateToMessageConfig(stageMessage?.id)}
                                                                         aria-label="Editar Mensagem"
                                                                     >
                                                                         <Edit className="h-4 w-4" />
@@ -335,6 +418,101 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                     )}
                 </div>
             </div>
+
+            {/* Message Selection Dialog */}
+            <Dialog open={isSelectMessageModalOpen} onOpenChange={setIsSelectMessageModalOpen}>
+                <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle>Selecionar Mensagem para Etapa</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-4 flex-grow overflow-hidden">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                            <Input
+                                type="text"
+                                placeholder="Buscar mensagens existentes..."
+                                value={messageSearchTerm}
+                                onChange={(e) => setMessageSearchTerm(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+
+                        {isLoadingSelectableMessages ? (
+                            <div className="flex items-center justify-center gap-2 text-primary py-8">
+                                <Loader2 className="animate-spin" />
+                                Carregando mensagens...
+                            </div>
+                        ) : selectableMessagesError ? (
+                            <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
+                                <TriangleAlert className="h-5 w-5" />
+                                Erro ao carregar mensagens: {selectableMessagesError.message}
+                            </div>
+                        ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
+                            <div className="text-gray-600 text-center py-8">
+                                Nenhuma mensagem de leads encontrada.
+                            </div>
+                        ) : (
+                            <RadioGroup
+                                value={selectedMessageToLink?.toString() || ''}
+                                onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
+                                className="flex flex-col gap-2 overflow-y-auto pr-2" // Added overflow-y-auto
+                            >
+                                {selectableLeadsMessages?.map(msg => (
+                                    <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
+                                        <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
+                                        <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
+                                            <span className="font-medium text-gray-900 line-clamp-1">{msg.modelo_mensagem || 'Mensagem sem texto'}</span>
+                                            <span className="text-xs text-gray-600 line-clamp-2">
+                                                {msg.id_funil && msg.id_etapa ? `Vinculada a Funil ${msg.id_funil} / Etapa ${msg.id_etapa}` : 'Não vinculada a funil/etapa'}
+                                            </span>
+                                        </Label>
+                                    </div>
+                                ))}
+                            </RadioGroup>
+                        )}
+                    </div>
+                    <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => handleNavigateToMessageConfig()} // Navigate to create new
+                            disabled={linkMessageToStageMutation.isLoading}
+                        >
+                            <MessageSquarePlus className="h-4 w-4 mr-2" /> Criar Nova Mensagem
+                        </Button>
+                        <div className="flex gap-2">
+                            <DialogClose asChild>
+                                <Button type="button" variant="secondary" disabled={linkMessageToStageMutation.isLoading}>
+                                    Cancelar
+                                </Button>
+                            </DialogClose>
+                            <Button
+                                onClick={() => {
+                                    if (selectedMessageToLink !== null && stageToConfigureId !== null && clinicId !== null && funnelIdForQuery !== undefined) {
+                                        linkMessageToStageMutation.mutate({
+                                            messageId: selectedMessageToLink,
+                                            funnelId: funnelIdForQuery,
+                                            stageId: stageToConfigureId,
+                                            clinicId: clinicId
+                                        });
+                                    } else {
+                                        showError('Selecione uma mensagem para vincular.');
+                                    }
+                                }}
+                                disabled={selectedMessageToLink === null || linkMessageToStageMutation.isLoading}
+                            >
+                                {linkMessageToStageMutation.isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Vinculando...
+                                    </>
+                                ) : (
+                                    'Vincular Mensagem Selecionada'
+                                )}
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </TooltipProvider>
     );
 };
