@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, Filter } from "lucide-react"; 
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, Filter, ChevronDown, ChevronUp } from "lucide-react"; 
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays, addDays, isAfter, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -274,9 +274,9 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             const tempDiv = document.createElement('div');
                             tempDiv.innerHTML = formattedMessage;
                             const plainText = tempDiv.textContent || tempDiv.innerText || '';
-                            const messagePreview = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : ''); 
-
-                            const needsExpansion = plainText.length > 150 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>'); 
+                            const messagePreviewHTML = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : ''); 
+                            
+                            const needsExpansion = plainText.length > 100 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
 
                             const instanceNameFromQueue = item.nome_instancia_enviado;
                             const instanceDetailsFromConfig = instanceDetailsMap.get(item.instancia);
@@ -284,6 +284,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             
                             const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
                             const displayRecipient = item.nome_grupo || item.recipiente || 'N/D'; 
+
 
                             return (
                                 <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
@@ -300,27 +301,26 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         </div>
                                     </div>
                                     <div className="queue-item-message bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-800">
-                                        {needsExpansion ? (
-                                            <>
-                                                <div
-                                                    className={`message-preview ${isExpanded ? 'hidden' : 'block'}`}
-                                                    dangerouslySetInnerHTML={{ __html: messagePreview }}
-                                                ></div>
-                                                <div
-                                                    className={`message-full ${isExpanded ? 'block' : 'hidden'}`}
-                                                    dangerouslySetInnerHTML={{ __html: formattedMessage }}
-                                                ></div>
-                                                <Button
-                                                    variant="link"
-                                                    size="sm"
-                                                    onClick={() => toggleExpandMessage(item.id)}
-                                                    className="p-0 h-auto text-primary hover:no-underline"
-                                                >
-                                                    {isExpanded ? 'Recolher [-]' : 'Expandir [+]'}
-                                                </Button>
-                                            </>
-                                        ) : (
-                                            <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
+                                        <div 
+                                            className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-[60px] opacity-80'}`} 
+                                            dangerouslySetInnerHTML={{ __html: isExpanded ? formattedMessage : messagePreviewHTML }}
+                                        />
+                                        {needsExpansion && ( 
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                onClick={() => toggleExpandMessage(item.id)}
+                                                className="p-0 h-auto text-primary hover:no-underline flex items-center mt-1 text-xs"
+                                            >
+                                                {isExpanded ? (
+                                                    <>Ver menos <ChevronUp className="ml-1 h-3 w-3" /></>
+                                                ) : (
+                                                    <>Ver mais <ChevronDown className="ml-1 h-3 w-3" /></>
+                                                )}
+                                            </Button>
+                                        )}
+                                        {!needsExpansion && !isExpanded && ( 
+                                             <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
                                         )}
                                     </div>
                                 </div>
