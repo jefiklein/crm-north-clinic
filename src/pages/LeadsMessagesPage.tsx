@@ -244,7 +244,7 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
             return result; 
         },
         onSuccess: (data, variables) => { 
-            showSuccess(`Solicitação para excluir sequência (ID: ${variables}) enviada com sucesso!`);
+            showSuccess(`Mensagem excluída com sucesso.`); 
             queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId, selectedFunnelId, selectedStageId] });
         },
         onError: (error: Error) => {
