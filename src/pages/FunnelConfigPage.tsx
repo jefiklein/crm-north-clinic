@@ -1,14 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react'; // Import useState
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2 } from "lucide-react";
+import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Settings2 } from "lucide-react"; // Added Settings2 icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { showSuccess, showError } from '@/utils/toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Import Dialog components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -70,6 +71,11 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const clinicId = clinicData?.id;
     const clinicCode = clinicData?.code;
 
+    // State for the stage configuration modal
+    const [isStageConfigModalOpen, setIsStageConfigModalOpen] = useState(false);
+    const [selectedStageForConfig, setSelectedStageForConfig] = useState<FunnelStage | null>(null);
+
+
     // Check if the menuIdParam corresponds to a valid funnel ID
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
@@ -130,10 +136,10 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
             const { data, error } = await supabase
                 .from('north_clinic_config_mensagens')
-                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa')
+                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa, id_funil') // Added id_funil to select
                 .eq('id_clinica', currentClinicId)
                 .eq('context', 'leads')
-                .eq('id_funil', currentFunnelIdForQuery)
+                .eq('id_funil', currentFunnelIdForQuery) // Filter by the current funnel ID
                 .in('id_etapa', stageIds);
 
             if (error) throw new Error(`Erro ao buscar mensagens das etapas: ${error.message}`);
@@ -177,17 +183,26 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         },
     });
 
-    // Handle navigation to message sequence config page
-    const handleConfigureMessage = (stageId: number, messageId?: number) => {
+    // Handle opening the stage configuration modal
+    const handleOpenStageConfigModal = (stage: FunnelStage) => {
+        setSelectedStageForConfig(stage);
+        setIsStageConfigModalOpen(true);
+    };
+
+    // Handle navigation to message sequence config page from the modal
+    const handleConfigureMessageFromModal = (stageId: number, messageId?: number) => {
         if (!clinicCode || funnelIdForQuery === undefined) {
             showError("Código da clínica ou ID do funil não disponível para navegação.");
             return;
         }
+        // Close the modal before navigating
+        setIsStageConfigModalOpen(false);
         const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&funnelId=${funnelIdForQuery}&stageId=${stageId}${messageId ? `&id=${messageId}` : ''}`;
         navigate(url);
     };
 
-    const handleDeleteMessage = (messageId: number) => {
+    const handleDeleteMessageFromModal = (messageId: number) => {
+        // Confirm deletion then trigger mutation
         if (window.confirm(`Tem certeza que deseja excluir esta mensagem (ID: ${messageId})?\n\nEsta ação não pode ser desfeita!`)) {
             deleteMessageMutation.mutate(messageId);
         }
@@ -263,7 +278,18 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </span>
                                         </CardHeader>
                                         <CardContent className="flex-grow overflow-y-auto p-3 flex flex-col gap-3">
-                                            {hasMessage ? (
+                                            {/* Button to open the stage configuration modal */}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleOpenStageConfigModal(stage)}
+                                                className="flex items-center justify-center gap-1 w-full"
+                                            >
+                                                <Settings2 className="h-4 w-4" /> Configurar Etapa
+                                            </Button>
+
+                                            {/* Display summary of message if configured */}
+                                            {hasMessage && (
                                                 <div className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="font-medium text-sm text-gray-800">Mensagem Automática</span>
@@ -274,7 +300,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                                         variant="outline"
                                                                         size="icon"
                                                                         className="h-6 w-6 p-0"
-                                                                        onClick={() => handleConfigureMessage(stage.id, stageMessage?.id)}
+                                                                        onClick={() => handleConfigureMessageFromModal(stage.id, stageMessage?.id)}
                                                                         aria-label="Editar Mensagem"
                                                                     >
                                                                         <Edit className="h-4 w-4" />
@@ -290,7 +316,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                                         variant="destructive"
                                                                         size="icon"
                                                                         className="h-6 w-6 p-0"
-                                                                        onClick={() => handleDeleteMessage(stageMessage!.id)}
+                                                                        onClick={() => handleDeleteMessageFromModal(stageMessage!.id)}
                                                                         disabled={deleteMessageMutation.isLoading}
                                                                         aria-label="Excluir Mensagem"
                                                                     >
@@ -320,13 +346,26 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleConfigureMessage(stage.id)}
+                                                        onClick={() => handleConfigureMessageFromModal(stage.id)}
                                                         className="flex items-center gap-1"
                                                     >
                                                         <MessageSquarePlus className="h-4 w-4" /> Configurar Mensagem
                                                     </Button>
                                                 </div>
                                             )}
+                                            {/* Placeholder for other actions */}
+                                            <div className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200 flex flex-col items-center justify-center h-32 text-center text-gray-500">
+                                                <Info className="h-8 w-8 mb-2" />
+                                                <p className="text-sm mb-3">Nenhuma ação configurada para esta etapa.</p>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => alert('Configurar Ação (Em Breve)')}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    <Settings2 className="h-4 w-4" /> Configurar Ação
+                                                </Button>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 );
@@ -335,6 +374,94 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                     )}
                 </div>
             </div>
+
+            {/* Stage Configuration Modal */}
+            <Dialog open={isStageConfigModalOpen} onOpenChange={setIsStageConfigModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Configurar Etapa: {selectedStageForConfig?.nome_etapa || 'N/D'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 flex flex-col gap-4">
+                        <p className="text-sm text-gray-700">Gerencie as configurações para a etapa "{selectedStageForConfig?.nome_etapa || 'N/D'}" do funil "{funnelName}".</p>
+
+                        {selectedStageForConfig && (
+                            <>
+                                {/* Message Configuration Section */}
+                                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Mensagem Automática</h3>
+                                {(() => {
+                                    const message = stageMessagesMap.get(selectedStageForConfig.id);
+                                    const hasMessage = !!message;
+                                    const messageTiming = hasMessage ? formatTiming(message!) : '';
+
+                                    return hasMessage ? (
+                                        <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                                            <p className="font-medium text-sm text-gray-800 mb-1">Mensagem Configurada:</p>
+                                            <p className="text-xs text-gray-600 mb-2 line-clamp-3">{message?.modelo_mensagem || 'Sem texto'}</p>
+                                            <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+                                                {message?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
+                                                <span>Agendamento: {messageTiming}</span>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleConfigureMessageFromModal(selectedStageForConfig.id, message?.id)}
+                                                >
+                                                    <Edit className="h-4 w-4 mr-2" /> Editar Mensagem
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteMessageFromModal(message!.id)}
+                                                    disabled={deleteMessageMutation.isLoading}
+                                                >
+                                                    {deleteMessageMutation.isLoading ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    Excluir
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 p-3 rounded-md border border-gray-200 text-center text-gray-600">
+                                            <p className="mb-3">Nenhuma mensagem automática configurada para esta etapa.</p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleConfigureMessageFromModal(selectedStageForConfig.id)}
+                                            >
+                                                <MessageSquarePlus className="h-4 w-4 mr-2" /> Configurar Mensagem
+                                            </Button>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Other Actions Section (Placeholder) */}
+                                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mt-4">Outras Ações</h3>
+                                <div className="bg-gray-50 p-3 rounded-md border border-gray-200 text-center text-gray-600">
+                                    <p className="mb-3">Nenhuma ação adicional configurada para esta etapa.</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => alert('Funcionalidade de Ações da Etapa em desenvolvimento!')}
+                                    >
+                                        <Settings2 className="h-4 w-4 mr-2" /> Adicionar Ação
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Fechar
+                            </Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </TooltipProvider>
     );
 };
