@@ -338,213 +338,214 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const isLoadingData = loading; 
   const fetchError = error; 
 
+  // Re-written return statement to ensure clean JSX
   return (
-    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full"> {/* MODIFIED: Added w-full and adjusted padding */}
-      <Card className="w-full shadow-lg"> {/* MODIFIED: Removed max-w-4xl, added w-full and shadow-lg for better appearance */}
+    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full">
+      <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {isLoadingData ? (
-            <div className="flex items-center justify-center gap-2 text-primary py-10"> {/* Added py-10 for better spacing */}
-              <Loader2 className="animate-spin h-8 w-8" /> {/* Increased spinner size */}
-              Carregando dados da mensagem... 
+            <div className="flex items-center justify-center gap-2 text-primary py-10">
+              <Loader2 className="animate-spin h-8 w-8" />
+              Carregando dados da mensagem...
             </div>
           ) : fetchError ? (
-            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md"> {/* Added styling for error */}
-                <TriangleAlert className="h-5 w-5" />
-                {fetchError || "Erro ao carregar dados."}
+            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md">
+              <TriangleAlert className="h-5 w-5" />
+              {fetchError || "Erro ao carregar dados."}
             </div>
           ) : (
             <>
               <div>
-                  <label htmlFor="messageName" className="block mb-1 font-medium text-gray-700"> 
-                      Nome da Mensagem * 
-                  </label>
-                  <Input
-                      id="messageName"
-                      value={messageName}
-                      onChange={(e) => setMessageName(e.target.value)}
-                      placeholder="Ex: Boas-vindas Lead Frio, Follow-up Pós-Avaliação"
-                      disabled={saving}
-                      maxLength={100}
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Um nome claro para identificar esta mensagem na listagem.</p> 
+                <label htmlFor="messageName" className="block mb-1 font-medium text-gray-700">
+                  Nome da Mensagem *
+                </label>
+                <Input
+                  id="messageName"
+                  value={messageName}
+                  onChange={(e) => setMessageName(e.target.value)}
+                  placeholder="Ex: Boas-vindas Lead Frio, Follow-up Pós-Avaliação"
+                  disabled={saving}
+                  maxLength={100}
+                />
+                <p className="text-sm text-gray-500 mt-1">Um nome claro para identificar esta mensagem na listagem.</p>
               </div>
 
-              <div className="message-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50"> 
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3> 
+              <div className="message-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3>
 
-                  {messageSteps.length === 0 && (
-                      <div className="text-center text-gray-600 italic py-6">Nenhum passo na mensagem ainda. Adicione um abaixo.</div>  {/* Added py-6 */}
-                  )}
+                {messageSteps.length === 0 && (
+                  <div className="text-center text-gray-600 italic py-6">Nenhum passo na mensagem ainda. Adicione um abaixo.</div>
+                )}
 
-                  {messageSteps.map((step, index) => (
-                      <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white"> {/* Added bg-white */}
-                          <CardContent className="p-0 flex flex-col gap-4">
-                              <div className="flex justify-between items-center">
-                                  <span className="font-medium text-gray-700">Passo {index + 1}</span>
-                                  <Button variant="destructive" size="sm" onClick={() => handleRemoveStep(step.id)} disabled={saving}>
-                                      <Trash2 className="h-4 w-4 mr-1" /> Remover
-                                  </Button>
-                              </div>
+                {messageSteps.map((step, index) => (
+                  <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white">
+                    <CardContent className="p-0 flex flex-col gap-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-gray-700">Passo {index + 1}</span>
+                        <Button variant="destructive" size="sm" onClick={() => handleRemoveStep(step.id)} disabled={saving}>
+                          <Trash2 className="h-4 w-4 mr-1" /> Remover
+                        </Button>
+                      </div>
 
-                              <div>
-                                  <label htmlFor={`step-type-${step.id}`} className="block mb-1 font-medium text-gray-700">
-                                      Tipo de Passo
-                                  </label>
-                                  <Select
-                                      value={step.type}
-                                      onValueChange={(value) => {
-                                          const newType = value as MessageStep['type'];
-                                          const updates: Partial<MessageStep> = { 
-                                              type: newType, 
-                                              text: newType === 'texto' ? (step.text || '') : undefined, 
-                                              mediaFile: undefined, 
-                                              mediaUrl: undefined,
-                                              delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
-                                              delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
-                                          };
-                                          handleUpdateStep(step.id, updates);
-                                      }}
-                                      id={`step-type-${step.id}`}
-                                      disabled={saving}
-                                  >
-                                      <SelectTrigger>
-                                          <SelectValue placeholder="Selecione o tipo" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="texto">Texto</SelectItem>
-                                          <SelectItem value="imagem">Imagem</SelectItem>
-                                          <SelectItem value="video">Vídeo</SelectItem>
-                                          <SelectItem value="audio">Áudio</SelectItem>
-                                          <SelectItem value="documento">Documento</SelectItem>
-                                          <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
-                                      </SelectContent>
-                                  </Select>
-                              </div>
+                      <div>
+                        <label htmlFor={`step-type-${step.id}`} className="block mb-1 font-medium text-gray-700">
+                          Tipo de Passo
+                        </label>
+                        <Select
+                          value={step.type}
+                          onValueChange={(value) => {
+                            const newType = value as MessageStep['type'];
+                            const updates: Partial<MessageStep> = {
+                              type: newType,
+                              text: newType === 'texto' ? (step.text || '') : undefined,
+                              mediaFile: undefined,
+                              mediaUrl: undefined,
+                              delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
+                              delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
+                            };
+                            handleUpdateStep(step.id, updates);
+                          }}
+                          id={`step-type-${step.id}`}
+                          disabled={saving}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="texto">Texto</SelectItem>
+                            <SelectItem value="imagem">Imagem</SelectItem>
+                            <SelectItem value="video">Vídeo</SelectItem>
+                            <SelectItem value="audio">Áudio</SelectItem>
+                            <SelectItem value="documento">Documento</SelectItem>
+                            <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                              {step.type === 'texto' && (
-                                  <div>
-                                      <label htmlFor={`step-text-${step.id}`} className="block mb-1 font-medium text-gray-700">
-                                          Texto da Mensagem
-                                      </label>
-                                      <Textarea
-                                          id={`step-text-${step.id}`}
-                                          rows={4}
-                                          value={step.text || ''}
-                                          onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })}
-                                          placeholder="Digite o texto para este passo..."
-                                          disabled={saving}
-                                      />
-                                  </div>
+                      {step.type === 'texto' && (
+                        <div>
+                          <label htmlFor={`step-text-${step.id}`} className="block mb-1 font-medium text-gray-700">
+                            Texto da Mensagem
+                          </label>
+                          <Textarea
+                            id={`step-text-${step.id}`}
+                            rows={4}
+                            value={step.text || ''}
+                            onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })}
+                            placeholder="Digite o texto para este passo..."
+                            disabled={saving}
+                          />
+                        </div>
+                      )}
+
+                      {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && (
+                        <div>
+                          <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">
+                            Anexar Arquivo ({step.type})
+                          </label>
+                          <Input
+                            type="file"
+                            id={`step-media-${step.id}`}
+                            accept={
+                              step.type === 'imagem' ? 'image/*' :
+                              step.type === 'video' ? 'video/*' :
+                              step.type === 'audio' ? 'audio/*' :
+                              step.type === 'documento' ? '.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx' : '*'
+                            }
+                            onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
+                            disabled={saving}
+                          />
+                          {step.mediaUrl && (
+                            <div className="mt-2">
+                              {step.type === 'imagem' && <img src={step.mediaUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
+                              {step.type === 'video' && <video src={step.mediaUrl} controls className="max-w-xs rounded" />}
+                              {step.type === 'audio' && <audio src={step.mediaUrl} controls />}
+                              {step.type === 'documento' && (
+                                <a href={step.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                  Ver Documento: {step.originalFileName || step.mediaUrl.split('/').pop()}
+                                </a>
                               )}
+                            </div>
+                          )}
+                          {!step.mediaUrl && step.mediaFile && (
+                            <p className="text-sm text-gray-600 mt-1">Arquivo selecionado: {step.mediaFile.name}</p>
+                          )}
+                          {step.mediaUrl && step.originalFileName && !step.mediaFile && (
+                            <p className="text-sm text-gray-600 mt-1">Arquivo salvo: {step.originalFileName}</p>
+                          )}
+                        </div>
+                      )}
 
-                              {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && (
-                                  <div>
-                                      <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">
-                                          Anexar Arquivo ({step.type})
-                                      </label>
-                                      <Input
-                                          type="file"
-                                          id={`step-media-${step.id}`}
-                                          accept={
-                                              step.type === 'imagem' ? 'image/*' : 
-                                              step.type === 'video' ? 'video/*' : 
-                                              step.type === 'audio' ? 'audio/*' : 
-                                              step.type === 'documento' ? '.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx' : '*'
-                                          }
-                                          onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
-                                          disabled={saving}
-                                      />
-                                      {step.mediaUrl && (
-                                          <div className="mt-2">
-                                              {step.type === 'imagem' && <img src={step.mediaUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
-                                              {step.type === 'video' && <video src={step.mediaUrl} controls className="max-w-xs rounded" />}
-                                              {step.type === 'audio' && <audio src={step.mediaUrl} controls />}
-                                              {step.type === 'documento' && (
-                                                  <a href={step.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                      Ver Documento: {step.originalFileName || step.mediaUrl.split('/').pop()}
-                                                  </a>
-                                              )}
-                                          </div>
-                                      )}
-                                       {!step.mediaUrl && step.mediaFile && (
-                                           <p className="text-sm text-gray-600 mt-1">Arquivo selecionado: {step.mediaFile.name}</p>
-                                       )}
-                                       {step.mediaUrl && step.originalFileName && !step.mediaFile && (
-                                            <p className="text-sm text-gray-600 mt-1">Arquivo salvo: {step.originalFileName}</p>
-                                       )}
-                                  </div>
-                              )}
+                      {step.type === 'atraso' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">
+                              Duração do Atraso *
+                            </label>
+                            <Input
+                              id={`step-delay-value-${step.id}`}
+                              type="number"
+                              placeholder="Ex: 30"
+                              value={step.delayValue?.toString() || ''}
+                              onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })}
+                              min="1"
+                              disabled={saving}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`step-delay-unit-${step.id}`} className="block mb-1 font-medium text-gray-700">
+                              Unidade do Atraso *
+                            </label>
+                            <Select
+                              value={step.delayUnit || 'segundos'}
+                              onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })}
+                              id={`step-delay-unit-${step.id}`}
+                              disabled={saving}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="segundos">Segundos</SelectItem>
+                                <SelectItem value="minutos">Minutos</SelectItem>
+                                <SelectItem value="horas">Horas</SelectItem>
+                                <SelectItem value="dias">Dias</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera antes de prosseguir para o próximo passo.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
 
-                              {step.type === 'atraso' && (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* MODIFIED: Responsive grid for delay */}
-                                      <div>
-                                          <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">
-                                              Duração do Atraso *
-                                          </label>
-                                          <Input
-                                              id={`step-delay-value-${step.id}`}
-                                              type="number"
-                                              placeholder="Ex: 30"
-                                              value={step.delayValue?.toString() || ''}
-                                              onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })}
-                                              min="1"
-                                              disabled={saving}
-                                          />
-                                      </div>
-                                      <div>
-                                          <label htmlFor={`step-delay-unit-${step.id}`} className="block mb-1 font-medium text-gray-700">
-                                              Unidade do Atraso *
-                                          </label>
-                                          <Select
-                                              value={step.delayUnit || 'segundos'}
-                                              onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })}
-                                              id={`step-delay-unit-${step.id}`}
-                                              disabled={saving}
-                                          >
-                                              <SelectTrigger>
-                                                  <SelectValue />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                  <SelectItem value="segundos">Segundos</SelectItem>
-                                                  <SelectItem value="minutos">Minutos</SelectItem>
-                                                  <SelectItem value="horas">Horas</SelectItem>
-                                                  <SelectItem value="dias">Dias</SelectItem>
-                                              </SelectContent>
-                                          </Select>
-                                      </div>
-                                      <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera antes de prosseguir para o próximo passo.</p> {/* MODIFIED: md:col-span-2 */}
-                                  </div>
-                              )}
-                          </CardContent>
-                      </Card>
-                  ))}
-
-                  <div className="flex flex-wrap justify-center gap-2 mt-4">
-                      <Button variant="outline" onClick={() => handleAddStep('texto')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Texto
-                      </Button>
-                      <Button variant="outline" onClick={() => handleAddStep('imagem')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Imagem
-                      </Button>
-                      <Button variant="outline" onClick={() => handleAddStep('video')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Vídeo
-                      </Button>
-                      <Button variant="outline" onClick={() => handleAddStep('audio')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Áudio
-                      </Button>
-                      <Button variant="outline" onClick={() => handleAddStep('documento')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Documento
-                      </Button>
-                      <Button variant="outline" onClick={() => handleAddStep('atraso')} disabled={saving}>
-                          <Plus className="h-4 w-4 mr-2" /> Atraso/Pausa
-                      </Button>
-                  </div>
+                <div className="flex flex-wrap justify-center gap-2 mt-4">
+                  <Button variant="outline" onClick={() => handleAddStep('texto')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Texto
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAddStep('imagem')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Imagem
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAddStep('video')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Vídeo
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAddStep('audio')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Áudio
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAddStep('documento')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Documento
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAddStep('atraso')} disabled={saving}>
+                    <Plus className="h-4 w-4 mr-2" /> Atraso/Pausa
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-4 pt-4 border-t mt-4"> {/* Added mt-4 */}
+              <div className="flex justify-end gap-4 pt-4 border-t mt-4">
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
                   Cancelar
                 </Button>
