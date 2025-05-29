@@ -13,7 +13,6 @@ import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import UnderConstructionPage from './UnderConstructionPage'; // Import UnderConstructionPage
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip
-import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -562,7 +561,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
 
     return (
-        <TooltipProvider>
+        <>
             <div className="funnel-container flex flex-col h-full p-6 bg-gray-100">
                 <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                     <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
@@ -896,7 +895,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                     )}
                 </div>
             </div>
-        </TooltipProvider>
+        </>
     );
 };
 
