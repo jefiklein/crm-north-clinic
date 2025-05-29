@@ -55,7 +55,6 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov'];
 const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav'];
 
-
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
@@ -87,7 +86,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
   const N8N_SAVE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5";
 
-  // Function to fetch signed URL (copied & adapted from previous logic)
+  // Function to fetch signed URL (modified to be more flexible with webhook response)
   const fetchSignedUrlForPreview = async (fileKey: string, stepId: string): Promise<void> => {
     if (!fileKey || !clinicCode) {
       setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
@@ -110,22 +109,36 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       if (!response.ok) {
         throw new Error(`Falha (${response.status}) ao obter URL: ${responseText.substring(0,150)}`);
       }
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error(`[MensagensConfigPage] JSON Parse Error for key ${fileKey} (step ${stepId}):`, jsonError, "Response Text:", responseText);
-        throw new Error(`Resposta inesperada do servidor (não JSON): ${responseText.substring(0,100)}`);
+
+      if (!responseText.trim()) {
+        console.warn(`[MensagensConfigPage] Webhook retornou resposta vazia para ${fileKey} (step ${stepId}).`);
+        throw new Error("Webhook de recuperação de arquivo retornou uma resposta vazia.");
       }
       
-      const signedUrl = data?.signedURL || data?.url || null;
+      let signedUrl: string | null = null;
+      try {
+        const data = JSON.parse(responseText);
+        signedUrl = data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null); 
+        if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string' && data[0].startsWith('http')) { 
+            signedUrl = data[0];
+        } else if (Array.isArray(data) && data.length > 0 && (data[0]?.signedURL || data[0]?.url || data[0]?.link)) { 
+            signedUrl = data[0]?.signedURL || data[0]?.url || data[0]?.link;
+        }
 
+      } catch (jsonError) {
+        if (responseText.startsWith('http://') || responseText.startsWith('https://')) {
+          signedUrl = responseText;
+        } else {
+          console.error(`[MensagensConfigPage] Resposta não é JSON nem URL válida para ${fileKey} (step ${stepId}):`, responseText.substring(0, 200));
+          throw new Error(`Resposta inesperada do webhook: ${responseText.substring(0,100)}`);
+        }
+      }
+      
       if (signedUrl) {
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
       } else {
-        throw new Error(`URL assinada não encontrada na resposta JSON: ${responseText.substring(0,100)}`);
+        throw new Error(`URL assinada não extraída da resposta do webhook. Resposta: ${responseText.substring(0,100)}`);
       }
     } catch (e: any) {
       console.error(`[MensagensConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
@@ -148,7 +161,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
         if (!currentUrl && (!currentStatus || !currentStatus.isLoading)) {
           fetchSignedUrlForPreview(step.mediaKey, step.id);
-        } else {
         }
       }
     });
