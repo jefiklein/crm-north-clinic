@@ -185,7 +185,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   }, [sequenceSteps]);
 
   const handleSave = async () => {
-    const currentClinicCode = clinicData?.code; 
+    const currentClinicCode = clinicData?.code;
     const currentClinicId = clinicData?.id;
 
     if (!currentClinicId || !currentClinicCode) {
@@ -226,15 +226,16 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
     setError(null);
 
     try {
-      const stepsWithSavedMedia = await Promise.all(sequenceSteps.map(async (step) => {
+      // 1. Upload media files and get their URLs (this part remains, as n8n might expect URLs)
+      const stepsWithPotentiallySavedMedia = await Promise.all(sequenceSteps.map(async (step) => {
           if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento')) {
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
-              formData.append("fileName", step.mediaFile.name); 
-              formData.append("clinicId", currentClinicCode); 
+              formData.append("fileName", step.mediaFile.name);
+              formData.append("clinicId", currentClinicCode);
               
               const uploadRes = await fetch(
-                "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase", 
+                "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase", // Webhook for media upload
                 { method: "POST", body: formData }
               );
               if (!uploadRes.ok) {
@@ -247,139 +248,93 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
               
               return { ...step, mediaUrl: savedMediaUrl, originalFileName: step.mediaFile.name, mediaFile: undefined };
           }
+          // If no new file, but mediaUrl exists (from editing), keep it.
+          // If mediaFile is null and mediaUrl is also null, it's fine.
           return { ...step, mediaFile: undefined }; 
       }));
 
-      let savedSequenceId: number;
-      const sequencePayload: Omit<SequenceData, 'id' | 'id_clinica'> & { id_clinica: number | string, updated_at: string } = {
-          nome_sequencia: sequenceName,
-          contexto: 'leads', 
-          ativo: true, 
-          id_clinica: currentClinicId,
-          updated_at: new Date().toISOString(),
+      // 2. Prepare payload for n8n webhook
+      const sequencePayloadForN8N = {
+        event: isEditing && sequenceIdToEdit ? "sequence_updated" : "sequence_created",
+        sequenceId: isEditing && sequenceIdToEdit ? sequenceIdToEdit : undefined, // Send ID if editing
+        clinicId: currentClinicId,
+        clinicCode: currentClinicCode, // n8n might need this for its own logic
+        sequenceName: sequenceName,
+        contexto: 'leads', // Fixed for this page
+        ativo: true, // Or add a UI toggle for this
+        steps: stepsWithPotentiallySavedMedia.map((step, index) => ({
+          // Client-side ID 'id' is not needed by backend for saving steps, but db_id might be if n8n needs to update specific steps
+          db_id: step.db_id, // Send db_id if it exists (for updating specific steps if n8n supports it)
+          ordem: index + 1,
+          tipo_passo: step.type,
+          conteudo_texto: step.text || null,
+          url_arquivo: step.mediaUrl || null,
+          nome_arquivo_original: step.originalFileName || null,
+          atraso_valor: step.type === 'atraso' ? step.delayValue : null,
+          atraso_unidade: step.type === 'atraso' ? step.delayUnit : null,
+        })),
       };
 
-      if (isEditing && sequenceIdToEdit) {
-          const { data, error: updateError } = await supabase
-              .from('north_clinic_mensagens_sequencias')
-              .update(sequencePayload)
-              .eq('id', sequenceIdToEdit)
-              .eq('id_clinica', currentClinicId)
-              .select('id')
-              .single();
-          if (updateError) throw updateError;
-          if (!data) throw new Error("Falha ao atualizar a sequência principal.");
-          savedSequenceId = data.id;
-          console.log("[MensagensSequenciaConfigPage] Sequence updated:", savedSequenceId);
+      console.log("[MensagensSequenciaConfigPage] Sending payload to n8n webhook:", sequencePayloadForN8N);
 
-          const { error: deleteStepsError } = await supabase
-              .from('north_clinic_mensagens_sequencia_passos')
-              .delete()
-              .eq('id_sequencia', savedSequenceId);
-          if (deleteStepsError) throw deleteStepsError;
-          console.log("[MensagensSequenciaConfigPage] Old steps deleted for sequence:", savedSequenceId);
-
-      } else {
-          const { data, error: insertError } = await supabase
-              .from('north_clinic_mensagens_sequencias')
-              .insert({ ...sequencePayload, created_at: new Date().toISOString() })
-              .select('id')
-              .single();
-          if (insertError) throw insertError;
-          if (!data) throw new Error("Falha ao criar a sequência principal.");
-          savedSequenceId = data.id;
-          console.log("[MensagensSequenciaConfigPage] Sequence created:", savedSequenceId);
-      }
-
-      if (stepsWithSavedMedia.length > 0) {
-          const stepsToInsert = stepsWithSavedMedia.map((step, index) => ({
-              id_sequencia: savedSequenceId,
-              ordem: index + 1,
-              tipo_passo: step.type,
-              conteudo_texto: step.text || null,
-              url_arquivo: step.mediaUrl || null,
-              nome_arquivo_original: step.originalFileName || null,
-              atraso_valor: step.type === 'atraso' ? step.delayValue : null, 
-              atraso_unidade: step.type === 'atraso' ? step.delayUnit : null, 
-          }));
-
-          console.log("[MensagensSequenciaConfigPage] Inserting steps:", stepsToInsert);
-          const { error: stepsInsertError } = await supabase
-              .from('north_clinic_mensagens_sequencia_passos')
-              .insert(stepsToInsert);
-
-          if (stepsInsertError) {
-              console.error("[MensagensSequenciaConfigPage] Error inserting steps:", stepsInsertError);
-              if (!isEditing) {
-                  await supabase.from('north_clinic_mensagens_sequencias').delete().eq('id', savedSequenceId);
-                  console.log("[MensagensSequenciaConfigPage] Main sequence rolled back due to step insertion error.");
-              }
-              throw stepsInsertError;
-          }
-          console.log("[MensagensSequenciaConfigPage] Steps inserted successfully.");
-      }
-      
-      toast({
-        title: "Sucesso",
-        description: `Sequência "${sequenceName}" salva com sucesso.`,
+      // 3. Call the n8n webhook to save/update the sequence
+      const webhookResponse = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sequencePayloadForN8N),
       });
 
-      try {
-        console.log(`[MensagensSequenciaConfigPage] Calling n8n webhook for sequence ID: ${savedSequenceId}, clinic ID: ${currentClinicId}`);
-        const webhookResponse = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            event: isEditing ? "sequence_updated" : "sequence_created",
-            sequenceId: savedSequenceId,
-            clinicId: currentClinicId,
-            sequenceName: sequenceName,
-            context: 'leads'
-          }),
-        });
-
-        if (!webhookResponse.ok) {
-          const webhookErrorText = await webhookResponse.text();
-          console.warn(`[MensagensSequenciaConfigPage] Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText.substring(0,200)}`);
-          toast({
-            title: "Aviso de Webhook",
-            description: `A sequência foi salva, mas a notificação para o sistema externo (n8n) falhou. Status: ${webhookResponse.status}`,
-            variant: "default", // Not destructive, as main operation succeeded
-            className: "bg-yellow-100 border-yellow-400 text-yellow-700"
-          });
-        } else {
-          console.log("[MensagensSequenciaConfigPage] Webhook call successful.");
+      if (!webhookResponse.ok) {
+        const webhookErrorText = await webhookResponse.text();
+        console.error(`[MensagensSequenciaConfigPage] n8n Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText}`);
+        // Try to parse JSON error if possible
+        let parsedError = webhookErrorText;
+        try {
+            const jsonError = JSON.parse(webhookErrorText);
+            parsedError = jsonError.message || jsonError.error || webhookErrorText;
+        } catch (parseErr) {
+            // Not a JSON error, use raw text
         }
-      } catch (webhookError: any) {
-        console.warn("[MensagensSequenciaConfigPage] Error calling webhook:", webhookError);
-        toast({
-          title: "Aviso de Webhook",
-          description: `A sequência foi salva, mas ocorreu um erro ao notificar o sistema externo (n8n): ${webhookError.message}`,
-          variant: "default",
-          className: "bg-yellow-100 border-yellow-400 text-yellow-700"
-        });
+        throw new Error(`Falha ao salvar sequência via n8n (Status: ${webhookResponse.status}): ${parsedError.substring(0, 250)}`);
       }
 
+      const webhookResult = await webhookResponse.json();
+      console.log("[MensagensSequenciaConfigPage] n8n Webhook call successful, result:", webhookResult);
+      
+      // Assuming n8n returns the saved sequence ID, or some success indicator.
+      // If n8n returns the ID of the created/updated sequence:
+      // const savedSequenceIdFromN8N = webhookResult.sequenceId || (isEditing ? sequenceIdToEdit : null);
+
+      toast({
+        title: "Sucesso",
+        description: `Sequência "${sequenceName}" foi enviada para processamento.`,
+      });
+
+      // Invalidate queries to refetch list on the previous page
       queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId] }); 
-      queryClient.invalidateQueries({ queryKey: ['sequenceData', savedSequenceId] }); 
+      // If editing, also invalidate specific sequence data if you have a query for it
+      if (isEditing && sequenceIdToEdit) {
+        queryClient.invalidateQueries({ queryKey: ['sequenceData', sequenceIdToEdit] }); 
+      }
+
 
       setTimeout(() => {
-        if (currentClinicCode) { 
-            navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated" : "created"}`);
+        if (currentClinicCode) {
+            navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
         } else {
             console.error("[MensagensSequenciaConfigPage] Clinic code is undefined, cannot navigate back.");
-            navigate(`/dashboard/9?status=${isEditing ? "updated" : "created"}`); 
+            navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
         }
       }, 1500);
 
     } catch (e: any) {
-      console.error("[MensagensSequenciaConfigPage] Error saving sequence:", e);
-      setError(e.message || "Erro ao salvar sequência");
+      console.error("[MensagensSequenciaConfigPage] Error in handleSave:", e);
+      setError(e.message || "Erro ao processar a sequência");
       toast({
-        title: "Erro ao Salvar",
-        description: e.message || "Ocorreu um erro inesperado ao tentar salvar a sequência.",
+        title: "Erro no Processamento",
+        description: e.message || "Ocorreu um erro inesperado ao tentar processar a sequência.",
         variant: "destructive",
       });
     } finally {
