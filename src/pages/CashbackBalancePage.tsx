@@ -199,7 +199,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
         // TODO: Implement navigation or modal to show detailed cashback history for this client
     };
 
-    const handleViewSalesClick = () => { // New function to navigate to sales page
+    const handleConfigCashbackClick = () => { // Renamed function
         if (!clinicData?.code) {
             showError("Erro: Código da clínica não disponível.");
             return;
@@ -246,8 +246,8 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                         </SelectContent>
                     </Select>
                 </div>
-                <Button variant="outline" onClick={handleViewSalesClick} className="flex-shrink-0"> {/* New button */}
-                    <DollarSign className="h-4 w-4 mr-2" /> Ver Vendas
+                <Button variant="outline" onClick={handleConfigCashbackClick} className="flex-shrink-0"> {/* Renamed button */}
+                    <DollarSign className="h-4 w-4 mr-2" /> Configurar Cashback
                 </Button>
             </div>
 
@@ -280,7 +280,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Cliente</TableHead>
-                                        <TableHead>Telefone</TableHead>
+                                        {/* Removed Telefone TableHead */}
                                         <TableHead className="text-right">Saldo Ativo</TableHead>
                                         <TableHead className="text-right">Validade Mais Próxima</TableHead>
                                         {/* Removed "Cashbacks Ativos" column as RPC doesn't return count */}
@@ -297,9 +297,7 @@ const CashbackBalancePage: React.FC<CashbackBalancePageProps> = ({ clinicData })
                                                         {client.nome_north || "S/ Nome"}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-gray-700 whitespace-nowrap">
-                                                    {formatPhone(client.telefone_north)}
-                                                </TableCell>
+                                                {/* Removed Telefone TableCell */}
                                                 <TableCell className="text-right font-semibold text-green-700 whitespace-nowrap">
                                                     {client.total_cashback !== undefined && client.total_cashback !== null ?
                                                         `R$ ${client.total_cashback.toFixed(2).replace('.', ',')}` :
