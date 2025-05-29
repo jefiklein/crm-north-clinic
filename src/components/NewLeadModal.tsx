@@ -78,7 +78,11 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    const digits = input.replace(/\D/g, '');
+    let digits = input.replace(/\D/g, '');
+    // Limit the number of digits to 13
+    if (digits.length > 13) {
+      digits = digits.substring(0, 13);
+    }
     setRawPhone(digits);
     setPhone(formatPhone(digits));
   };
