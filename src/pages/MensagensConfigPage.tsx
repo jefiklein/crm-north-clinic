@@ -1,29 +1,187 @@
-// ... KEEP: React, UI component imports, useToast, supabase, EmojiPicker, Lucide icons, MultiSelectServices, useLocation, cn, useQuery ...
-// ... KEEP: interface ClinicData ...
-// ... KEEP: interface Instance ...
-// ... KEEP: interface Service ...
-// ... KEEP: interface Group ...
-// ... KEEP: interface FunnelDetails ...
-// ... KEEP: interface FunnelStage ...
-// ... KEEP: interface FetchedMessageData ...
-// ... KEEP: interface WebhookResponse ...
-// ... KEEP: orderedCategoriesGeneral, orderedCategoriesCashback, defaultTemplates, placeholderData ...
-// ... KEEP: function simulateMessage ...
+"use client";
+
+import React, { useEffect, useState, useRef, useMemo } from "react"; 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "@/components/ui/loader";
+import { TriangleAlert } from "@/components/ui/triangle-alert";
+import { Smile } from "@/components/ui/smile";
+import { MultiSelectServices } from "@/components/ui/multi-select-services";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
+import { EmojiPicker } from "emoji-picker-react";
+import { Lucide } from "@/components/ui/lucide";
+import { useLocation, useNavigate } from "react-router-dom";
+import cn from "classnames";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  orderedCategoriesGeneral,
+  orderedCategoriesCashback,
+  defaultTemplates,
+  placeholderData,
+} from "@/data/placeholders";
+import { simulateMessage } from "@/lib/simulate-message";
+
+interface ClinicData {
+  // ... KEEP: ClinicData interface ...
+}
+
+interface Instance {
+  // ... KEEP: Instance interface ...
+}
+
+interface Service {
+  // ... KEEP: Service interface ...
+}
+
+interface Group {
+  // ... KEEP: Group interface ...
+}
+
+interface FunnelDetails {
+  // ... KEEP: FunnelDetails interface ...
+}
+
+interface FunnelStage {
+  // ... KEEP: FunnelStage interface ...
+}
+
+interface FetchedMessageData {
+  // ... KEEP: FetchedMessageData interface ...
+}
+
+interface WebhookResponse {
+  // ... KEEP: WebhookResponse interface ...
+}
 
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
-  // ... KEEP: state declarations (loading, saving, error, messageId, category, instanceId, messageText, active, services, linkedServices, instances, groups, selectedGroup, scheduledTime, targetType, mediaFile, mediaPreviewUrl, mediaSavedUrl, messageContext, diasMensagemCashback, tipoMensagemCashback, selectedFunnelId, selectedStageId, timingType, delayValue, delayUnit, sendingOrder) ...
-  // ... KEEP: emojiPickerRef, messageTextRef ...
-  // ... KEEP: urlParams, contextParam, isGeneralContext, isCashbackContext, isLeadsContext ...
-  // ... KEEP: useQuery for allFunnels ...
-  // ... KEEP: useQuery for stagesForSelectedFunnel ...
-  // ... KEEP: useEffect for initial data fetching (fetchData) ...
-  // ... KEEP: useEffect for logging messageContext ...
-  // ... KEEP: useEffect for resetting stage when funnel changes ...
-  // ... KEEP: useEffect for fetching groups ...
-  // ... KEEP: useEffect for media file selection and preview ...
-  // ... KEEP: emoji picker integration (toggleEmojiPicker, onEmojiSelect, useEffect for listener) ...
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [messageId, setMessageId] = useState(null);
+  const [category, setCategory] = useState(null);
+  const [instanceId, setInstanceId] = useState(null);
+  const [messageText, setMessageText] = useState("");
+  const [active, setActive] = useState(true);
+  const [services, setServices] = useState([]);
+  const [linkedServices, setLinkedServices] = useState([]);
+  const [instances, setInstances] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [scheduledTime, setScheduledTime] = useState(null);
+  const [targetType, setTargetType] = useState(null);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState(null);
+  const [mediaSavedUrl, setMediaSavedUrl] = useState(null);
+  const [messageContext, setMessageContext] = useState(null);
+  const [diasMensagemCashback, setDiasMensagemCashback] = useState(null);
+  const [tipoMensagemCashback, setTipoMensagemCashback] = useState(null);
+  const [selectedFunnelId, setSelectedFunnelId] = useState(null);
+  const [selectedStageId, setSelectedStageId] = useState(null);
+  const [timingType, setTimingType] = useState(null);
+  const [delayValue, setDelayValue] = useState(null);
+  const [delayUnit, setDelayUnit] = useState(null);
+  const [sendingOrder, setSendingOrder] = useState(null);
+
+  const emojiPickerRef = useRef(null);
+  const messageTextRef = useRef(null);
+
+  const urlParams = new URLSearchParams(useLocation().search);
+  const contextParam = urlParams.get("context");
+  const isGeneralContext = contextParam === "geral";
+  const isCashbackContext = contextParam === "cashback";
+  const isLeadsContext = contextParam === "leads";
+
+  const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery(
+    ["allFunnels"],
+    async () => {
+      const { data, error } = await supabase.from("funil").select("id, nome_funil");
+      if (error) {
+        throw error;
+      }
+      return data;
+    }
+  );
+
+  const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery(
+    ["stagesForFunnel", selectedFunnelId],
+    async () => {
+      if (!selectedFunnelId) {
+        return [];
+      }
+      const { data, error } = await supabase.from("etapa").select("id, nome_etapa").eq("id_funil", selectedFunnelId);
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    {
+      enabled: !!selectedFunnelId,
+    }
+  );
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // ... KEEP: initial data fetching logic ...
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const logMessageContext = async () => {
+      // ... KEEP: logging messageContext logic ...
+    };
+    logMessageContext();
+  }, [messageContext]);
+
+  useEffect(() => {
+    const resetStage = async () => {
+      // ... KEEP: resetting stage when funnel changes logic ...
+    };
+    resetStage();
+  }, [selectedFunnelId]);
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      // ... KEEP: fetching groups logic ...
+    };
+    fetchGroups();
+  }, []);
+
+  useEffect(() => {
+    const handleMediaFileSelection = async () => {
+      // ... KEEP: media file selection and preview logic ...
+    };
+    handleMediaFileSelection();
+  }, [mediaFile]);
+
+  const toggleEmojiPicker = () => {
+    // ... KEEP: emoji picker toggle logic ...
+  };
+
+  const onEmojiSelect = (event, emojiObject) => {
+    // ... KEEP: emoji select logic ...
+  };
+
+  useEffect(() => {
+    const listener = () => {
+      // ... KEEP: emoji picker listener logic ...
+    };
+    // ... KEEP: add event listener ...
+    return () => {
+      // ... KEEP: remove event listener ...
+    };
+  }, []);
 
   const handleSave = async () => {
     // ... KEEP: currentClinicCode, currentClinicId capture ...
@@ -102,14 +260,33 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
   };
 
-  // ... KEEP: handleCategoryChange ...
-  // ... KEEP: visibility flags (showCategoryGeneral, showTargetTypeSelectGeneral, etc.) ...
-  // ... KEEP: handleCancel ...
-  // ... KEEP: pageTitle, isLoadingData, fetchError ...
-  // ... KEEP: availablePlaceholders memo ...
-  // ... KEEP: handlePlaceholderClick ...
-  // ... KEEP: console.log for rendering ...
-  // ... KEEP: JSX return ...
+  const handleCategoryChange = (value) => {
+    // ... KEEP: handleCategoryChange logic ...
+  };
+
+  const showCategoryGeneral = isGeneralContext;
+  const showTargetTypeSelectGeneral = isGeneralContext;
+  const showGroupSelectGeneral = isGeneralContext && targetType === "Grupo";
+  const showServicesLinkedGeneral = isGeneralContext;
+  const showScheduledTimeGeneral = isGeneralContext;
+  const showCashbackTiming = isCashbackContext;
+  const showTimingFieldsLeads = isLeadsContext;
+  const showFunnelStageSelectLeads = isLeadsContext;
+  const showSendingOrder = true;
+
+  const pageTitle = "Configuração de Mensagens";
+  const isLoadingData = loading;
+  const fetchError = error;
+
+  const availablePlaceholders = useMemo(() => {
+    // ... KEEP: availablePlaceholders memo logic ...
+  }, []);
+
+  const handlePlaceholderClick = (placeholder) => {
+    // ... KEEP: handlePlaceholderClick logic ...
+  };
+
+  console.log("Rendering MensagensConfigPage");
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
@@ -529,7 +706,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                        )}
                   </div>
               )}
-              {/* --- END NEW --- */}
+              {/* --- END NEW --- */
 
 
               {/* Services Vinculados (only for General context) */}
@@ -662,7 +839,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               )} */}
 
               <div className="flex justify-end gap-4 pt-4 border-t">
-                <Button variant="outline" onClick={handleCancel} disabled={saving}>
+                <Button variant="outline" onClick={() => {}} disabled={saving}>
                   Cancelar
                 </Button>
                 <Button onClick={handleSave} disabled={saving || isLoadingData || !!fetchError}>
