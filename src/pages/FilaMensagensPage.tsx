@@ -293,10 +293,13 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                             {item.status || 'Desconhecido'}
                                         </span>
                                         <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
-                                            <span><strong>Agendado:</strong> {scheduledTime}</span>
+                                            {item.status?.toLowerCase() === 'enviado' && item.data_enviado ? (
+                                                <span><strong>Enviado:</strong> {sentTime}</span>
+                                            ) : (
+                                                <span><strong>Agendado:</strong> {scheduledTime}</span>
+                                            )}
                                             <span><strong>Instância:</strong> {finalDisplayInstanceName}</span> 
                                             <span><strong>Recipiente:</strong> {displayRecipient}</span> 
-                                            {item.status?.toLowerCase() === 'enviado' && <span><strong>Enviado:</strong> {sentTime}</span>}
                                             {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
                                         </div>
                                     </div>
