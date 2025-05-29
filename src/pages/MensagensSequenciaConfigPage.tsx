@@ -34,10 +34,12 @@ interface ClinicData {
   id_permissao: number;
 }
 
+type MessageStepType = 'texto' | 'imagem' | 'video' | 'audio' | 'atraso'; // Removed 'documento'
+
 interface MessageStep {
   id: string; 
   db_id?: number; 
-  type: 'texto' | 'imagem' | 'video' | 'audio' | 'documento' | 'atraso'; 
+  type: MessageStepType; 
   text?: string; 
   mediaFile?: File | null; 
   mediaUrl?: string | null; 
@@ -50,9 +52,17 @@ interface MessageData {
   id?: number; 
   id_clinica: number | string; 
   nome_mensagem: string;
-  contexto: 'leads'; // Contexto 'leads' is still used internally
+  contexto: 'leads'; 
   ativo: boolean;
 }
+
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_VIDEO_SIZE_MB = 10;
+const MAX_AUDIO_SIZE_MB = 10;
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov']; // Added video/mov
+const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav'];
 
 const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
@@ -106,15 +116,17 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
           if (stepsError) throw stepsError;
 
-          const loadedSteps: MessageStep[] = (stepsData || []).map(step => ({
-            id: step.id.toString(), 
-            db_id: step.id,
-            type: step.tipo_passo as MessageStep['type'],
-            text: step.conteudo_texto || undefined,
-            mediaUrl: step.url_arquivo || undefined,
-            originalFileName: step.nome_arquivo_original || undefined,
-            delayValue: step.atraso_valor || undefined,
-            delayUnit: step.atraso_unidade as MessageStep['delayUnit'] || undefined,
+          const loadedSteps: MessageStep[] = (stepsData || [])
+            .filter(step => step.tipo_passo !== 'documento') // Filter out 'documento' steps
+            .map(step => ({
+              id: step.id.toString(), 
+              db_id: step.id,
+              type: step.tipo_passo as MessageStepType,
+              text: step.conteudo_texto || undefined,
+              mediaUrl: step.url_arquivo || undefined,
+              originalFileName: step.nome_arquivo_original || undefined,
+              delayValue: step.atraso_valor || undefined,
+              delayUnit: step.atraso_unidade as MessageStep['delayUnit'] || undefined,
           }));
           setMessageSteps(loadedSteps);
 
@@ -136,7 +148,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     loadMessageForEditing();
   }, [clinicId, isEditing, messageIdToEdit, toast]);
 
-  const handleAddStep = (type: MessageStep['type'] = 'texto') => {
+  const handleAddStep = (type: MessageStepType = 'texto') => {
       setMessageSteps(prev => [
           ...prev,
           { 
@@ -162,16 +174,78 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   };
 
   const handleMediaFileChange = (stepId: string, file: File | null) => {
-      if (file) {
-          const previewUrl = URL.createObjectURL(file);
-          handleUpdateStep(stepId, { mediaFile: file, mediaUrl: previewUrl });
-      } else {
-          const step = messageSteps.find(s => s.id === stepId);
-          if (step?.mediaUrl && step.mediaUrl.startsWith('blob:')) {
-              URL.revokeObjectURL(step.mediaUrl); 
-          }
-          handleUpdateStep(stepId, { mediaFile: null, mediaUrl: null });
-      }
+    const step = messageSteps.find(s => s.id === stepId);
+    if (!step) return;
+
+    if (file) {
+        let maxSizeMB: number;
+        let allowedTypes: string[];
+        let typeName: string;
+
+        switch (step.type) {
+            case 'imagem':
+                maxSizeMB = MAX_IMAGE_SIZE_MB;
+                allowedTypes = ALLOWED_IMAGE_TYPES;
+                typeName = 'Imagem';
+                break;
+            case 'video':
+                maxSizeMB = MAX_VIDEO_SIZE_MB;
+                allowedTypes = ALLOWED_VIDEO_TYPES;
+                typeName = 'Vídeo';
+                break;
+            case 'audio':
+                maxSizeMB = MAX_AUDIO_SIZE_MB;
+                allowedTypes = ALLOWED_AUDIO_TYPES;
+                typeName = 'Áudio';
+                break;
+            default:
+                // Should not happen for media types
+                toast({ title: "Erro", description: "Tipo de passo inválido para mídia.", variant: "destructive" });
+                return;
+        }
+
+        if (file.size > maxSizeMB * 1024 * 1024) {
+            toast({
+                title: "Arquivo Muito Grande",
+                description: `${typeName} não pode exceder ${maxSizeMB}MB. Arquivo atual: ${(file.size / 1024 / 1024).toFixed(2)}MB.`,
+                variant: "destructive",
+            });
+            // Clear the input by resetting the step's mediaFile and mediaUrl
+            if (step.mediaUrl && step.mediaUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(step.mediaUrl);
+            }
+            handleUpdateStep(stepId, { mediaFile: null, mediaUrl: null });
+            // Also clear the file input visually if possible (difficult to do directly for security reasons)
+            // Consider adding a "Remove file" button next to the input or preview
+            const inputElement = document.getElementById(`step-media-${stepId}`) as HTMLInputElement;
+            if (inputElement) inputElement.value = "";
+            return;
+        }
+
+        if (!allowedTypes.includes(file.type)) {
+            toast({
+                title: "Formato de Arquivo Inválido",
+                description: `Formato de ${typeName.toLowerCase()} não suportado. Permitidos: ${allowedTypes.map(t => t.split('/')[1]).join(', ').toUpperCase()}. Tipo enviado: ${file.type}`,
+                variant: "destructive",
+            });
+            if (step.mediaUrl && step.mediaUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(step.mediaUrl);
+            }
+            handleUpdateStep(stepId, { mediaFile: null, mediaUrl: null });
+            const inputElement = document.getElementById(`step-media-${stepId}`) as HTMLInputElement;
+            if (inputElement) inputElement.value = "";
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        handleUpdateStep(stepId, { mediaFile: file, mediaUrl: previewUrl, originalFileName: file.name });
+    } else {
+        // File removed or not selected
+        if (step.mediaUrl && step.mediaUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(step.mediaUrl);
+        }
+        handleUpdateStep(stepId, { mediaFile: null, mediaUrl: null, originalFileName: undefined });
+    }
   };
 
   useEffect(() => {
@@ -206,7 +280,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
              toast({ title: "Erro", description: "O texto não pode ser vazio para passos de texto.", variant: "destructive" });
              return;
          }
-         if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && !step.mediaFile && !step.mediaUrl) {
+         if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && !step.mediaFile && !step.mediaUrl) { // Removed 'documento'
               toast({ title: "Erro", description: `Anexe um arquivo para o passo de ${step.type}.`, variant: "destructive" });
               return;
          }
@@ -227,7 +301,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
     try {
       const stepsWithPotentiallySavedMedia = await Promise.all(messageSteps.map(async (step) => {
-          if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento')) {
+          if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio')) { // Removed 'documento'
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
@@ -256,7 +330,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         clinicCode: currentClinicCode,
         clinicDbId: currentClinicId,
         sequenceName: messageName, 
-        contexto: 'leads', // Contexto 'leads' is still used internally for n8n
+        contexto: 'leads', 
         ativo: true, 
         steps: stepsWithPotentiallySavedMedia.map((step, index) => ({
           db_id: step.db_id, 
@@ -338,7 +412,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const isLoadingData = loading; 
   const fetchError = error; 
 
-  // Re-written return statement to ensure clean JSX
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full">
       <Card className="w-full shadow-lg">
@@ -397,7 +470,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                         <Select
                           value={step.type}
                           onValueChange={(value) => {
-                            const newType = value as MessageStep['type'];
+                            const newType = value as MessageStepType;
                             const updates: Partial<MessageStep> = {
                               type: newType,
                               text: newType === 'texto' ? (step.text || '') : undefined,
@@ -419,7 +492,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             <SelectItem value="imagem">Imagem</SelectItem>
                             <SelectItem value="video">Vídeo</SelectItem>
                             <SelectItem value="audio">Áudio</SelectItem>
-                            <SelectItem value="documento">Documento</SelectItem>
+                            {/* <SelectItem value="documento">Documento</SelectItem> // REMOVED */}
                             <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -441,7 +514,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                         </div>
                       )}
 
-                      {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio' || step.type === 'documento') && (
+                      {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && ( // Removed 'documento'
                         <div>
                           <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">
                             Anexar Arquivo ({step.type})
@@ -450,24 +523,25 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             type="file"
                             id={`step-media-${step.id}`}
                             accept={
-                              step.type === 'imagem' ? 'image/*' :
-                              step.type === 'video' ? 'video/*' :
-                              step.type === 'audio' ? 'audio/*' :
-                              step.type === 'documento' ? '.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx' : '*'
+                              step.type === 'imagem' ? ALLOWED_IMAGE_TYPES.join(',') :
+                              step.type === 'video' ? ALLOWED_VIDEO_TYPES.join(',') :
+                              step.type === 'audio' ? ALLOWED_AUDIO_TYPES.join(',') :
+                              '*' // Fallback, should not be reached for these types
                             }
                             onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
                             disabled={saving}
                           />
+                           <p className="text-xs text-gray-500 mt-1">
+                            {step.type === 'imagem' && `Max ${MAX_IMAGE_SIZE_MB}MB. Tipos: JPG, PNG, GIF, WEBP`}
+                            {step.type === 'video' && `Max ${MAX_VIDEO_SIZE_MB}MB. Tipos: MP4, WEBM, MOV`}
+                            {step.type === 'audio' && `Max ${MAX_AUDIO_SIZE_MB}MB. Tipos: MP3, OGG, WAV`}
+                          </p>
                           {step.mediaUrl && (
                             <div className="mt-2">
                               {step.type === 'imagem' && <img src={step.mediaUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
                               {step.type === 'video' && <video src={step.mediaUrl} controls className="max-w-xs rounded" />}
                               {step.type === 'audio' && <audio src={step.mediaUrl} controls />}
-                              {step.type === 'documento' && (
-                                <a href={step.mediaUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                  Ver Documento: {step.originalFileName || step.mediaUrl.split('/').pop()}
-                                </a>
-                              )}
+                              {/* Document preview removed */}
                             </div>
                           )}
                           {!step.mediaUrl && step.mediaFile && (
@@ -536,9 +610,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                   <Button variant="outline" onClick={() => handleAddStep('audio')} disabled={saving}>
                     <Plus className="h-4 w-4 mr-2" /> Áudio
                   </Button>
-                  <Button variant="outline" onClick={() => handleAddStep('documento')} disabled={saving}>
+                  {/* <Button variant="outline" onClick={() => handleAddStep('documento')} disabled={saving}> // REMOVED
                     <Plus className="h-4 w-4 mr-2" /> Documento
-                  </Button>
+                  </Button> */}
                   <Button variant="outline" onClick={() => handleAddStep('atraso')} disabled={saving}>
                     <Plus className="h-4 w-4 mr-2" /> Atraso/Pausa
                   </Button>
