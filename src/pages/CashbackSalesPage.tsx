@@ -80,7 +80,6 @@ interface ManualSavePayload {
     }[];
 }
 
-
 interface CashbackPageProps {
   clinicData: ClinicData | null;
 }
@@ -114,7 +113,6 @@ const formatDate = (dateString: string | null): string => {
         return 'Erro';
     }
 };
-
 
 const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
@@ -319,12 +317,12 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
         navigate(`/dashboard/14/messages?clinic_code=${encodeURIComponent(clinicData.code)}`);
     };
 
-    const handleViewBalanceClick = () => {
+    const handleViewBalanceClick = () => { 
          if (!clinicData?.code) {
              showError("Erro: Código da clínica não disponível.");
              return;
          }
-         navigate(`/dashboard/cashback/balance?clinic_code=${encodeURIComponent(clinicData.code)}`);
+         navigate(`/dashboard/14?clinic_code=${encodeURIComponent(clinicData.code)}`); 
     };
 
     const handleSaveAutoCashbackConfig = () => {
@@ -414,7 +412,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
     return (
         <div className="cashback-container max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback</h1>
+                <h1 className="page-title text-2xl font-bold text-primary">Gerenciar Cashback - Vendas</h1>
                 <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
                     <div className="date-navigation flex items-center gap-4">
                         <Button variant="outline" size="icon" onClick={goToPreviousMonth} title="Mês Anterior">
@@ -429,7 +427,7 @@ const CashbackPage: React.FC<CashbackPageProps> = ({ clinicData }) => {
                     </div>
                     <div className="action-buttons flex items-center gap-4">
                         <Button variant="outline" onClick={handleViewBalanceClick} className="flex items-center gap-2">
-                            <ListChecks className="h-4 w-4" /> Ver Saldo de Clientes
+                            <ChevronLeft className="h-4 w-4" /> Voltar
                         </Button>
                         <Button variant="outline" onClick={() => setIsAutoCashbackModalOpen(true)} className="flex items-center gap-2">
                             <Settings className="h-4 w-4" /> Configurar Regras de Cashback
