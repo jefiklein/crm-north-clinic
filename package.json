@@ -49,6 +49,7 @@
     "embla-carousel-react": "^8.6.0",
     "emoji-picker-element": "^1.26.3",
     "input-otp": "^1.4.2",
+    "label": "link:@/components/ui/label",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
