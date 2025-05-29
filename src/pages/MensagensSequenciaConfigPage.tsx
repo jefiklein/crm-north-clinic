@@ -324,11 +324,54 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         description: `Sequência "${sequenceName}" salva com sucesso.`,
       });
 
+      try {
+        console.log(`[MensagensSequenciaConfigPage] Calling n8n webhook for sequence ID: ${savedSequenceId}, clinic ID: ${currentClinicId}`);
+        const webhookResponse = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event: isEditing ? "sequence_updated" : "sequence_created",
+            sequenceId: savedSequenceId,
+            clinicId: currentClinicId,
+            sequenceName: sequenceName,
+            context: 'leads'
+          }),
+        });
+
+        if (!webhookResponse.ok) {
+          const webhookErrorText = await webhookResponse.text();
+          console.warn(`[MensagensSequenciaConfigPage] Webhook call failed with status ${webhookResponse.status}: ${webhookErrorText.substring(0,200)}`);
+          toast({
+            title: "Aviso de Webhook",
+            description: `A sequência foi salva, mas a notificação para o sistema externo (n8n) falhou. Status: ${webhookResponse.status}`,
+            variant: "default", // Not destructive, as main operation succeeded
+            className: "bg-yellow-100 border-yellow-400 text-yellow-700"
+          });
+        } else {
+          console.log("[MensagensSequenciaConfigPage] Webhook call successful.");
+        }
+      } catch (webhookError: any) {
+        console.warn("[MensagensSequenciaConfigPage] Error calling webhook:", webhookError);
+        toast({
+          title: "Aviso de Webhook",
+          description: `A sequência foi salva, mas ocorreu um erro ao notificar o sistema externo (n8n): ${webhookError.message}`,
+          variant: "default",
+          className: "bg-yellow-100 border-yellow-400 text-yellow-700"
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['leadSequencesList', clinicId] }); 
       queryClient.invalidateQueries({ queryKey: ['sequenceData', savedSequenceId] }); 
 
       setTimeout(() => {
-        navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode as string)}&status=${isEditing ? "updated" : "created"}`);
+        if (currentClinicCode) { 
+            navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated" : "created"}`);
+        } else {
+            console.error("[MensagensSequenciaConfigPage] Clinic code is undefined, cannot navigate back.");
+            navigate(`/dashboard/9?status=${isEditing ? "updated" : "created"}`); 
+        }
       }, 1500);
 
     } catch (e: any) {
