@@ -22,7 +22,7 @@ interface IndexProps {
 
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-600 p-4"> {/* Fundo azul vibrante */}
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
         <CardHeader>
           <CardTitle className="text-center text-primary text-3xl font-bold mb-2">North CRM</CardTitle> {/* Título principal */}
