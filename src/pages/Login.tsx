@@ -28,6 +28,12 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
           <CardTitle className="text-center text-primary">Acesse sua conta</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {/* Adicionando a logo aqui */}
+          <img
+            src="/north-crm.jpeg"
+            alt="Logo North CRM"
+            className="mx-auto h-24 w-auto mb-4"
+          />
           <Auth
             supabaseClient={supabase}
             providers={[]} // Não usaremos provedores de terceiros por enquanto
