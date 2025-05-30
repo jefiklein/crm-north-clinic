@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings } from "lucide-react"; 
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings, ArrowRight } from "lucide-react"; 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; 
@@ -52,14 +52,28 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
-// Define the structure for a Message linked to a stage (fetched from Supabase)
-interface StageMessage {
-    id: number;
-    modelo_mensagem: string | null;
-    timing_type: string | null; 
+// NEW: Interface for an action linked to a stage (from north_clinic_funil_etapa_sequencias)
+interface StageAction {
+    id: number; // ID from north_clinic_funil_etapa_sequencias
+    id_clinica: number;
+    id_funil: number;
+    id_etapa: number;
+    action_type: string; // 'message' or 'change_stage'
+    id_sequencia: number | null; // Linked message sequence ID
+    target_etapa_id: number | null; // Target stage ID for 'change_stage' action
+    timing_type: string; // 'immediate' or 'delay'
     delay_value: number | null;
-    delay_unit: string | null; 
-    id_etapa: number; 
+    delay_unit: string | null; // 'minutes', 'hours', 'days'
+    
+    // Joined data from other tables (optional, for display)
+    north_clinic_mensagens_sequencias?: {
+        nome_sequencia: string | null;
+        ativo: boolean;
+    } | null;
+    target_stage_details?: {
+        nome_etapa: string | null;
+        id_funil: number;
+    } | null;
 }
 
 // Define the return type for the leads query
@@ -292,54 +306,45 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    const { data: stageMessages, isLoading: isLoadingStageMessages, error: stageMessagesError } = useQuery<StageMessage[]>({
-        queryKey: ['stageMessages', clinicId, funnelIdForQuery, stagesData?.map(s => s.id).join(',')], 
+    // NEW: Fetch Actions linked to stages in this funnel from north_clinic_funil_etapa_sequencias
+    const { data: stageActions, isLoading: isLoadingStageActions, error: stageActionsError } = useQuery<StageAction[]>({
+        queryKey: ['stageActions', clinicId, funnelIdForQuery],
         queryFn: async ({ queryKey }) => {
-            const [, currentClinicId, currentFunnelIdForQuery, stagesDependency] = queryKey;
+            const [, currentClinicId, currentFunnelIdForQuery] = queryKey;
 
-            if (!currentClinicId || isNaN(currentFunnelIdForQuery) || !stagesData || stagesData.length === 0) {
-                 console.warn("FunnelPage: Skipping stage messages fetch due to missing clinicId, invalid funnelId, or no stages.");
+            if (!currentClinicId || isNaN(currentFunnelIdForQuery)) {
                  return [];
             }
-
-            const stageIds = stagesData.map(stage => stage.id);
-             if (stageIds.length === 0) {
-                 console.warn("FunnelPage: Skipping stage messages fetch because no stage IDs found for the funnel.");
-                 return [];
-             }
-
-            console.log(`FunnelPage: Fetching stage messages for clinic ${currentClinicId}, funnel ${currentFunnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase...`);
 
             const { data, error } = await supabase
-                .from('north_clinic_config_mensagens')
-                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa') 
-                .eq('id_clinica', currentClinicId) 
-                .eq('context', 'leads') 
-                .eq('id_funil', currentFunnelIdForQuery) 
-                .in('id_etapa', stageIds); 
+                .from('north_clinic_funil_etapa_sequencias')
+                .select(`
+                    *,
+                    north_clinic_mensagens_sequencias ( nome_sequencia, ativo ),
+                    target_stage_details:north_clinic_crm_etapa!north_clinic_funil_etapa_sequencias_target_etapa_id_fkey ( nome_etapa, id_funil )
+                `)
+                .eq('id_clinica', currentClinicId)
+                .eq('id_funil', currentFunnelIdForQuery);
 
-            console.log('FunnelPage: Supabase stage messages fetch result:', { data, error });
-
-            if (error) {
-                console.error("FunnelPage: Supabase stage messages fetch error:", error);
-                throw new Error(`Erro ao buscar mensagens das etapas: ${error.message}`);
-            }
-
+            if (error) throw new Error(`Erro ao buscar ações das etapas: ${error.message}`);
             return data || [];
         },
-        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData && (stagesData?.length ?? 0) > 0, 
-        staleTime: 60 * 1000, 
+        enabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData && (stagesData?.length ?? 0) > 0,
+        staleTime: 60 * 1000,
         refetchOnWindowFocus: false,
     });
 
-    const stageMessagesMap = useMemo(() => {
-        const map = new Map<number, StageMessage>();
-        stageMessages?.forEach(msg => {
-            map.set(msg.id_etapa, msg);
+    // Map stage actions by stage ID for quick lookup
+    const stageActionsMap = useMemo(() => {
+        const map = new Map<number, StageAction[]>(); // A stage can have multiple actions
+        stageActions?.forEach(action => {
+            if (action.id_etapa !== null) {
+                const currentActions = map.get(action.id_etapa) || [];
+                map.set(action.id_etapa, [...currentActions, action]);
+            }
         });
-        console.log("FunnelPage: Created stage messages map:", map);
         return map;
-    }, [stageMessages]);
+    }, [stageActions]);
 
     const updateLeadStageMutation = useMutation({
         mutationFn: async ({ leadId, targetStageId, clinicId }: { leadId: number; targetStageId: number; clinicId: string | number }) => {
@@ -366,8 +371,8 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         },
     });
 
-    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads || isLoadingStageMessages || updateLeadStageMutation.isLoading;
-    const fetchError = stagesError || funnelDetailsError || leadsError || stageMessagesError || updateLeadStageMutation.error;
+    const isLoading = isLoadingStages || isLoadingFunnelDetails || isLoadingLeads || isLoadingStageActions || updateLeadStageMutation.isLoading;
+    const fetchError = stagesError || funnelDetailsError || leadsError || stageActionsError || updateLeadStageMutation.error;
 
     const leadsToDisplay = leadsQueryData?.leads || [];
     const totalItems = currentView === 'list' ? (leadsQueryData?.totalCount ?? 0) : leadsToDisplay.length; 
@@ -461,12 +466,13 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         navigate(`/dashboard/funnel-config/${menuIdParam}`);
     };
 
-    const formatTiming = (message: StageMessage): string => {
-        if (message.timing_type === 'immediate') {
+    // Helper to format timing display for StageAction
+    const formatTiming = (timingType: string, delayValue: number | null, delayUnit: string | null): string => {
+        if (timingType === 'immediate') {
             return 'Imediata';
         }
-        if (message.timing_type === 'delay' && message.delay_value !== null && message.delay_unit) {
-            return `+${message.delay_value}${message.delay_unit.charAt(0)}`; 
+        if (timingType === 'delay' && delayValue !== null && delayUnit) {
+            return `+${delayValue}${delayUnit.charAt(0)}`; // e.g., +2h, +30m, +1d
         }
         return 'N/D';
     };
@@ -573,9 +579,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                             {currentView === 'kanban' && (
                                 <div className="kanban-board flex gap-4 h-full overflow-x-auto pb-4">
                                     {stagesData?.map(stage => {
-                                        const stageMessage = stageMessagesMap.get(stage.id);
-                                        const hasMessage = !!stageMessage;
-                                        const messageTiming = hasMessage ? formatTiming(stageMessage!) : ''; 
+                                        const actionsForStage = stageActionsMap.get(stage.id) || [];
 
                                         return (
                                             <Card
@@ -594,17 +598,15 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                         {stage.nome_etapa || 'S/Nome'}
                                                     </CardTitle>
                                                     <div className="flex items-center gap-2">
-                                                        {hasMessage && (
+                                                        {actionsForStage.length > 0 && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
-                                                                        {stageMessage?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
-                                                                        {messageTiming}
+                                                                        <List className="h-3 w-3" /> {actionsForStage.length}
                                                                     </span>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    <p>Agendamento: {messageTiming}</p>
-                                                                    {stageMessage?.modelo_mensagem && <p>Mensagem: {stageMessage.modelo_mensagem.substring(0, 50)}...</p>}
+                                                                    <p>{actionsForStage.length} Ações configuradas</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         )}
@@ -661,9 +663,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                     <CardContent className="p-0 flex-grow overflow-y-auto">
                                         {leadsToDisplay.map(lead => {
                                              const stageInfo = getStageName(lead.id_etapa); 
-                                             const stageMessage = lead.id_etapa !== null ? stageMessagesMap.get(lead.id_etapa) : undefined;
-                                             const hasMessage = !!stageMessage;
-                                             const messageTiming = hasMessage ? formatTiming(stageMessage!) : ''; 
+                                             const actionsForStage = lead.id_etapa !== null ? stageActionsMap.get(lead.id_etapa) || [] : [];
 
                                              return (
                                                 <div
@@ -682,17 +682,27 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     </div>
                                                     <div className="lead-funnel flex flex-col items-center text-xs font-semibold min-w-[120px]">
                                                         <span className={cn("stage px-2 py-1 rounded-md mt-1 bg-gray-100 text-gray-800 border border-gray-800")}>{stageInfo}</span> 
-                                                        {hasMessage && (
+                                                        {actionsForStage.length > 0 && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <span className="text-xs font-normal text-gray-600 bg-gray-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1 mt-1">
-                                                                        {stageMessage?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
-                                                                        {messageTiming}
+                                                                        <List className="h-3 w-3" /> {actionsForStage.length} Ações
                                                                     </span>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    <p>Agendamento: {messageTiming}</p>
-                                                                    {stageMessage?.modelo_mensagem && <p>Mensagem: {stageMessage.modelo_mensagem.substring(0, 50)}...</p>}
+                                                                    {actionsForStage.map((action, idx) => (
+                                                                        <div key={idx} className="flex items-center gap-1">
+                                                                            {action.action_type === 'message' ? (
+                                                                                <>
+                                                                                    <MessageSquare className="h-3 w-3" /> Mensagem: {action.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sem nome'} ({formatTiming(action.timing_type, action.delay_value, action.delay_unit)})
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <ArrowRight className="h-3 w-3" /> Mover para: {action.target_stage_details?.nome_etapa || 'Etapa Desconhecida'} ({formatTiming(action.timing_type, action.delay_value, action.delay_unit)})
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         )}
