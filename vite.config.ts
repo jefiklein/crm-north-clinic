@@ -98,4 +98,8 @@ export default defineConfig(() => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Add preview configuration to allow the server hostname
+  preview: {
+    allowedHosts: ['crm-crm-north.sbw0pc.easypanel.host', 'northcrm.com.br', 'www.northcrm.com.br'],
+  },
 }));

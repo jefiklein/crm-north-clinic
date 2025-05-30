@@ -20,7 +20,7 @@ interface IndexProps {
   onLogin: (data: ClinicData) => void; // Este prop será removido do uso direto aqui
 }
 
-const Login = () => { {/* <-- Alterado aqui: removido React.FC<IndexProps> */}
+const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
@@ -50,7 +50,6 @@ const Login = () => { {/* <-- Alterado aqui: removido React.FC<IndexProps> */}
               },
             }}
             theme="light"
-            view="sign_in" {/* <-- Adicionado para mostrar apenas a tela de login */}
             localization={{
               variables: {
                 sign_in: {
