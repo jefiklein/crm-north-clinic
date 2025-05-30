@@ -376,7 +376,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               formData.append("clinicId", currentClinicCode);
               
               const uploadRes = await fetch(ENVIAR_ARQUIVO_WEBHOOK_URL, { method: "POST", body: formData });
-              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Resposta do upload:`, uploadRes.status); 
+              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Resposta do upload: status ${uploadRes.status}, ok: ${uploadRes.ok}`); 
               if (!uploadRes.ok) {
                 const errorText = await uploadRes.text();
                 console.error(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Falha no upload:`, errorText); 
@@ -386,7 +386,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Dados do upload:`, uploadData); 
               currentMediaKey = (Array.isArray(uploadData) && uploadData[0]?.Key) || uploadData.Key || uploadData.key || null;
               if (!currentMediaKey) {
-                console.error(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Chave de mídia inválida após upload.`); 
+                console.error(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Chave de mídia inválida após upload. Dados recebidos:`, uploadData); 
                 throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
               }
               console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - MediaKey obtida: ${currentMediaKey}`); 
@@ -418,7 +418,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           atraso_unidade: step.type === 'atraso' ? step.delayUnit : null,
         })),
       };
-      console.log("[MensagensConfigPage] handleSave: Payload para N8N:", messagePayloadForN8N); 
+      console.log("[MensagensConfigPage] handleSave: Payload para N8N:", JSON.stringify(messagePayloadForN8N, null, 2)); 
 
       const targetWebhookUrl = isEditing && messageIdToEdit 
         ? N8N_UPDATE_SEQUENCE_WEBHOOK_URL 
@@ -431,7 +431,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       console.log("[MensagensConfigPage] handleSave: Resposta do Webhook N8N - Status:", webhookResponse.status, "OK:", webhookResponse.ok); 
 
       if (!webhookResponse.ok) {
-        const errTxt = await webhookResponse.text().catch(() => "Erro ao ler corpo da resposta do webhook."); 
+        console.log("[MensagensConfigPage] handleSave: Webhook response NOT OK. Tentando ler corpo do erro..."); 
+        const errTxt = await webhookResponse.text().catch((e) => {
+            console.error("[MensagensConfigPage] handleSave: Erro ao ler corpo da resposta do webhook:", e); 
+            return "Erro ao ler corpo da resposta do webhook.";
+        }); 
+        console.log("[MensagensConfigPage] handleSave: Corpo do erro do webhook (raw):", errTxt); 
         let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`;
         if (errTxt && errTxt !== "Erro ao ler corpo da resposta do webhook.") {
             try {
@@ -441,13 +446,16 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 detailedError = `Erro ${webhookResponse.status}: ${errTxt.substring(0,150)}`;
             }
         }
-        console.error("[MensagensConfigPage] handleSave: Webhook N8N response NOT OK. Status:", webhookResponse.status, "DetailedError:", detailedError);
+        console.error("[MensagensConfigPage] handleSave: Webhook N8N response NOT OK. DetailedError:", detailedError); 
         throw new Error(detailedError); 
       }
       
-      console.log("[MensagensConfigPage] handleSave: Webhook N8N OK. Exibindo toast de sucesso.");
+      console.log("[MensagensConfigPage] handleSave: Webhook N8N OK. Exibindo toast de sucesso."); 
       toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
-      if (currentClinicId) queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
+      if (currentClinicId) {
+        console.log("[MensagensConfigPage] handleSave: Invalidando queries para ['leadMessagesList',", currentClinicId, "]"); 
+        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
+      }
       
       console.log("[MensagensConfigPage] handleSave: Agendando navegação."); 
       setTimeout(() => {
@@ -457,7 +465,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }, 1000);
 
     } catch (e: any) {
-      console.error("[MensagensConfigPage] handleSave: ERRO CAPTURADO NO BLOCO CATCH:", e);
+      console.error("[MensagensConfigPage] handleSave: ERRO CAPTURADO NO BLOCO CATCH:", e.message, e); 
       setError(e.message || "Erro ao salvar.");
       toast({ title: "Erro ao Salvar", description: e.message, variant: "destructive" });
     } finally {
@@ -549,7 +557,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                         {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
                           <div>
                             <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">Anexar Arquivo ({step.type})</label>
-                            <Input type="file" id={`step-media-${step.id}`}
+                            <Input type="file" id={`step-media-${step.id}`} 
                               accept={
                                 step.type === 'imagem' ? ALLOWED_IMAGE_TYPES.join(',') :
                                 step.type === 'video' ? ALLOWED_VIDEO_TYPES.join(',') :
