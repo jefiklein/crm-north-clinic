@@ -74,15 +74,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log("[AuthContext] onAuthStateChange: User ID:", userId);
 
           // 1. Buscar roles do usuário
-          console.log("[AuthContext] onAuthStateChange: Buscando roles do usuário... (Querying user_clinic_roles)");
-          const { data: userRoles, error: rolesError } = await supabase
-            .from('user_clinic_roles')
-            .select('clinic_id, permission_level_id, is_active')
-            .eq('user_id', userId)
-            .eq('is_active', true) // Apenas roles ativas
-            .limit(1); // Por enquanto, pegamos a primeira role ativa
+          console.log("[AuthContext] onAuthStateChange: Preparando para buscar roles do usuário... (Querying user_clinic_roles)");
+          let userRoles = null;
+          let rolesError = null;
+          try {
+            ({ data: userRoles, error: rolesError } = await supabase
+              .from('user_clinic_roles')
+              .select('clinic_id, permission_level_id, is_active')
+              .eq('user_id', userId)
+              .eq('is_active', true) // Apenas roles ativas
+              .limit(1)); // Por enquanto, pegamos a primeira role ativa
+          } catch (e: any) {
+            console.error("[AuthContext] onAuthStateChange: ERRO CAPTURADO na busca de roles:", e.message, e);
+            rolesError = e; // Atribui o erro capturado
+          }
 
-          // NOVO LOG AQUI:
           console.log("[AuthContext] onAuthStateChange: Resultado da busca de roles - data:", userRoles, "error:", rolesError);
 
           if (rolesError) {
