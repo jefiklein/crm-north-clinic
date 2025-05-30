@@ -254,7 +254,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                  return { leads: [], totalCount: 0 };
             }
 
-            console.log(`FunnelPage: Fetching leads for clinic ${currentClinicId}, funnel ${currentFunnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase... View: ${currentView}`);
+            // NEW LOG: Log the exact parameters being used in the Supabase query
+            console.log(`[FunnelPage - Leads Query] Executing query with: clinicId=${currentClinicId}, funnelId=${currentFunnelIdForQuery}, stageIds=[${stageIds.join(', ')}], searchTerm='${currentSearchTerm}', sortValue='${currentSortValue}', currentPage=${currentPage}, itemsPerPage=${itemsPerPage}`);
+
 
             let query = supabase
                 .from('north_clinic_leads_API')
