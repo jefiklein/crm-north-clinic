@@ -83,6 +83,9 @@ interface FunnelConfigPageProps {
     clinicData: ClinicData | null;
 }
 
+// New N8N webhook URL for saving/updating actions
+const N8N_SAVE_ACTION_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c3ace473-a07c-4bff-9c48-46ced144a319';
+
 const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
@@ -279,7 +282,9 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         }) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
 
-            const basePayload = {
+            const webhookPayload = {
+                event: payload.actionId ? "action_updated" : "action_created",
+                actionId: payload.actionId,
                 id_clinica: payload.id_clinica,
                 id_funil: payload.id_funil,
                 id_etapa: payload.id_etapa,
@@ -291,25 +296,25 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 target_etapa_id: payload.action_type === 'change_stage' ? payload.target_etapa_id : null,
             };
 
-            if (payload.actionId) {
-                // Update existing action
-                const { data, error } = await supabase
-                    .from('north_clinic_funil_etapa_sequencias')
-                    .update(basePayload)
-                    .eq('id', payload.actionId)
-                    .eq('id_clinica', clinicId)
-                    .select();
-                if (error) throw new Error(`Erro ao atualizar ação: ${error.message}`);
-                return data;
-            } else {
-                // Insert new action
-                const { data, error } = await supabase
-                    .from('north_clinic_funil_etapa_sequencias')
-                    .insert(basePayload)
-                    .select();
-                if (error) throw new Error(`Erro ao vincular nova ação: ${error.message}`);
-                return data;
+            console.log("[FunnelConfigPage] Sending payload to N8N webhook:", webhookPayload);
+
+            const response = await fetch(N8N_SAVE_ACTION_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao salvar ação`;
+                try { 
+                    const errorData = await response.json(); 
+                    errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; 
+                } catch (e) { 
+                    errorMsg = `${errorMsg}: ${await response.text()}`; 
+                }
+                throw new Error(errorMsg);
             }
+            return response.json();
         },
         onSuccess: (_, variables) => {
             showSuccess(`Ação ${variables.actionId ? 'atualizada' : 'vinculada'} com sucesso!`);
