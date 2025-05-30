@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Função para atualizar clinicData e persistir no localStorage
   const setClinicData = (data: ClinicData | null) => {
+    console.log("[AuthContext] setClinicData: Atualizando estado e localStorage com:", data);
     setClinicDataState(data);
     if (data) {
       localStorage.setItem('clinicData', JSON.stringify(data));
@@ -41,33 +42,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    console.log("[AuthContext] useEffect: Iniciando...");
     // Tenta carregar clinicData do localStorage ao iniciar
     const savedClinicData = localStorage.getItem('clinicData');
     if (savedClinicData) {
       try {
-        setClinicDataState(JSON.parse(savedClinicData));
+        const parsedData = JSON.parse(savedClinicData);
+        console.log("[AuthContext] useEffect: clinicData carregado do localStorage:", parsedData);
+        setClinicDataState(parsedData);
       } catch (e) {
-        console.error("Failed to parse clinicData from localStorage", e);
+        console.error("[AuthContext] useEffect: Falha ao analisar clinicData do localStorage", e);
         localStorage.removeItem('clinicData');
       }
     }
 
     // Monitora o estado da autenticação do Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log("Auth state changed:", event, currentSession);
+      console.log("[AuthContext] onAuthStateChange: Evento:", event, "Sessão:", currentSession);
       setSession(currentSession);
       setIsLoadingAuth(false);
 
       if (event === 'SIGNED_OUT') {
+        console.log("[AuthContext] onAuthStateChange: Usuário deslogado. Limpando dados da clínica e navegando para /.");
         setClinicData(null); // Limpa os dados da clínica ao deslogar
         navigate('/'); // Redireciona para a página de login
         showSuccess("Você foi desconectado.");
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         if (currentSession?.user) {
-          console.log("User signed in/updated, fetching clinic data...");
+          console.log("[AuthContext] onAuthStateChange: Usuário logado/atualizado. Buscando dados da clínica...");
           const userId = currentSession.user.id;
+          console.log("[AuthContext] onAuthStateChange: User ID:", userId);
 
           // 1. Buscar roles do usuário
+          console.log("[AuthContext] onAuthStateChange: Buscando roles do usuário...");
           const { data: userRoles, error: rolesError } = await supabase
             .from('user_clinic_roles')
             .select('clinic_id, permission_level_id, is_active')
@@ -76,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .limit(1); // Por enquanto, pegamos a primeira role ativa
 
           if (rolesError) {
-            console.error("Error fetching user roles:", rolesError);
+            console.error("[AuthContext] onAuthStateChange: Erro ao buscar permissões do usuário:", rolesError);
             showError(`Erro ao buscar permissões: ${rolesError.message}`);
             setClinicData(null);
             navigate('/select-clinic'); // Redireciona para seleção/erro
@@ -87,8 +94,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const primaryRole = userRoles[0];
             const clinicId = primaryRole.clinic_id;
             const permissionLevel = primaryRole.permission_level_id;
+            console.log("[AuthContext] onAuthStateChange: Role encontrada. Clinic ID:", clinicId, "Nível de Permissão:", permissionLevel);
 
             // 2. Buscar dados da clínica
+            console.log("[AuthContext] onAuthStateChange: Buscando dados da clínica com ID:", clinicId);
             const { data: clinicConfig, error: clinicError } = await supabase
               .from('north_clinic_config_clinicas')
               .select('id, nome_da_clinica, authentication, acesso_crm, acesso_config_msg, id_permissao')
@@ -97,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               .single();
 
             if (clinicError) {
-              console.error("Error fetching clinic config:", clinicError);
+              console.error("[AuthContext] onAuthStateChange: Erro ao buscar configuração da clínica:", clinicError);
               showError(`Erro ao buscar dados da clínica: ${clinicError.message}`);
               setClinicData(null);
               navigate('/select-clinic');
@@ -113,39 +122,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 acesso_config_msg: clinicConfig.acesso_config_msg,
                 id_permissao: permissionLevel, // Usar o nível de permissão da role
               };
-              console.log("Clinic data fetched and set:", fetchedClinicData);
+              console.log("[AuthContext] onAuthStateChange: Dados da clínica carregados e definidos:", fetchedClinicData);
               setClinicData(fetchedClinicData);
               navigate('/dashboard'); // Redireciona para o dashboard após carregar a clínica
             } else {
-              console.warn("No active clinic found for user's role.");
+              console.warn("[AuthContext] onAuthStateChange: Nenhuma clínica ativa encontrada para a role do usuário.");
               showError("Nenhuma clínica ativa encontrada para seu usuário.");
               setClinicData(null);
               navigate('/select-clinic');
             }
           } else {
-            console.warn("No active roles found for user.");
+            console.warn("[AuthContext] onAuthStateChange: Nenhuma role ativa encontrada para o usuário.");
             showError("Seu usuário não possui permissões ativas para nenhuma clínica.");
             setClinicData(null);
             navigate('/select-clinic');
           }
         } else {
           // No user in session, clear clinic data and redirect to login
+          console.log("[AuthContext] onAuthStateChange: Nenhuma sessão de usuário. Limpando dados da clínica e navegando para /.");
           setClinicData(null);
           navigate('/');
         }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("[AuthContext] useEffect: Desinscrevendo do onAuthStateChange.");
+      subscription.unsubscribe();
+    };
   }, []); // Dependências vazias para rodar apenas uma vez na montagem
 
   const logout = async () => {
+    console.log("[AuthContext] logout: Iniciando logout...");
     setIsLoadingAuth(true);
     const { error } = await supabase.auth.signOut();
     if (error) {
-      console.error("Error during logout:", error);
+      console.error("[AuthContext] logout: Erro durante o logout:", error);
       showError(`Erro ao sair: ${error.message}`);
     } else {
+      console.log("[AuthContext] logout: Logout bem-sucedido (onAuthStateChange cuidará do resto).");
       // O onAuthStateChange cuidará de limpar o estado e navegar
     }
     setIsLoadingAuth(false);
