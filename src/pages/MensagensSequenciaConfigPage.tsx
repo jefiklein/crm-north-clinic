@@ -321,54 +321,38 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   }, [mediaPreviewUrls]);
 
   const handleSave = async () => {
-    console.log("[MensagensConfigPage] handleSave: Iniciando processo de salvamento.");
     const currentClinicCode = clinicData?.code;
     const currentClinicId = clinicData?.id;
 
     if (!currentClinicId || !currentClinicCode) {
-      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" }); 
-      console.error("[MensagensConfigPage] handleSave: Dados da clínica ausentes.");
-      return;
+      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" }); return;
     }
     if (!messageName.trim()) {
-      toast({ title: "Erro", description: "Nome da mensagem obrigatório.", variant: "destructive" }); 
-      console.warn("[MensagensConfigPage] handleSave: Nome da mensagem vazio.");
-      return;
+      toast({ title: "Erro", description: "Nome da mensagem obrigatório.", variant: "destructive" }); return;
     }
     if (messageSteps.length === 0) {
-      toast({ title: "Erro", description: "Adicione pelo menos um passo.", variant: "destructive" }); 
-      console.warn("[MensagensConfigPage] handleSave: Nenhum passo adicionado.");
-      return;
+      toast({ title: "Erro", description: "Adicione pelo menos um passo.", variant: "destructive" }); return;
     }
 
      for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
-             toast({ title: "Erro", description: "Texto não pode ser vazio.", variant: "destructive" }); 
-             console.warn("[MensagensConfigPage] handleSave: Passo de texto vazio.", step);
-             return;
+             toast({ title: "Erro", description: "Texto não pode ser vazio.", variant: "destructive" }); return;
          }
          if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && !step.mediaKey && !step.mediaFile) {
-              toast({ title: "Erro", description: `Anexe um arquivo para ${step.type}.`, variant: "destructive" }); 
-              console.warn("[MensagensConfigPage] handleSave: Arquivo de mídia ausente.", step);
-              return;
+              toast({ title: "Erro", description: `Anexe um arquivo para ${step.type}.`, variant: "destructive" }); return;
          }
          if (step.type === 'atraso' && (step.delayValue === undefined || step.delayValue <= 0 || !step.delayUnit)) {
-            toast({ title: "Erro", description: "Atraso inválido.", variant: "destructive" }); 
-            console.warn("[MensagensConfigPage] handleSave: Atraso inválido.", step);
-            return;
+            toast({ title: "Erro", description: "Atraso inválido.", variant: "destructive" }); return;
          }
      }
 
     setSaving(true); setError(null);
-    console.log("[MensagensConfigPage] handleSave: Validações passaram, iniciando try block.");
 
     try {
-      console.log("[MensagensConfigPage] handleSave: Processando steps...");
       const processedSteps = await Promise.all(
-        messageSteps.map(async (step, idx) => {
+        messageSteps.map(async (step) => {
           let currentMediaKey = step.mediaKey;
           if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio')) {
-              console.log(`[MensagensConfigPage] handleSave: Uploading media for step ${idx + 1}`, step.mediaFile.name);
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
@@ -377,16 +361,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               const uploadRes = await fetch(ENVIAR_ARQUIVO_WEBHOOK_URL, { method: "POST", body: formData });
               if (!uploadRes.ok) {
                 const errorText = await uploadRes.text();
-                console.error(`[MensagensConfigPage] handleSave: Upload FAILED for step ${idx + 1}`, errorText);
                 throw new Error(`Upload falhou (${step.mediaFile.name}): ${errorText.substring(0,150)}`);
               }
               const uploadData = await uploadRes.json();
               currentMediaKey = (Array.isArray(uploadData) && uploadData[0]?.Key) || uploadData.Key || uploadData.key || null;
-              if (!currentMediaKey) {
-                console.error(`[MensagensConfigPage] handleSave: Chave de mídia inválida após upload para step ${idx + 1}`, uploadData);
-                throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
-              }
-              console.log(`[MensagensConfigPage] handleSave: Upload SUCCESS for step ${idx + 1}, mediaKey: ${currentMediaKey}`);
+              if (!currentMediaKey) throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
           }
           return { 
             ...step, 
@@ -395,7 +374,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           };
       }));
       
-      console.log("[MensagensConfigPage] handleSave: Steps processados. Payload para N8N:", processedSteps);
       const messagePayloadForN8N = { 
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
@@ -419,17 +397,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const targetWebhookUrl = isEditing && messageIdToEdit 
         ? N8N_UPDATE_SEQUENCE_WEBHOOK_URL 
         : N8N_CREATE_SEQUENCE_WEBHOOK_URL;
-      
-      console.log(`[MensagensConfigPage] handleSave: Enviando para N8N URL: ${targetWebhookUrl}`, messagePayloadForN8N);
 
       const webhookResponse = await fetch(targetWebhookUrl, { 
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(messagePayloadForN8N),
       });
 
-      console.log("[MensagensConfigPage] handleSave: Resposta do Webhook recebida. Status:", webhookResponse.status, "OK:", webhookResponse.ok);
-
       if (!webhookResponse.ok) {
-        const errTxt = await webhookResponse.text().catch(() => "Erro ao ler corpo da resposta do webhook.");
+        const errTxt = await webhookResponse.text().catch(() => "Erro ao ler corpo da resposta do webhook."); 
         let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`;
         if (errTxt && errTxt !== "Erro ao ler corpo da resposta do webhook.") {
             try {
@@ -439,11 +413,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 detailedError = `Erro ${webhookResponse.status}: ${errTxt.substring(0,150)}`;
             }
         }
-        console.error("[MensagensConfigPage] handleSave: Webhook response NOT OK. Status:", webhookResponse.status, "DetailedError:", detailedError, "RawText:", errTxt);
+        console.error("[MensagensConfigPage] Webhook response not OK:", webhookResponse.status, detailedError);
         throw new Error(detailedError); 
       }
       
-      console.log("[MensagensConfigPage] handleSave: Webhook OK. Exibindo toast de sucesso e navegando.");
       toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
       if (currentClinicId) queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
       
@@ -453,11 +426,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }, 1000);
 
     } catch (e: any) {
-      console.error("[MensagensConfigPage] handleSave: ERRO CAPTURADO NO CATCH BLOCK:", e);
+      console.error("[MensagensConfigPage] Error in handleSave:", e);
       setError(e.message || "Erro ao salvar.");
       toast({ title: "Erro ao Salvar", description: e.message, variant: "destructive" });
     } finally {
-      console.log("[MensagensConfigPage] handleSave: Bloco finally executado. Saving state:", false);
       setSaving(false);
     }
   };
