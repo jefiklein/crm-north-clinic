@@ -60,7 +60,7 @@ interface WhatsappInstancesPageProps {
 const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 const INSTANCE_STATUS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/2392af84-3d33-4526-a64b-d1b7fd78dddc`; 
 const INSTANCE_QR_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/e55ad937-44fc-4571-ac17-8b71d610d7c3`; 
-const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; 
+const INSTANCE_DELETE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/0f303131-e090-4d26-b15d-960ef0d518c8`; 
 const INSTANCE_CREATE_EVOLUTION_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; 
 const INSTANCE_CREATE_DB_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; 
 const INSTANCE_UPDATE_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/5508f715-27a5-447c-86d4-2026e1517a21`; 
@@ -331,7 +331,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
             console.log(`[WhatsappInstancesPage] Attempting to delete instance with ID: ${instanceId}`);
-            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b1b7-960ef0d518c8`; 
+            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f303131-e090-4d26-b15d-960ef0d518c8`; 
             const response = await fetch(deleteWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -903,10 +903,10 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Recepção">Recepção</SelectItem>
-                                        <SelectItem value="Vendas">Vendas</SelectItem>
+                                        <SelectItem value="Venda">Venda</SelectItem> {/* Alterado de 'Vendas' para 'Venda' */}
                                         <SelectItem value="Prospecção">Prospecção</SelectItem>
                                         <SelectItem value="Nutricionista">Nutricionista</SelectItem>
-                                        <SelectItem value="Outros">Outros</SelectItem>
+                                        <SelectItem value="Outro">Outro</SelectItem> {/* Alterado de 'Outros' para 'Outro' */}
                                     </SelectContent>
                                 </Select>
                             </div>
