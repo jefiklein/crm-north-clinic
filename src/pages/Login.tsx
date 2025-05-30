@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import React from 'react';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react"; // Using Lucide React for icons
 
-// Define the structure for clinic data (should match the one in App.tsx)
+// A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
+// pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
+// Mantemos as interfaces para evitar erros de tipo em outros lugares por enquanto.
 interface ClinicData {
   code: string;
   nome: string;
@@ -16,132 +17,82 @@ interface ClinicData {
 }
 
 interface IndexProps {
-  onLogin: (data: ClinicData) => void;
+  onLogin: (data: ClinicData) => void; // Este prop será removido do uso direto aqui
 }
 
-const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host'; // Keep the base URL
-
-const Index: React.FC<IndexProps> = ({ onLogin }) => {
-  const [clinicCode, setClinicCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast(); // Using shadcn/ui toast
-
-  const validateClinicCode = async () => {
-    setError(null);
-    if (clinicCode.trim() === "") {
-      setError('Por favor, informe o código da clínica.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${N8N_BASE_URL}/webhook/db403a25-d074-4b14-ae02-bc55272b7200`, {
-        method: 'POST',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinic_code: clinicCode.trim() })
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Erro ${response.status}: ${text || response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      let clinica = null;
-      if (Array.isArray(data) && data.length > 0) {
-        clinica = data[0];
-      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-        clinica = data;
-      }
-
-      if (clinica && clinica.nome_da_clinica && typeof clinica.id_permissao !== 'undefined') {
-        const acesso_crm = clinica.acesso_crm === true || String(clinica.acesso_crm).toLowerCase() === 'true';
-        const acesso_config_msg = clinica.acesso_config_msg === true || String(clinica.acesso_config_msg).toLowerCase() === 'true';
-
-        // Basic check for any access or permission level > 0
-        if (!acesso_crm && !acesso_config_msg && (isNaN(parseInt(clinica.id_permissao, 10)) || parseInt(clinica.id_permissao, 10) < 1)) {
-             throw new Error('Acesso não permitido (sem permissões válidas).');
-        }
-
-        const parsedPermission = parseInt(clinica.id_permissao, 10);
-         if (isNaN(parsedPermission)) {
-             throw new Error("Nível de permissão inválido recebido.");
-         }
-
-
-        const clinicData: ClinicData = {
-          code: clinicCode.trim(),
-          nome: clinica.nome_da_clinica,
-          id: clinica.id || clinica.id_clinica || null,
-          acesso_crm: acesso_crm,
-          acesso_config_msg: acesso_config_msg,
-          id_permissao: parsedPermission // Save permission
-        };
-
-        onLogin(clinicData); // Call the onLogin prop to update state in App.tsx
-        toast({
-          title: "Login bem-sucedido!",
-          description: `Bem-vindo, ${clinicData.nome}.`,
-        });
-
-      } else {
-        if (clinica && !clinica.nome_da_clinica) throw new Error('Dados da clínica inválidos.');
-        else if (clinica && typeof clinica.id_permissao === 'undefined') throw new Error('Nível de permissão não configurado.');
-        else throw new Error('Código da clínica inválido ou não encontrado.');
-      }
-    } catch (err: any) {
-      console.error('Erro ao validar clínica:', err);
-      setError(`${err.message}. Tente novamente.`);
-      toast({
-        title: "Erro de Login",
-        description: err.message || "Ocorreu um erro ao validar o código.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && !isLoading) {
-      validateClinicCode();
-    }
-  };
-
+const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle className="text-center text-primary">Informe o código da clínica</CardTitle>
+          <CardTitle className="text-center text-primary">Acesse sua conta</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <Input
-            type="text"
-            placeholder="Código da clínica"
-            value={clinicCode}
-            onChange={(e) => setClinicCode(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-            autoComplete="off"
+          <Auth
+            supabaseClient={supabase}
+            providers={[]} // Não usaremos provedores de terceiros por enquanto
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'hsl(var(--primary))', // Cor primária do Tailwind
+                    brandAccent: 'hsl(var(--primary-foreground))', // Cor de destaque
+                  },
+                },
+              },
+            }}
+            theme="light"
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: 'Seu email',
+                  password_label: 'Sua senha',
+                  email_input_placeholder: 'email@exemplo.com',
+                  password_input_placeholder: '••••••••',
+                  button_label: 'Entrar',
+                  social_provider_text: 'Entrar com {{provider}}',
+                  link_text: 'Já tem uma conta? Entrar',
+                },
+                sign_up: {
+                  email_label: 'Seu email',
+                  password_label: 'Crie uma senha',
+                  email_input_placeholder: 'email@exemplo.com',
+                  password_input_placeholder: '••••••••',
+                  button_label: 'Cadastrar',
+                  social_provider_text: 'Cadastrar com {{provider}}',
+                  link_text: 'Não tem uma conta? Cadastre-se',
+                },
+                forgotten_password: {
+                  email_label: 'Seu email',
+                  email_input_placeholder: 'email@exemplo.com',
+                  button_label: 'Enviar instruções de redefinição',
+                  link_text: 'Esqueceu sua senha?',
+                },
+                update_password: {
+                  password_label: 'Nova senha',
+                  password_input_placeholder: '••••••••',
+                  button_label: 'Atualizar senha',
+                },
+                magic_link: {
+                  email_input_placeholder: 'email@exemplo.com',
+                  button_label: 'Enviar link mágico',
+                  link_text: 'Enviar um link mágico por email',
+                },
+                verify_otp: {
+                  email_input_placeholder: 'Seu email',
+                  phone_input_placeholder: 'Seu telefone',
+                  token_input_placeholder: 'Código OTP',
+                  button_label: 'Verificar código OTP',
+                  link_text: 'Já tem um código OTP?',
+                },
+              },
+            }}
           />
-          {error && <p className="text-destructive text-sm text-center">{error}</p>}
-          <Button onClick={validateClinicCode} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Validando...
-              </>
-            ) : (
-              'Entrar'
-            )}
-          </Button>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Index;
+export default Login;

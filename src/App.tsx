@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate } from "react-router-dom"; // Removed BrowserRouter import
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login"; // Updated import to Login
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
@@ -58,10 +58,10 @@ const App = () => {
     }
   }, [clinicData]);
 
-  // Function to handle successful login
-  const handleLogin = (data: ClinicData) => {
-    setClinicData(data);
-  };
+  // Function to handle successful login (this function will become redundant soon)
+  // const handleLogin = (data: ClinicData) => {
+  //   setClinicData(data);
+  // };
 
   // Function to handle logout
   const handleLogout = () => {
@@ -86,7 +86,7 @@ const App = () => {
         {/* Removed BrowserRouter here */}
           <Routes>
             {/* Login Page - Renders if not logged in */}
-            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />} />
+            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login /* onLogin={handleLogin} */ />} />
 
             {/* Protected Routes - Require login */}
             <Route
