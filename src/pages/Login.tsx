@@ -31,7 +31,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
         <CardContent className="flex flex-col gap-4">
           {/* Adicionando a logo aqui */}
           <img
-            src="/north-crm.jpeg"
+            src="/north-crm-azul.jpeg"
             alt="Logo North CRM"
             className="mx-auto h-24 w-auto mb-4"
           />
