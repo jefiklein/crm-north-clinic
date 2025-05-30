@@ -292,7 +292,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nome_instancia: instanceIdentifier })
-            };
+            }
 
             if (!response.ok && response.status !== 404) { 
                 const errorText = await response.text();
