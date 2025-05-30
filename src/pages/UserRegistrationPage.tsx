@@ -22,7 +22,7 @@ interface PermissionLevel {
     description: string | null;
 }
 
-const REQUIRED_PERMISSION_LEVEL = 2; // Ajustado para Nível 2 (Administrador da Clínica)
+const REQUIRED_PERMISSION_LEVEL = 3; // Nível 3: Administrador da Clínica (ou superior)
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -35,7 +35,7 @@ const UserRegistrationPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
 
-    const hasPermission = !isLoadingAuth && clinicData && clinicData.id_permissao <= REQUIRED_PERMISSION_LEVEL;
+    const hasPermission = !isLoadingAuth && clinicData && clinicData.id_permissao >= REQUIRED_PERMISSION_LEVEL;
 
     useEffect(() => {
         const fetchPermissionLevels = async () => {

@@ -51,7 +51,7 @@ interface UserListPageProps {
     clinicData: ClinicData | null;
 }
 
-const REQUIRED_PERMISSION_LEVEL = 2; // Ajustado para Nível 2 (Administrador da Clínica)
+const REQUIRED_PERMISSION_LEVEL = 3; // Nível 3: Administrador da Clínica (ou superior)
 
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
@@ -65,7 +65,8 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
 
     const currentClinicId = clinicData?.id;
     const userPermissionLevel = clinicData?.id_permissao;
-    const hasPermission = !isLoadingAuth && userPermissionLevel !== undefined && userPermissionLevel <= REQUIRED_PERMISSION_LEVEL;
+    // Lógica de permissão corrigida: userPermissionLevel DEVE SER MAIOR OU IGUAL ao REQUIRED_PERMISSION_LEVEL
+    const hasPermission = !isLoadingAuth && userPermissionLevel !== undefined && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
     // Fetch all permission levels for the filter dropdown
     const { data: permissionLevels, isLoading: isLoadingPermissionLevels, error: permissionLevelsError } = useQuery<PermissionLevel[]>({
