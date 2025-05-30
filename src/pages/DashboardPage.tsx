@@ -123,19 +123,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error("Sales webhook error response:", errorText);
                     throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
                 }
 
                 const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const rawText = await response.text();
-                    console.warn("Sales webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch (jsonParseError: any) {
+                        const rawText = await response.text(); // Read as text if JSON parsing fails
+                        console.error(`[DashboardPage] JSON parse error for sales webhook. Raw response: ${rawText.substring(0, 200)}`, jsonParseError);
+                        throw new Error(`Erro ao analisar JSON do webhook de vendas: ${jsonParseError.message}. Resposta: ${rawText.substring(0, 50)}...`);
+                    }
+                } else {
+                    const rawText = await response.text(); // Read as text if not JSON
+                    console.warn(`[DashboardPage] Sales webhook did not return JSON. Content-Type: ${contentType}. Raw response: ${rawText.substring(0, 200)}`);
                     return { total: null, rebuy: null, new: null }; // Return empty data
                 }
-
-                const data = await response.json();
-                console.log('Dados recebidos do webhook de vendas:', data);
 
                 // Process the array response - MODIFIED TO BE MORE RESILIENT
                 if (Array.isArray(data)) {
@@ -213,13 +218,21 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 }
 
                 const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const rawText = await response.text();
-                    console.warn("Leads webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch (jsonParseError: any) {
+                        const rawText = await response.text(); // Read as text if JSON parsing fails
+                        console.error(`[DashboardPage] JSON parse error for leads webhook. Raw response: ${rawText.substring(0, 200)}`, jsonParseError);
+                        throw new Error(`Erro ao analisar JSON do webhook de leads: ${jsonParseError.message}. Resposta: ${rawText.substring(0, 50)}...`);
+                    }
+                } else {
+                    const rawText = await response.text(); // Read as text if not JSON
+                    console.warn(`[DashboardPage] Leads webhook did not return JSON. Content-Type: ${contentType}. Raw response: ${rawText.substring(0, 200)}`);
                     return { count_remoteJid: 0 }; // Return empty data
                 }
 
-                const data = await response.json();
                 console.log('Dados recebidos do webhook de leads:', data);
 
                 // Expecting an array with one object: [{ "count_remoteJid": N }]
@@ -288,13 +301,21 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 }
 
                 const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const rawText = await response.text();
-                    console.warn("Appointments webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch (jsonParseError: any) {
+                        const rawText = await response.text(); // Read as text if JSON parsing fails
+                        console.error(`[DashboardPage] JSON parse error for appointments webhook. Raw response: ${rawText.substring(0, 200)}`, jsonParseError);
+                        throw new Error(`Erro ao analisar JSON do webhook de avaliações: ${jsonParseError.message}. Resposta: ${rawText.substring(0, 50)}...`);
+                    }
+                } else {
+                    const rawText = await response.text(); // Read as text if not JSON
+                    console.warn(`[DashboardPage] Appointments webhook did not return JSON. Content-Type: ${contentType}. Raw response: ${rawText.substring(0, 200)}`);
                     return { sum_total_agendamentos: 0, sum_total_realizados: 0 }; // Return empty data
                 }
 
-                const data = await response.json();
                 console.log('Dados recebidos do webhook de avaliações:', data);
 
                 // Detailed check for the expected format: [{ "sum_total_agendamentos": N, "sum_total_realizadas": M }]
@@ -433,8 +454,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                     {/* Use sum_total_agendamentos, default to 0 if null/undefined */}
                                     {appointmentsData?.sum_total_agendamentos ?? 0}
                                 </div>
-                            )}
-                        </CardContent>
+                            </CardContent>
                     </Card>
 
                     {/* Card: Avaliações Realizadas (Fetched) */}
