@@ -137,24 +137,16 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const clinicId = clinicData?.id;
     const clinicCode = clinicData?.code;
 
-    // Debugging Logs 
-    console.log("FunnelPage: Rendering");
-    console.log("FunnelPage: menuIdParam from URL:", menuIdParam);
-    console.log("FunnelPage: Parsed menuId:", menuId);
-    console.log("FunnelPage: isNaN(menuId):", isNaN(menuId));
-    console.log("FunnelPage: menuIdToFunnelIdMap:", menuIdToFunnelIdMap);
-    console.log("FunnelPage: menuId in map?", menuIdToFunnelIdMap.hasOwnProperty(menuId));
-    console.log("FunnelPage: clinicData:", clinicData);
-    console.log("FunnelPage: !clinicData:", !clinicData);
-    console.log("FunnelPage: funnelIdForQuery:", funnelIdForQuery);
+    // Add this log for initial parameter values
+    console.log("[FunnelPage - DIAGNOSIS] menuIdParam:", menuIdParam, "parsed menuId:", menuId, "mapped funnelIdForQuery:", funnelIdForQuery);
 
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
     // Add a log for the overall invalid funnel status
     useEffect(() => {
-        console.log("[FunnelPage] isInvalidFunnel:", isInvalidFunnel);
+        console.log("[FunnelPage - DIAGNOSIS] isInvalidFunnel:", isInvalidFunnel);
         if (isInvalidFunnel) {
-            console.log("[FunnelPage] Reason for invalid funnel:", {
+            console.log("[FunnelPage - DIAGNOSIS] Reason for invalid funnel:", {
                 clinicDataPresent: !!clinicData,
                 menuIdIsNumber: !isNaN(menuId),
                 funnelIdForQueryDefined: funnelIdForQuery !== undefined
@@ -197,6 +189,17 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         staleTime: 5 * 60 * 1000, 
         refetchOnWindowFocus: false,
     });
+
+    // Add this log immediately after stagesData query
+    useEffect(() => {
+        console.log("[FunnelPage - DIAGNOSIS] stagesData state:", {
+            data: stagesData,
+            isLoading: isLoadingStages,
+            error: stagesError,
+            funnelIdForQuery: funnelIdForQuery // Add funnelIdForQuery here for context
+        });
+    }, [stagesData, isLoadingStages, stagesError, funnelIdForQuery]);
+
 
     const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails | null>({
         queryKey: ['funnelDetails', funnelIdForQuery], 
@@ -328,11 +331,11 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     // Add a log for the enabled status of the leads query
     useEffect(() => {
-        console.log("[FunnelPage] Leads query enabled status:", {
+        console.log("[FunnelPage - DIAGNOSIS] leadsQueryData enabled status:", {
             clinicId: !!clinicId,
             funnelIdForQuery: !isNaN(funnelIdForQuery),
             isInvalidFunnel: !isInvalidFunnel,
-            stagesData: !!stagesData,
+            stagesDataPresent: !!stagesData,
             overallEnabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData
         });
     }, [clinicId, funnelIdForQuery, isInvalidFunnel, stagesData]);
