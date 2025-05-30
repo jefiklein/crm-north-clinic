@@ -403,9 +403,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       });
 
       if (!webhookResponse.ok) {
-        const errTxt = await webhookResponse.text();
-        let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`; // Default error
-        if (errTxt) { // If there's a response body, try to use it
+        const errTxt = await webhookResponse.text().catch(() => "Erro ao ler corpo da resposta do webhook."); 
+        let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`;
+        if (errTxt && errTxt !== "Erro ao ler corpo da resposta do webhook.") {
             try {
                 const jsonError = JSON.parse(errTxt);
                 detailedError = jsonError.message || jsonError.error || `Erro ${webhookResponse.status}: ${errTxt.substring(0,100)}`;
@@ -414,11 +414,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             }
         }
         console.error("[MensagensConfigPage] Webhook response not OK:", webhookResponse.status, detailedError);
-        // <-- MODIFIED: Throwing error here should be caught by the catch block below
         throw new Error(detailedError); 
       }
       
-      // This code should only be reached if webhookResponse.ok is true
       toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
       if (currentClinicId) queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
       
