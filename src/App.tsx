@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Index from "./pages/Index"; // This will be our Login page
+import Login from "./pages/Login"; // Updated import to Login
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
 import DashboardPage from "./pages/DashboardPage"; // We will create this
@@ -86,7 +86,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             {/* Login Page - Renders if not logged in */}
-            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Index onLogin={handleLogin} />} />
+            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />} />
 
             {/* Protected Routes - Require login */}
             <Route
