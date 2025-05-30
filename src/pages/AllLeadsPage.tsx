@@ -215,7 +215,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                 const funnelLower = stageInfo.funil.toLowerCase();
                  if (funnelLower.includes('vendas')) { stageInfo.funnelClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
                  else if (funnelLower.includes('recuperação')) { stageInfo.funnelClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
-                 else if (funnelLower.includes('compareceram')) { stageInfo.funnelClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
+                 else if (funnelLower.includes('compareceram')) { stageInfo.funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
                  else { stageInfo.funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
             }
         }
@@ -225,92 +225,39 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
     // Fetch Paginated, Filtered, and Sorted Leads from Supabase (already doing this)
     const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
-        queryKey: ['paginatedLeads', clinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue],
+        queryKey: ['paginatedLeads', clinicId], // Removed currentPage, ITEMS_PER_PAGE, searchTerm, sortValue
         queryFn: async () => {
-            if (!clinicId) {
-                console.error("AllLeadsPage: ID da clínica não disponível para buscar leads.");
-                throw new Error("ID da clínica não disponível para buscar leads.");
-            }
-
-            console.log(`[AllLeadsPage] Fetching leads from Supabase with parameters:`, {
-                clinicId,
-                currentPage,
-                ITEMS_PER_PAGE,
-                searchTerm,
-                sortValue
-            });
+            // Removed clinicId check here to allow fetching all leads for debugging
+            console.log(`[AllLeadsPage] Fetching ALL leads from Supabase (no filters applied for debugging)...`);
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                // UPDATED SELECT: Use remoteJid instead of telefone
-                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
-                .eq('id_clinica', clinicId); // Filter by clinic ID - KEEP THIS
+                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }); // Request exact count
 
-            // Apply filtering if searchTerm is not empty
-            if (searchTerm) {
-                const searchTermLower = searchTerm.toLowerCase();
-                // UPDATED FILTER: Search remoteJid instead of telefone::text
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,remoteJid.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
-                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR remoteJid ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
-            }
-
-            // Apply sorting
-            let orderByColumn = 'created_at';
-            let ascending = false; // Default to recent (descending created_at)
-
-            switch (sortValue) {
-                case 'created_at_desc':
-                    orderByColumn = 'created_at';
-                    ascending = false;
-                    break;
-                case 'created_at_asc':
-                    orderByColumn = 'created_at';
-                    ascending = true;
-                    break;
-                case 'nome_lead_asc':
-                    orderByColumn = 'nome_lead';
-                    ascending = true;
-                    break;
-                case 'nome_lead_desc':
-                    orderByColumn = 'nome_lead';
-                    ascending = false;
-                    break;
-                default:
-                    // Default sort is already set
-                    break;
-            }
-
-            query = query.order(orderByColumn, { ascending: ascending });
-            console.log(`[AllLeadsPage] Applying sort: order by ${orderByColumn} ${ascending ? 'ASC' : 'DESC'}`);
-
-
-            // Apply pagination
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE - 1;
-            query = query.range(startIndex, endIndex);
-            console.log(`[AllLeadsPage] Applying pagination: range from ${startIndex} to ${endIndex}`);
-
+            // --- REMOVED ALL FILTERS FOR DEBUGGING ---
+            // .eq('id_clinica', clinicId); // Filter by clinic ID - REMOVED FOR DEBUGGING
+            // if (searchTerm) { ... } // REMOVED FOR DEBUGGING
+            // query = query.order(orderByColumn, { ascending: ascending }); // REMOVED FOR DEBUGGING
+            // query = query.range(startIndex, endIndex); // REMOVED FOR DEBUGGING
+            // --- END REMOVED FILTERS ---
 
             const { data, error, count } = await query;
 
-            console.log('[AllLeadsPage] Supabase fetch result:', { data, error, count });
+            console.log('[AllLeadsPage] Supabase fetch result (no filters):', { data, error, count });
 
             if (error) {
-                console.error("[AllLeadsPage] Supabase fetch error:", error);
+                console.error("[AllLeadsPage] Supabase fetch error (no filters):", error);
                 throw new Error(`Erro ao buscar leads: ${error.message}`);
             }
 
             if (count === null) {
                  console.warn("[AllLeadsPage] Supabase count is null.");
-                 // Decide how to handle null count - maybe assume data.length if count is not critical for this view?
-                 // For now, let's return 0 for count if null, to allow rendering with available data.
             }
-
 
             return { leads: data || [], totalCount: count ?? 0 }; // Return data and count
 
         },
-        enabled: !!clinicId && !!allStages && !!allFunnelDetails, // Enable only if clinicId, stages, and funnels are available
+        enabled: !!allStages && !!allFunnelDetails, // Enable only if stages and funnels are available (clinicId check removed for this query)
         staleTime: 60 * 1000, // 1 minute
         refetchOnWindowFocus: false,
     });
@@ -318,10 +265,10 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
     // Add a log for the enabled status of the leads query
     useEffect(() => {
         console.log("[AllLeadsPage] Leads query enabled status:", {
-            clinicId: !!clinicId,
+            clinicId: !!clinicId, // Still log clinicId presence
             allStages: !!allStages,
             allFunnelDetails: !!allFunnelDetails,
-            overallEnabled: !!clinicId && !!allStages && !!allFunnelDetails
+            overallEnabled: !!allStages && !!allFunnelDetails // Updated overallEnabled
         });
     }, [clinicId, allStages, allFunnelDetails]);
 
@@ -373,16 +320,17 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                          <Input
                             type="text"
-                            placeholder="Buscar leads (nome, telefone, origem...)"
+                            placeholder="Buscar leads (filtro desativado para depuração)"
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                             className="pl-9"
+                            disabled // Disable input as filter is removed
                          />
                     </div>
                     <span id="recordsCount" className="text-sm text-gray-600 whitespace-nowrap">
                         {isLoading ? 'Carregando...' : `${totalItems} registro(s)`}
                     </span>
-                    <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }}>
+                    <Select value={sortValue} onValueChange={(value) => { setSortValue(value); setCurrentPage(1); }} disabled> {/* Disable sort as it's removed */}
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Ordenar por..." />
                         </SelectTrigger>
@@ -419,7 +367,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                         </div>
                     ) : totalItems === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
+                            <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
                             <span className="text-lg text-center">Nenhum lead encontrado.</span>
                         </div>
                     ) : (
