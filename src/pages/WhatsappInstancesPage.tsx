@@ -285,8 +285,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
     });
 
-    const checkStatusMutation = useMutation(
-        async (instanceIdentifier: string) => {
+    const checkStatusMutation = useMutation({
+        mutationFn: async (instanceIdentifier: string) => {
             console.log(`[WhatsappInstancesPage] Polling status for: ${instanceIdentifier}`);
             try {
                 const response = await fetch(INSTANCE_STATUS_WEBHOOK_URL, {
@@ -317,30 +317,28 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 console.error(`[WhatsappInstancesPage] Error polling status for ${instanceIdentifier}:`, error);
                 throw error;
             }
-        }, 
-        {
-            onSuccess: (data, instanceIdentifier) => {
-                setInstanceStatuses((prev) => ({
-                    ...prev,
-                    [instanceIdentifier]: data,
-                }));
+        },
+        onSuccess: (data, instanceIdentifier) => {
+            setInstanceStatuses((prev) => ({
+                ...prev,
+                [instanceIdentifier]: data,
+            }));
 
-                const state = data?.instance?.state;
-                console.log(`[WhatsappInstancesPage] Polling status received for ${instanceIdentifier}: ${state}`);
+            const state = data?.instance?.state;
+            console.log(`[WhatsappInstancesPage] Polling status received for ${instanceIdentifier}: ${state}`);
 
-                if (state === "open") {
-                    stopConnectionPolling();
-                    stopQrTimer();
-                    setIsQrModalOpen(false);
-                    showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
-                    refetchInstances();
-                }
-            },
-            onError: (error: Error, instanceIdentifier) => {
-                console.error(`[WhatsappInstancesPage] Polling status error for ${instanceIdentifier}:`, error.message);
-            },
-        }
-    );
+            if (state === "open") {
+                stopConnectionPolling();
+                stopQrTimer();
+                setIsQrModalOpen(false);
+                showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
+                refetchInstances();
+            }
+        },
+        onError: (error: Error, instanceIdentifier) => {
+            console.error(`[WhatsappInstancesPage] Polling status error for ${instanceIdentifier}:`, error.message);
+        },
+    });
 
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
