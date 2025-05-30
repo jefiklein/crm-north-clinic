@@ -101,7 +101,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: fileKey, clinicId: clinicCode }),
+        body: JSON.stringify({ arquivo_key: fileKey, clinicId: clinicCode }), 
       });
 
       const responseText = await response.text();
