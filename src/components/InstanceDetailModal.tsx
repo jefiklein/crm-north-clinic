@@ -226,7 +226,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
               Recebe Leads (Trackeamento)
             </Label>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância receberá leads e terá seu histórico monitorado.</p>
+          <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância terá um monitoramento e trackeamento de leads. Ative somente se essa instância é usada para prospecção e venda para leads.</p>
 
           <div className="flex items-center space-x-2 mt-2">
             <Switch
