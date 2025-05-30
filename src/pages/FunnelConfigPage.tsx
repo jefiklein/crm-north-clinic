@@ -113,9 +113,6 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     // New state to control the modal's internal view
     const [modalView, setModalView] = useState<'initial' | 'action_details'>('initial');
 
-    // State for combobox open status
-    const [isComboboxOpen, setIsComboboxOpen] = useState(false);
-
 
     // Check if the menuIdParam corresponds to a valid funnel ID
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
@@ -797,9 +794,6 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </Command>
                                         </PopoverContent>
                                     </Popover>
-                                    <Button variant="link" size="sm" onClick={() => handleNavigateToMessageConfig()} className="mt-2">
-                                        + Criar Nova Mensagem
-                                    </Button>
                                 </>
                             )}
 
