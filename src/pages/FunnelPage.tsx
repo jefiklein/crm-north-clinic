@@ -38,7 +38,7 @@ interface FunnelStage {
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
-    telefone: number | null; // REVERTED: Back to 'telefone' as number | null
+    telefone: number | null;
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
@@ -87,7 +87,7 @@ interface FunnelPageProps {
 }
 
 // Webhook URL for updating lead stage
-const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/eaf897be-7829-4e59-b16c-028138e8939';
+const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/eaf897be-7829-4e59-b16c-028138e88939';
 
 // Helper functions 
 function renderStars(score: number | null): JSX.Element[] {
@@ -152,9 +152,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     // Add a log for the overall invalid funnel status
     useEffect(() => {
-        console.log("[FunnelPage - DIAGNOSIS] isInvalidFunnel:", isInvalidFunnel);
+        console.log("[FunnelPage] isInvalidFunnel:", isInvalidFunnel);
         if (isInvalidFunnel) {
-            console.log("[FunnelPage - DIAGNOSIS] Reason for invalid funnel:", {
+            console.log("[FunnelPage] Reason for invalid funnel:", {
                 clinicDataPresent: !!clinicData,
                 menuIdIsNumber: !isNaN(menuId),
                 funnelIdForQueryDefined: funnelIdForQuery !== undefined
@@ -197,17 +197,6 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         staleTime: 5 * 60 * 1000, 
         refetchOnWindowFocus: false,
     });
-
-    // Add this log immediately after stagesData query
-    useEffect(() => {
-        console.log("[FunnelPage - DIAGNOSIS] stagesData state:", {
-            data: stagesData,
-            isLoading: isLoadingStages,
-            error: stagesError,
-            funnelIdForQuery: funnelIdForQuery // Add funnelIdForQuery here for context
-        });
-    }, [stagesData, isLoadingStages, stagesError, funnelIdForQuery]);
-
 
     const { data: funnelDetailsData, isLoading: isLoadingFunnelDetails, error: funnelDetailsError } = useQuery<FunnelDetails | null>({
         queryKey: ['funnelDetails', funnelIdForQuery], 
@@ -265,19 +254,17 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                  return { leads: [], totalCount: 0 };
             }
 
-            // NEW LOG: Log the exact parameters being used in the Supabase query
-            console.log(`[FunnelPage - Leads Query] Executing query with: clinicId=${currentClinicId}, funnelId=${currentFunnelIdForQuery}, stageIds=[${stageIds.join(', ')}], searchTerm='${currentSearchTerm}', sortValue='${currentSortValue}', currentPage=${currentPage}, itemsPerPage=${itemsPerPage}`);
-
+            console.log(`FunnelPage: Fetching leads for clinic ${currentClinicId}, funnel ${currentFunnelIdForQuery} (stages: ${stageIds.join(',')}) from Supabase... View: ${currentView}`);
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // REVERTED: Back to 'telefone'
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) 
                 .eq('id_clinica', currentClinicId) 
                 .in('id_etapa', stageIds); 
 
             if (currentSearchTerm) {
                 const searchTermLower = currentSearchTerm.toLowerCase();
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`); // REVERTED: Back to 'telefone::text'
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`);
                  console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${currentSearchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
@@ -319,10 +306,6 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             const { data, error, count } = await query;
 
             console.log('FunnelPage: Supabase leads fetch result:', { data, error, count });
-            // NEW LOGS: Detailed inspection of leadsQueryData
-            console.log('FunnelPage: leadsQueryData.leads (content):', data);
-            console.log('FunnelPage: leadsQueryData.totalCount (content):', count);
-
 
             if (error) {
                 console.error("FunnelPage: Supabase leads fetch error:", error);
@@ -339,11 +322,11 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     // Add a log for the enabled status of the leads query
     useEffect(() => {
-        console.log("[FunnelPage - DIAGNOSIS] leadsQueryData enabled status:", {
+        console.log("[FunnelPage] Leads query enabled status:", {
             clinicId: !!clinicId,
             funnelIdForQuery: !isNaN(funnelIdForQuery),
             isInvalidFunnel: !isInvalidFunnel,
-            stagesDataPresent: !!stagesData,
+            stagesData: !!stagesData,
             overallEnabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData
         });
     }, [clinicId, funnelIdForQuery, isInvalidFunnel, stagesData]);
@@ -521,7 +504,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     };
 
     const openNewLeadModal = () => setIsNewLeadModalOpen(true);
-    const closeNewLeadModal = () => setIsNewLeadModalOpen(false);
+    const closeNewLeadModal = () => setIsNewLeadModal(false);
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };
@@ -671,7 +654,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                             onDragEnd={() => setDragOverStageId(null)} 
                                                         >
                                                             <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
-                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div> {/* REVERTED: Back to 'telefone' */}
+                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
                                                             {lead.lead_score !== null && (
                                                                 <div className="lead-score flex items-center gap-1 mb-2">
                                                                     {renderStars(lead.lead_score)}
@@ -716,7 +699,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span> {/* REVERTED: Back to 'telefone' */}
+                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
                                                     </div>
                                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
