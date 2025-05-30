@@ -49,8 +49,12 @@ const App = () => {
     logout();
   };
 
-  if (isLoadingAuth) {
-    return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando autenticação...</div>;
+  // NEW: Combined loading state for the entire app
+  // This ensures we wait for both initial auth loading AND clinic data loading
+  const isAppLoading = isLoadingAuth || (session && !clinicData && availableClinics === null);
+
+  if (isAppLoading) {
+    return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
   // If not logged in, always redirect to login page
