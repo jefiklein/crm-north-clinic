@@ -1,5 +1,3 @@
-"use client";
-
 import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
@@ -24,18 +22,18 @@ interface IndexProps {
 
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
         <CardHeader>
           <CardTitle className="text-center text-primary text-3xl font-bold mb-2">North CRM</CardTitle> {/* Título principal */}
-          {/* Removido o CardDescription com "Acesse sua conta" */}
+          <CardDescription className="text-center text-gray-600">Acesse sua conta</CardDescription> {/* Descrição/subtítulo */}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Adicionando a logo aqui */}
           <img
             src="/north-crm-azul.jpeg"
             alt="Logo North CRM"
-            className="mx-auto h-32 w-auto mb-4" {/* Aumentado o tamanho do logo para h-32 */}
+            className="mx-auto h-24 w-auto mb-4"
           />
           <Auth
             supabaseClient={supabase}
