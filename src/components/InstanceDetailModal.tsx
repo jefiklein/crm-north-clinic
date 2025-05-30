@@ -175,7 +175,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Selecione...</SelectItem> {/* Adicionado para lidar com valores vazios/nulos */}
+                {/* Removido o SelectItem com value="" que causava o erro */}
                 <SelectItem value="Recepção">Recepção</SelectItem>
                 <SelectItem value="Vendas">Vendas</SelectItem>
                 <SelectItem value="Prospecção">Prospecção</SelectItem>
