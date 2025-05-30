@@ -164,9 +164,8 @@ const LeadsMessagesPage: React.FC<LeadsMessagesPageProps> = ({ clinicData }) => 
     const deleteMessageMutation = useMutation({ // Renamed from deleteSequenceMutation
         mutationFn: async (messageId: number) => { // Renamed parameter
             if (!clinicId) throw new Error("ID da clínica não disponível."); 
-            if (!clinicData?.code) throw new Error("Código da clínica não disponível.");
-            // Payload to n8n still uses 'sequenceId' as per previous agreement to not break n8n
-            const payload = { sequenceId: messageId, clinicId: clinicId, clinicCode: clinicData.code };
+            // Use clinicId (numeric) instead of clinicData?.code
+            const payload = { sequenceId: messageId, clinicId: clinicId }; // Removed clinicCode
             const response = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/cb701587-26dd-4f7a-bc55-5ba70e807273", {
                 method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
             });

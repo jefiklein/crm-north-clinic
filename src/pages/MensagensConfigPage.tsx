@@ -573,10 +573,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
 
   const handleSave = async () => {
-    const currentClinicCode = clinicData?.code;
-    const currentClinicId = clinicData?.id;
+    const currentClinicCode = clinicData?.code; // This is the authentication string
+    const currentClinicId = clinicData?.id; // This is the numeric ID
 
-    if (!currentClinicCode || !currentClinicId) {
+    if (!currentClinicId || !currentClinicCode) { // Use currentClinicId for validation
       toast({
         title: "Erro",
         description: "Dados da clínica não disponíveis.",
@@ -724,7 +724,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const formData = new FormData();
         formData.append("data", mediaFile, mediaFile.name);
         formData.append("fileName", mediaFile.name);
-        formData.append("clinicId", currentClinicCode); 
+        formData.append("clinicId", currentClinicId.toString()); // Use currentClinicId (numeric)
         const uploadRes = await fetch(
           "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase",
           {
@@ -744,7 +744,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
 
       const saveData: any = {
-        id_clinica: currentClinicCode,
+        id_clinica: currentClinicId, // Use currentClinicId (numeric)
         id: messageId,
         categoria: category || null,
         id_instancia: instanceId,

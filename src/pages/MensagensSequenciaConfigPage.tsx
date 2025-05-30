@@ -80,7 +80,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const messageIdToEdit = messageIdParam ? parseInt(messageIdParam, 10) : null;
 
   const clinicId = clinicData?.id;
-  const clinicCode = clinicData?.code; 
+  const clinicCode = clinicData?.code; // This is the authentication string, not the numeric ID
 
   const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
@@ -89,9 +89,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Function to fetch signed URL (modified to be more flexible with webhook response)
   const fetchSignedUrlForPreview = async (fileKey: string, stepId: string): Promise<void> => {
-    if (!fileKey || !clinicCode) {
+    if (!fileKey || !clinicId) { // Use clinicId (numeric)
       setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
-      setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: "Chave do arquivo ou código da clínica ausente." } }));
+      setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: "Chave do arquivo ou ID da clínica ausente." } }));
       return;
     }
 
@@ -102,7 +102,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arquivo_key: fileKey, clinicId: clinicCode }), 
+        body: JSON.stringify({ arquivo_key: fileKey, clinicId: clinicId }), // Use clinicId (numeric)
       });
 
       const responseText = await response.text();
@@ -166,7 +166,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         }
       }
     });
-  }, [messageSteps, clinicCode]); 
+  }, [messageSteps, clinicId]); // Depend on clinicId (numeric)
 
   useEffect(() => {
     async function loadMessageForEditing() {
@@ -322,8 +322,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   const handleSave = async () => {
     console.log("[MensagensConfigPage] handleSave: Iniciando processo de salvamento...");
-    const currentClinicCode = clinicData?.code;
-    const currentClinicId = clinicData?.id;
+    const currentClinicCode = clinicData?.code; // This is the authentication string
+    const currentClinicId = clinicData?.id; // This is the numeric ID
 
     if (!currentClinicId || !currentClinicCode) {
       toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" }); 
@@ -373,7 +373,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
-              formData.append("clinicId", currentClinicCode);
+              formData.append("clinicId", currentClinicId.toString()); // Use currentClinicId (numeric)
               
               const uploadRes = await fetch(ENVIAR_ARQUIVO_WEBHOOK_URL, { method: "POST", body: formData });
               console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Resposta do upload: status ${uploadRes.status}, ok: ${uploadRes.ok}`); 
@@ -402,8 +402,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       const messagePayloadForN8N = { 
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
-        clinicCode: currentClinicCode,
-        clinicDbId: currentClinicId,
+        clinicCode: currentClinicCode, // This is the authentication string, kept for compatibility if n8n needs it
+        clinicDbId: currentClinicId, // This is the numeric ID, use this for DB operations
         sequenceName: messageName, 
         contexto: 'leads', 
         ativo: true, 
@@ -465,168 +465,602 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }, 1000);
 
     } catch (e: any) {
-      console.error("[MensagensConfigPage] handleSave: ERRO CAPTURADO NO BLOCO CATCH:", e.message, e); 
-      setError(e.message || "Erro ao salvar.");
-      toast({ title: "Erro ao Salvar", description: e.message, variant: "destructive" });
+      console.error("[MensagensConfigPage] Error saving message:", e);
+      setError(e.message || "Erro ao salvar sequência");
+      toast({
+        title: "Erro",
+        description: e.message || "Erro ao salvar sequência",
+      });
     } finally {
-      console.log("[MensagensConfigPage] handleSave: Bloco finally executado. setSaving(false).");
       setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    if (!clinicCode) return;
-    navigate(`/dashboard/9?clinic_code=${encodeURIComponent(clinicCode)}`);
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    if (isGeneralContext) {
+        setMessageText(defaultTemplates[value] || "");
+    } else if (isCashbackContext) {
+         setMessageText(defaultTemplates[value] || ""); 
+    }
   };
 
-  const pageTitle = isEditing ? "Editar Mensagem" : "Nova Mensagem";
+  const showCategoryGeneral = isGeneralContext;
+  const showTargetTypeSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado");
+  const showGroupSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
+  const showServicesLinkedGeneral = isGeneralContext && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
+  const showScheduledTimeGeneral = isGeneralContext && (category === "Confirmar Agendamento" || category === "Aniversário");
+
+  const showCashbackTiming = isCashbackContext;
+  const showScheduledTimeCashback = isCashbackContext; 
+
+  const showFunnelStageSelectLeads = isLeadsContext;
+  const showTimingFieldsLeads = isLeadsContext; 
+  const showScheduledTimeLeads = false; 
+
+  const showSendingOrder = !!mediaFile || !!mediaSavedUrl;
+
+  const handleCancel = () => {
+    if (!clinicData?.code) return;
+    let redirectPath = '/dashboard'; 
+    if (messageContext === 'clientes') redirectPath = '/dashboard/11';
+    else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
+    else if (messageContext === 'leads') redirectPath = '/dashboard/9'; 
+
+    window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
+      clinicData.code
+    )}`;
+  };
+
+  const pageTitle = messageId
+    ? `Editar Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`
+    : `Configurar Nova Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`;
+
+  const isLoadingData = loading || (isLeadsContext && (isLoadingFunnels || isLoadingStages));
+  const fetchError = error || (isLeadsContext && (funnelsError || stagesError));
+
+  const availablePlaceholders = useMemo(() => {
+      const allKeys = Object.keys(placeholderData);
+      if (isCashbackContext) {
+          return allKeys.filter(key => key.startsWith('primeiro_nome_cliente') || key.startsWith('nome_completo_cliente') || key.startsWith('valor_cashback') || key.startsWith('validade_cashback'));
+      }
+      if (isLeadsContext) {
+          return allKeys.filter(key =>
+              key.startsWith('primeiro_nome_cliente') ||
+              key.startsWith('nome_completo_cliente') ||
+              key.startsWith('primeiro_nome_funcionario') || 
+              key.startsWith('nome_completo_funcionario') ||
+              key.startsWith('nome_servico_principal') || 
+              key.startsWith('lista_servicos') ||
+              key.startsWith('data_agendamento') || 
+              key.startsWith('dia_agendamento_num') ||
+              key.startsWith('dia_semana_relativo_extenso') ||
+              key.startsWith('mes_agendamento_num') ||
+              key.startsWith('mes_agendamento_extenso') ||
+              key.startsWith('hora_agendamento')
+          );
+      }
+      return allKeys; 
+  }, [messageContext]); 
+
+  const handlePlaceholderClick = (placeholder: string) => {
+      const placeholderText = `{${placeholder}}`;
+      const textarea = messageTextRef.current;
+      if (textarea) {
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const newText = messageText.slice(0, start) + placeholderText + messageText.slice(end);
+
+          setMessageText(newText);
+
+          setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = start + placeholderText.length;
+              textarea.focus(); 
+          }, 0); 
+      }
+  };
+
+  console.log("[MensagensConfigPage] Rendering. selectedGroup:", selectedGroup, "groups:", groups.length, "value prop for Select:", selectedGroup === null ? undefined : selectedGroup.toString()); 
 
   return (
-    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-4 md:p-6 w-full">
-      <Card className="w-full shadow-lg">
-        <CardHeader><CardTitle>{pageTitle}</CardTitle></CardHeader>
+    <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
+      <Card className="w-full"> 
+        <CardHeader>
+          <CardTitle>{pageTitle}</CardTitle>
+        </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 text-primary py-10"><Loader2 className="animate-spin h-8 w-8" /> Carregando...</div>
-          ) : error ? (
-            <div className="text-red-600 font-semibold flex items-center gap-2 p-4 bg-red-50 border border-red-300 rounded-md"><TriangleAlert className="h-5 w-5" /> {error}</div>
+          {isLoadingData ? ( 
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <Loader2 className="animate-spin" />
+              Carregando dados...
+            </div>
+          ) : fetchError ? ( 
+            <div className="text-red-600 font-semibold flex items-center gap-2">
+                <TriangleAlert className="h-5 w-5" />
+                {fetchError.message || funnelsError?.message || stagesError?.message || "Erro ao carregar dados."}
+            </div>
           ) : (
             <>
-              <div>
-                <label htmlFor="messageName" className="block mb-1 font-medium text-gray-700">Nome da Mensagem *</label>
-                <Input id="messageName" value={messageName} onChange={(e) => setMessageName(e.target.value)} placeholder="Ex: Boas-vindas Lead Frio" disabled={saving} maxLength={100} />
-                <p className="text-sm text-gray-500 mt-1">Nome para identificar esta mensagem.</p>
-              </div>
+              {showCategoryGeneral && (
+                  <div>
+                    <label
+                      htmlFor="category"
+                      className="block mb-1 font-medium text-gray-700"
+                    >
+                      Categoria *
+                    </label>
+                    <Select
+                      value={category}
+                      onValueChange={handleCategoryChange}
+                      id="category"
+                      disabled={messageId !== null} 
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orderedCategoriesGeneral.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                     {messageId !== null && (
+                         <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
+                     )}
+                  </div>
+              )}
 
-              <div className="message-steps-area flex flex-col gap-4 border rounded-md p-4 bg-gray-50">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-2">Passos da Mensagem</h3>
-                {messageSteps.length === 0 && <div className="text-center text-gray-600 italic py-6">Nenhum passo. Adicione um abaixo.</div>}
-
-                {messageSteps.map((step, index) => {
-                  const previewUrl = mediaPreviewUrls[step.id];
-                  const status = mediaPreviewStatus[step.id];
-                  const isLoadingMedia = status?.isLoading ?? false;
-                  const mediaError = status?.error ?? null;
-
-                  return (
-                    <Card key={step.id} className="step-card p-4 shadow-sm border border-gray-200 bg-white">
-                      <CardContent className="p-0 flex flex-col gap-4">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-gray-700">Passo {index + 1}</span>
-                          <Button variant="destructive" size="sm" onClick={() => handleRemoveStep(step.id)} disabled={saving}>
-                            <Trash2 className="h-4 w-4 mr-1" /> Remover
-                          </Button>
-                        </div>
-                        <div>
-                          <label htmlFor={`step-type-${step.id}`} className="block mb-1 font-medium text-gray-700">Tipo</label>
-                          <Select
-                            value={step.type}
-                            onValueChange={(value) => {
-                              const newType = value as MessageStepType;
-                              handleUpdateStep(step.id, {
-                                type: newType, text: newType === 'texto' ? (step.text || '') : undefined,
-                                mediaFile: undefined, mediaKey: undefined, originalFileName: undefined,
-                                delayValue: newType === 'atraso' ? (step.delayValue || 60) : undefined,
-                                delayUnit: newType === 'atraso' ? (step.delayUnit || 'segundos') : undefined,
-                              });
-                              if (!(newType === 'imagem' || newType === 'video' || newType === 'audio')) {
-                                setMediaPreviewUrls(prev => ({...prev, [step.id]: null}));
-                                setMediaPreviewStatus(prev => ({...prev, [step.id]: {isLoading: false, error: null}}));
-                              }
-                            }}
-                            id={`step-type-${step.id}`} disabled={saving}
+              {showFunnelStageSelectLeads && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <label
+                            htmlFor="funnel"
+                            className="block mb-1 font-medium text-gray-700"
                           >
-                            <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                            Funil *
+                          </label>
+                          <Select
+                            value={selectedFunnelId?.toString() || ''}
+                            onValueChange={(value) => setSelectedFunnelId(value ? parseInt(value, 10) : null)}
+                            id="funnel"
+                            disabled={isLoadingFunnels || !!funnelsError}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o funil" />
+                            </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="texto">Texto</SelectItem>
-                              <SelectItem value="imagem">Imagem</SelectItem>
-                              <SelectItem value="video">Vídeo</SelectItem>
-                              <SelectItem value="audio">Áudio</SelectItem>
-                              <SelectItem value="atraso">Atraso (Pausa)</SelectItem>
+                              {allFunnels?.map(funnel => (
+                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
-                        </div>
+                           {funnelsError && <p className="text-sm text-red-600 mt-1">Erro ao carregar funis.</p>}
+                      </div>
+                      <div>
+                          <label
+                            htmlFor="stage"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Etapa *
+                          </label>
+                          <Select
+                            value={selectedStageId?.toString() || ''}
+                            onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)}
+                            id="stage"
+                            disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a etapa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                               {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
+                                   <SelectItem value="none" disabled>Nenhuma etapa disponível</SelectItem>
+                               ) : (
+                                   stagesForSelectedFunnel?.map(stage => (
+                                       <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
+                                   ))
+                               )}
+                            </SelectContent>
+                          </Select>
+                           {stagesError && <p className="text-sm text-red-600 mt-1">Erro ao carregar etapas.</p>}
+                           {selectedFunnelId !== null && (stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError && (
+                                <p className="text-sm text-orange-600 mt-1">Nenhuma etapa encontrada para este funil.</p>
+                           )}
+                      </div>
+                  </div>
+              )}
 
-                        {step.type === 'texto' && (
-                          <div>
-                            <label htmlFor={`step-text-${step.id}`} className="block mb-1 font-medium text-gray-700">Texto</label>
-                            <Textarea id={`step-text-${step.id}`} rows={4} value={step.text || ''} onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })} placeholder="Digite o texto..." disabled={saving} />
-                          </div>
-                        )}
 
-                        {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
-                          <div>
-                            <label htmlFor={`step-media-${step.id}`} className="block mb-1 font-medium text-gray-700">Anexar Arquivo ({step.type})</label>
-                            <Input type="file" id={`step-media-${step.id}`} 
-                              accept={
-                                step.type === 'imagem' ? ALLOWED_IMAGE_TYPES.join(',') :
-                                step.type === 'video' ? ALLOWED_VIDEO_TYPES.join(',') :
-                                step.type === 'audio' ? ALLOWED_AUDIO_TYPES.join(',') : '*'
-                              }
-                              onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
-                              disabled={saving}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              {step.type === 'imagem' && `Max ${MAX_IMAGE_SIZE_MB}MB. Tipos: JPG, PNG, GIF, WEBP`}
-                              {step.type === 'video' && `Max ${MAX_VIDEO_SIZE_MB}MB. Tipos: MP4, WEBM, MOV`}
-                              {step.type === 'audio' && `Max ${MAX_AUDIO_SIZE_MB}MB. Tipos: MP3, OGG, WAV`}
-                            </p>
-                            
-                            {isLoadingMedia && <div className="mt-2 text-sm text-primary"><Loader2 className="inline h-4 w-4 animate-spin mr-1" />Carregando preview...</div>}
-                            {mediaError && <div className="mt-2 text-sm text-red-600"><TriangleAlert className="inline h-4 w-4 mr-1" />{mediaError}</div>}
-                            
-                            {previewUrl && !mediaError && (
-                              <div className="mt-2">
-                                {step.type === 'imagem' && <img src={previewUrl} alt={step.originalFileName || "Preview"} className="max-w-xs max-h-48 rounded object-contain" />}
-                                {step.type === 'video' && <video src={previewUrl} controls className="max-w-xs rounded" />}
-                                {step.type === 'audio' && <audio src={previewUrl} controls />}
+              <div>
+                <label
+                  htmlFor="instance"
+                  className="block mb-1 font-medium text-gray-700"
+                >
+                  Instância (Número Enviador) *
+                </label>
+                <Select
+                  value={instanceId?.toString() || ""}
+                  onValueChange={(v) => setInstanceId(v ? parseInt(v, 10) : null)}
+                  id="instance"
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a instância" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instances.map((inst) => (
+                      <SelectItem key={inst.id} value={inst.id.toString()}>
+                        {inst.nome_exibição}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {showTargetTypeSelectGeneral && (
+                <div>
+                  <label
+                    htmlFor="targetType"
+                    className="block mb-1 font-medium text-gray-700"
+                  >
+                    Enviar Para *
+                  </label>
+                  <Select
+                    value={targetType}
+                    onValueChange={(v) =>
+                      setTargetType(v as "Grupo" | "Cliente" | "Funcionário")
+                    }
+                    id="targetType"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Grupo">Grupo do WhatsApp</SelectItem>
+                      <SelectItem value="Cliente">Cliente (Mensagem Direta)</SelectItem>
+                      <SelectItem value="Funcionário">Funcionário (Mensagem Direta)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {showGroupSelectGeneral && (
+                <div>
+                  <label
+                    htmlFor="group"
+                    className="block mb-1 font-medium text-gray-700"
+                  >
+                    Grupo Alvo *
+                  </label>
+                  <Select
+                    value={selectedGroup ?? undefined} 
+                    onValueChange={(v) => {
+                        console.log("[MensagensConfigPage] Group Select onValueChange:", v); 
+                        setSelectedGroup(v || null); 
+                    }}
+                    id="group"
+                    disabled={groups.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o grupo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((g) => {
+                          console.log("[MensagensConfigPage] Group SelectItem value:", g.id_grupo, "name:", g.nome_grupo); 
+                          return (
+                            <SelectItem key={g.id_grupo} value={g.id_grupo}> 
+                              {g.nome_grupo}
+                            </SelectItem>
+                          );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {(showScheduledTimeGeneral || showScheduledTimeCashback) && ( 
+                <div>
+                  <label
+                    htmlFor="scheduledTime"
+                    className="block mb-1 font-medium text-gray-700"
+                  >
+                    Hora Programada *
+                  </label>
+                  <Select
+                    value={scheduledTime}
+                    onValueChange={setScheduledTime}
+                    id="scheduledTime"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a hora" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[
+                        "08:00",
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00",
+                        "16:00",
+                        "17:00",
+                      ].map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {showCashbackTiming && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <label
+                            htmlFor="diasMensagemCashback"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Dias *
+                          </label>
+                          <Input
+                              id="diasMensagemCashback"
+                              type="number"
+                              placeholder="Ex: 3"
+                              value={diasMensagemCashback}
+                              onChange={(e) => setDiasMensagemCashback(e.target.value)}
+                              min="0"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
+                      </div>
+                      <div>
+                          <Label
+                            htmlFor="tipoMensagemCashback"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Agendar Para *
+                          </Label>
+                          <RadioGroup
+                              value={tipoMensagemCashback}
+                              onValueChange={setTipoMensagemCashback}
+                              id="tipoMensagemCashback"
+                              className="flex flex-col space-y-1"
+                          >
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="apos_venda" id="apos_venda" />
+                                  <Label htmlFor="apos_venda">Dias após a venda</Label>
                               </div>
-                            )}
-                            {step.originalFileName && !previewUrl && !isLoadingMedia && !mediaError && (
-                               <p className="text-sm text-gray-600 mt-1">Arquivo: {step.originalFileName} (preview indisponível)</p>
-                            )}
-                          </div>
-                        )}
+                              <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="antes_validade" id="antes_validade" />
+                                  <Label htmlFor="antes_validade">Dias antes da validade do cashback</Label>
+                              </div>
+                          </RadioGroup>
+                          <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
+                      </div>
+                  </div>
+              )}
 
-                        {step.type === 'atraso' && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label htmlFor={`step-delay-value-${step.id}`} className="block mb-1 font-medium text-gray-700">Duração *</label>
-                              <Input id={`step-delay-value-${step.id}`} type="number" placeholder="Ex: 30" value={step.delayValue?.toString() || ''} onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })} min="1" disabled={saving} />
-                            </div>
-                            <div>
-                              <label htmlFor={`step-delay-unit-${step.id}`} className="block mb-1 font-medium text-gray-700">Unidade *</label>
-                              <Select value={step.delayUnit || 'segundos'} onValueChange={(value) => handleUpdateStep(step.id, { delayUnit: value as MessageStep['delayUnit'] })} id={`step-delay-unit-${step.id}`} disabled={saving}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="segundos">Segundos</SelectItem>
-                                  <SelectItem value="minutos">Minutos</SelectItem>
-                                  <SelectItem value="horas">Horas</SelectItem>
-                                  <SelectItem value="dias">Dias</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1 md:col-span-2">Tempo de espera.</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+              {showTimingFieldsLeads && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                          <label
+                            htmlFor="timingType"
+                            className="block mb-1 font-medium text-gray-700"
+                          >
+                            Agendar Envio *
+                          </label>
+                          <Select
+                              value={timingType}
+                              onValueChange={setTimingType}
+                              id="timingType"
+                          >
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="immediate">Imediatamente ao entrar na etapa</SelectItem>
+                                  <SelectItem value="delay">Com atraso após entrar na etapa</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      {timingType === 'delay' && (
+                          <>
+                              <div>
+                                  <label
+                                    htmlFor="delayValue"
+                                    className="block mb-1 font-medium text-gray-700"
+                                  >
+                                    Valor do Atraso *
+                                  </label>
+                                  <Input
+                                      id="delayValue"
+                                      type="number"
+                                      placeholder="Ex: 2"
+                                      value={delayValue}
+                                      onChange={(e) => setDelayValue(e.target.value)}
+                                      min="0"
+                                  />
+                              </div>
+                              <div>
+                                  <label
+                                    htmlFor="delayUnit"
+                                    className="block mb-1 font-medium text-gray-700"
+                                  >
+                                    Unidade do Atraso *
+                                  </label>
+                                  <Select
+                                      value={delayUnit}
+                                      onValueChange={setDelayUnit}
+                                      id="delayUnit"
+                                  >
+                                      <SelectTrigger>
+                                          <SelectValue placeholder="Selecione a unidade" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="minutes">Minutos</SelectItem>
+                                          <SelectItem value="hours">Horas</SelectItem>
+                                          <SelectItem value="days">Dias</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                          </>
+                      )}
+                  </div>
+              )}
 
-                <div className="flex flex-wrap justify-center gap-2 mt-4">
-                  <Button variant="outline" onClick={() => handleAddStep('texto')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Texto</Button>
-                  <Button variant="outline" onClick={() => handleAddStep('imagem')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Imagem</Button>
-                  <Button variant="outline" onClick={() => handleAddStep('video')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Vídeo</Button>
-                  <Button variant="outline" onClick={() => handleAddStep('audio')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Áudio</Button>
-                  <Button variant="outline" onClick={() => handleAddStep('atraso')} disabled={saving}><Plus className="h-4 w-4 mr-2" /> Atraso</Button>
+
+              <div>
+                <label
+                  htmlFor="messageText"
+                  className="block mb-1 font-medium text-gray-700"
+                >
+                  Texto da Mensagem Principal *
+                </label>
+                <div className="relative">
+                  <Textarea
+                    id="messageText"
+                    rows={6}
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    ref={messageTextRef}
+                    placeholder="Digite a mensagem principal. Use {variaveis}, *para negrito*, _para itálico_..."
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute right-2 top-2"
+                    onClick={toggleEmojiPicker}
+                    type="button"
+                    aria-label="Inserir emoji"
+                  >
+                    <Smile />
+                  </Button>
+                  <div className="absolute z-50 top-full right-0 mt-1" hidden={!showEmojiPicker}>
+                      <emoji-picker
+                        ref={emojiPickerRef}
+                        style={{ width: "300px", height: "300px" }}
+                      />
+                    </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-4 pt-4 border-t mt-4">
-                <Button variant="outline" onClick={handleCancel} disabled={saving}>Cancelar</Button>
-                <Button onClick={handleSave} disabled={saving || loading || !!error}>
-                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : (isEditing ? "Salvar Alterações" : "Criar Mensagem")}
+              {availablePlaceholders.length > 0 && (
+                  <div className="placeholder-list mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis (clique para inserir):</p> 
+                      <div className="flex flex-wrap gap-2 text-sm text-gray-800">
+                          {availablePlaceholders.map(placeholder => (
+                              <span
+                                  key={placeholder}
+                                  className="bg-gray-200 px-2 py-1 rounded font-mono text-xs cursor-pointer hover:bg-gray-300 transition-colors" 
+                                  onClick={() => handlePlaceholderClick(placeholder)} 
+                               >
+                                  {"{"}{placeholder}{"}"}
+                              </span>
+                          ))}
+                      </div>
+                       {isLeadsContext && (
+                           <p className="text-xs text-gray-500 mt-2">
+                               *A disponibilidade de alguns placeholders (como dados de agendamento ou funcionário) pode depender da configuração da etapa e dos dados do lead.
+                           </p>
+                       )}
+                  </div>
+              )}
+
+
+              <div>
+                <label
+                  htmlFor="mediaFile"
+                  className="block mb-1 font-medium text-gray-700"
+                >
+                  Anexar Mídia (Opcional)
+                </label>
+                <Input
+                  type="file"
+                  id="mediaFile"
+                  accept="image/*,video/*,audio/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setMediaFile(e.target.files[0]);
+                    } else {
+                      setMediaFile(null);
+                    }
+                  }}
+                />
+                {mediaPreviewUrl && (
+                  <div className="mt-2">
+                    {mediaFile?.type.startsWith("image/") && (
+                      <img
+                        src={mediaPreviewUrl}
+                        alt="Preview da mídia"
+                        className="max-w-xs rounded"
+                      />
+                    )}
+                    {mediaFile?.type.startsWith("video/") && (
+                      <video
+                        src={mediaPreviewUrl}
+                        controls
+                        className="max-w-xs rounded"
+                      />
+                    )}
+                    {mediaFile?.type.startsWith("audio/") && (
+                      <audio src={mediaPreviewUrl} controls />
+                    )}
+                  </div>
+                )}
+                {!mediaPreviewUrl && mediaSavedUrl && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Mídia salva: {mediaSavedUrl}
+                  </p>
+                )}
+                <p className="text-sm text-gray-500 mt-1">
+                  Imagem (JPG, PNG, GIF, WEBP - máx 5MB), Vídeo (MP4, WEBM, MOV -
+                  máx 10MB), Áudio (MP3, OGG, WAV - máx 10MB).
+                </p>
+              </div>
+
+              {showSendingOrder && (
+                  <div>
+                      <label
+                        htmlFor="sendingOrder"
+                        className="block mb-1 font-medium text-gray-700"
+                      >
+                        Ordem de Envio (Texto e Mídia) *
+                      </label>
+                      <Select
+                          value={sendingOrder}
+                          onValueChange={setSendingOrder}
+                          id="sendingOrder"
+                      >
+                          <SelectTrigger>
+                              <SelectValue placeholder="Selecione a ordem" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="both">Texto e Mídia Juntos</SelectItem>
+                              <SelectItem value="text_first">Texto Primeiro, Depois Mídia</SelectItem>
+                              <SelectItem value="media_first">Mídia Primeiro, Depois Texto</SelectItem>
+                          </SelectContent>
+                      </Select>
+                       <p className="text-sm text-gray-500 mt-1">Define a ordem em que o texto e o anexo serão enviados.</p>
+                  </div>
+              )}
+
+
+              <div className="flex justify-end gap-4 pt-4 border-t">
+                <Button variant="outline" onClick={handleCancel} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSave} disabled={saving || isLoadingData || !!fetchError}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar Alterações"
+                  )}
                 </Button>
               </div>
             </>
