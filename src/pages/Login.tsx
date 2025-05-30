@@ -33,7 +33,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
           <img
             src="/north-crm-azul.jpeg"
             alt="Logo North CRM"
-            className="mx-auto h-24 w-auto mb-4"
+            className="mx-auto h-32 w-auto mb-4"
           />
           <Auth
             supabaseClient={supabase}
