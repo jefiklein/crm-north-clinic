@@ -306,6 +306,10 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             const { data, error, count } = await query;
 
             console.log('FunnelPage: Supabase leads fetch result:', { data, error, count });
+            // NEW LOGS: Detailed inspection of leadsQueryData
+            console.log('FunnelPage: leadsQueryData.leads (content):', data);
+            console.log('FunnelPage: leadsQueryData.totalCount (content):', count);
+
 
             if (error) {
                 console.error("FunnelPage: Supabase leads fetch error:", error);
