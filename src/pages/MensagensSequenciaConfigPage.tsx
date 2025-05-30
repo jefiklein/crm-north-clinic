@@ -84,7 +84,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
-  const N8N_SAVE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5";
+  const N8N_CREATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5"; 
+  const N8N_UPDATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/921290f2-68a7-4049-8102-2c038dae23a1"; 
 
   // Function to fetch signed URL (modified to be more flexible with webhook response)
   const fetchSignedUrlForPreview = async (fileKey: string, stepId: string): Promise<void> => {
@@ -393,7 +394,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         })),
       };
 
-      const webhookResponse = await fetch(N8N_SAVE_SEQUENCE_WEBHOOK_URL, {
+      const targetWebhookUrl = isEditing && messageIdToEdit 
+        ? N8N_UPDATE_SEQUENCE_WEBHOOK_URL 
+        : N8N_CREATE_SEQUENCE_WEBHOOK_URL;
+
+      const webhookResponse = await fetch(targetWebhookUrl, { 
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(messagePayloadForN8N),
       });
 
