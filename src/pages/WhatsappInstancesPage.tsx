@@ -88,8 +88,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
     const [qrTimer, setQrTimer] = useState(30);
     const [currentInstanceForQr, setCurrentInstanceForQr] = useState<InstanceInfo | null>(null);
-    const [isAddInstanceModalOpen, setIsAddInstanceModalOpen] = useState(false);
-    const [addInstanceFormData, setAddInstanceFormData] = useState({ nome_exibição: '', telefone: '', tipo: '' });
+    const [isAddInstanceModalOpen, setIsAddInstanceModal] = useState(false); // Renamed to setIsAddInstanceModal
+    const [addInstanceFormData, setAddInstanceFormData] = useState({ 
+        nome_exibição: '', 
+        telefone: '', 
+        tipo: '',
+        trackeamento: false, // Added to state
+        historico: false,     // Added to state (even if hidden, for consistency)
+        confirmar_agendamento: false, // Added to state (even if hidden, for consistency)
+        id_funcionario: null as number | null, // Added to state
+    });
     const [addInstanceAlert, setAddInstanceAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
     // State for the new detail modal
@@ -357,7 +365,15 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     });
 
     const createInstanceMutation = useMutation({
-        mutationFn: async (instanceData: { nome_exibição: string; telefone: string; tipo: string }) => {
+        mutationFn: async (instanceData: { 
+            nome_exibição: string; 
+            telefone: string; 
+            tipo: string;
+            trackeamento: boolean; // Added to payload
+            historico: boolean;     // Added to payload
+            confirmar_agendamento: boolean; // Added to payload
+            id_funcionario: number | null; // Added to payload
+        }) => {
             if (!clinicId) throw new Error("ID da clínica não definido.");
 
             const normalizedType = normalizeText(instanceData.tipo);
@@ -388,10 +404,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     nome_instancia_evolution: uniqueIdentifier, 
                     telefone: instanceData.telefone,
                     tipo: instanceData.tipo,
-                    trackeamento: false,
-                    historico: false,
-                    confirmar_agendamento: false,
+                    trackeamento: instanceData.trackeamento, // Use value from form data
+                    historico: instanceData.historico,     // Use value from form data
+                    confirmar_agendamento: instanceData.confirmar_agendamento, // Use value from form data
                     id_server_evolution: null,
+                    id_funcionario: instanceData.id_funcionario, // Use value from form data
                 })
             });
 
@@ -430,8 +447,16 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
         onSuccess: (data) => {
             showSuccess(data.message || 'Instância criada com sucesso!');
-            setIsAddInstanceModalOpen(false);
-            setAddInstanceFormData({ nome_exibição: '', telefone: '', tipo: '' });
+            setIsAddInstanceModal(false); // Use the renamed state setter
+            setAddInstanceFormData({ // Reset form data
+                nome_exibição: '', 
+                telefone: '', 
+                tipo: '',
+                trackeamento: false,
+                historico: false,
+                confirmar_agendamento: false,
+                id_funcionario: null,
+            });
             queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
 
             if (data.qrCodeUrl && data.instanceIdentifier && data.dbData?.id) { 
@@ -441,8 +466,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                      telefone: Number(addInstanceFormData.telefone),
                      tipo: addInstanceFormData.tipo,
                      nome_instancia_evolution: data.instanceIdentifier,
-                     trackeamento: false, historico: false, id_server_evolution: null, confirmar_agendamento: false,
-                     id_funcionario: null 
+                     trackeamento: addInstanceFormData.trackeamento, // Use value from form data
+                     historico: addInstanceFormData.historico,     // Use value from form data
+                     confirmar_agendamento: addInstanceFormData.confirmar_agendamento, // Use value from form data
+                     id_server_evolution: null,
+                     id_funcionario: addInstanceFormData.id_funcionario, // Use value from form data
                  };
                  setCurrentInstanceForQr(newInstanceInfo);
                  setQrCodeUrl(data.qrCodeUrl);
@@ -637,7 +665,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         <div className="whatsapp-instances-container flex flex-col h-full p-6 bg-gray-100">
             <div className="content-header flex flex-col sm:flex-row items-center justify-between mb-6 gap-4 flex-shrink-0">
                 <h1 className="page-title text-2xl font-bold text-primary whitespace-nowrap">
-                    Instâncias WhatsApp 
+                    Instâncias Whatsapp 
                 </h1>
                 <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
                     <div className="relative flex-grow max-w-sm">
@@ -654,7 +682,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         {overallLoading ? 'Carregando...' : `${instancesList?.length || 0} registro(s)`}
                     </span>
                 </div>
-                <Button onClick={() => setIsAddInstanceModalOpen(true)} className="flex-shrink-0">
+                <Button onClick={() => setIsAddInstanceModal(true)} className="flex-shrink-0"> {/* Use the renamed state setter */}
                     <Plus className="h-4 w-4 mr-2" /> Adicionar Instância
                 </Button>
             </div>
@@ -831,7 +859,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isAddInstanceModalOpen} onOpenChange={setIsAddInstanceModalOpen}>
+            <Dialog open={isAddInstanceModalOpen} onOpenChange={setIsAddInstanceModal}> {/* Use the renamed state setter */}
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Adicionar Nova Instância</DialogTitle>
@@ -903,21 +931,68 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Recepção">Recepção</SelectItem>
-                                        <SelectItem value="Venda">Venda</SelectItem> {/* Alterado de 'Vendas' para 'Venda' */}
+                                        <SelectItem value="Venda">Venda</SelectItem>
                                         <SelectItem value="Prospecção">Prospecção</SelectItem>
                                         <SelectItem value="Nutricionista">Nutricionista</SelectItem>
-                                        <SelectItem value="Outro">Outro</SelectItem> {/* Alterado de 'Outros' para 'Outro' */}
+                                        <SelectItem value="Outro">Outro</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Re-adicionando o campo Funcionário Vinculado */}
+                            <div className="form-group">
+                                <Label htmlFor="add-employee-link">Funcionário Vinculado</Label>
+                                {(employeesList?.length ?? 0) === 0 ? (
+                                    <p className="text-sm text-orange-600">Nenhum funcionário disponível.</p>
+                                ) : (
+                                    <Select
+                                        value={addInstanceFormData.id_funcionario?.toString() || 'none'}
+                                        onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, id_funcionario: value === 'none' ? null : parseInt(value, 10) })}
+                                        disabled={createInstanceMutation.isLoading}
+                                    >
+                                        <SelectTrigger id="add-employee-link" className="h-9 text-sm">
+                                            <SelectValue placeholder="Vincular funcionário" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">-- Nenhum --</SelectItem>
+                                            {employeesList?.map(employee => (
+                                                <SelectItem key={employee.id} value={employee.id.toString()} disabled={linkedEmployeeIds.has(employee.id)}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{employee.nome}</span>
+                                                        {linkedEmployeeIds.has(employee.id) && (
+                                                            <TriangleAlert className="h-3 w-3 text-yellow-600" title="Já vinculado a outra instância" />
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">Vincule um funcionário a esta instância para direcionamento de mensagens.</p>
+                            </div>
+
+                            {/* Re-adicionando o campo Recebe Leads (Trackeamento) */}
+                            <div className="flex items-center space-x-2 mt-2">
+                                <Switch
+                                    id="add-trackeamento"
+                                    checked={addInstanceFormData.trackeamento}
+                                    onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, trackeamento: checked })}
+                                    disabled={createInstanceMutation.isLoading}
+                                />
+                                <Label htmlFor="add-trackeamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Recebe Leads (Trackeamento)
+                                </Label>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância terá um monitoramento e trackeamento de leads. Ative somente se essa instância é usada para prospecção e venda para leads.</p>
+
                             {/* Ocultando o campo Salvar Histórico de Conversas */}
                             {false && (
                                 <div className="flex items-center space-x-2 mt-2">
                                     <Switch
                                         id="historico"
-                                        checked={false} // Always false when adding, as it's hidden
-                                        onCheckedChange={() => {}} // No-op
-                                        disabled={true} // Always disabled
+                                        checked={addInstanceFormData.historico} // Use state value
+                                        onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, historico: checked })} // Allow change
+                                        disabled={createInstanceMutation.isLoading}
                                     />
                                     <Label htmlFor="historico" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Salvar Histórico de Conversas
@@ -930,9 +1005,9 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                 <div className="flex items-center space-x-2 mt-2">
                                     <Switch
                                         id="confirmar_agendamento"
-                                        checked={false} // Always false when adding, as it's hidden
-                                        onCheckedChange={() => {}} // No-op
-                                        disabled={true} // Always disabled
+                                        checked={addInstanceFormData.confirmar_agendamento} // Use state value
+                                        onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, confirmar_agendamento: checked })} // Allow change
+                                        disabled={createInstanceMutation.isLoading}
                                     />
                                     <Label htmlFor="confirmar_agendamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Confirmar Agendamento Automático
@@ -941,7 +1016,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             )}
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="secondary" onClick={() => setIsAddInstanceModalOpen(false)} disabled={createInstanceMutation.isLoading}>
+                            <Button type="button" variant="secondary" onClick={() => setIsAddInstanceModal(false)} disabled={createInstanceMutation.isLoading}>
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={createInstanceMutation.isLoading}>
