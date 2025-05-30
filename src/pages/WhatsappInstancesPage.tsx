@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch"; 
-import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle, Save } from 'lucide-react'; 
+import { Search, Plus, MessagesSquare, Trash2, RefreshCw, QrCode, Info, TriangleAlert, Loader2, CheckCircle2, XCircle, Save, Edit, Zap } from 'lucide-react'; 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn, formatPhone } from '@/lib/utils'; 
 import { showSuccess, showError } from '@/utils/toast'; 
 import { supabase } from '@/integrations/supabase/client'; 
+import InstanceDetailModal from '@/components/InstanceDetailModal'; // Import the new modal component
 
 interface ClinicData {
   code: string;
@@ -91,8 +92,10 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const [addInstanceFormData, setAddInstanceFormData] = useState({ nome_exibição: '', telefone: '', tipo: '' });
     const [addInstanceAlert, setAddInstanceAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
-    const [instanceEmployeeLinks, setInstanceEmployeeLinks] = useState<Record<number, number | null>>({});
-    const [isSavingInstance, setIsSavingInstance] = useState<Record<number, boolean>>({});
+    // State for the new detail modal
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedInstanceForDetail, setSelectedInstanceForDetail] = useState<InstanceInfo | null>(null);
+
 
     const qrTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const connectionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -162,21 +165,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         console.log("[WhatsappInstancesPage] Linked employee IDs:", ids);
         return ids;
     }, [instancesList]);
-
-    useEffect(() => {
-        console.log("[WhatsappInstancesPage] Initializing instanceEmployeeLinks state...");
-        if (instancesList) {
-            const initialLinks: Record<number, number | null> = {};
-            instancesList.forEach(instance => {
-                initialLinks[instance.id] = instance.id_funcionario ?? null;
-            });
-            setInstanceEmployeeLinks(initialLinks);
-            console.log("[WhatsappInstancesPage] instanceEmployeeLinks initialized:", initialLinks);
-        } else {
-             setInstanceEmployeeLinks({}); 
-             console.log("[WhatsappInstancesPage] instanceEmployeeLinks cleared as instancesList is null/undefined.");
-        }
-    }, [instancesList]); 
 
     const [instanceStatuses, setInstanceStatuses] = useState<Record<string, InstanceStatus>>({});
 
@@ -343,7 +331,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
             console.log(`[WhatsappInstancesPage] Attempting to delete instance with ID: ${instanceId}`);
-            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; 
+            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b1b7-960ef0d518c8`; 
             const response = await fetch(deleteWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -470,21 +458,33 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
     });
 
+    // Modified updateInstanceMutation to be called from InstanceDetailModal
     const updateInstanceMutation = useMutation({
-        mutationFn: async (updateData: { instanceId: number; id_funcionario?: number | null; trackeamento?: boolean }) => { 
+        mutationFn: async (updateData: { 
+            instanceId: number; 
+            nome_exibição: string;
+            telefone: string;
+            tipo: string;
+            trackeamento: boolean;
+            historico: boolean;
+            confirmar_agendamento: boolean;
+            id_funcionario: number | null;
+        }) => { 
             if (!clinicId) throw new Error("ID da clínica não definido.");
             
-            const { instanceId, id_funcionario, trackeamento } = updateData;
-            let payload: any = { id: instanceId, id_clinica: clinicId };
+            const payload = { 
+                id: updateData.instanceId, 
+                id_clinica: clinicId,
+                nome_exibição: updateData.nome_exibição,
+                telefone: updateData.telefone,
+                tipo: updateData.tipo,
+                trackeamento: updateData.trackeamento,
+                historico: updateData.historico,
+                confirmar_agendamento: updateData.confirmar_agendamento,
+                id_funcionario: updateData.id_funcionario,
+            };
 
-            if (id_funcionario !== undefined) {
-                payload.id_funcionario = id_funcionario;
-                console.log(`[WhatsappInstancesPage] Attempting to update instance ${instanceId}: Linking to employee ID ${id_funcionario} via webhook`);
-            }
-            if (trackeamento !== undefined) {
-                payload.trackeamento = trackeamento;
-                console.log(`[WhatsappInstancesPage] Attempting to update instance ${instanceId}: Setting trackeamento to ${trackeamento} via webhook`);
-            }
+            console.log(`[WhatsappInstancesPage] Attempting to update instance ${updateData.instanceId} via webhook with payload:`, payload);
             
             const response = await fetch(INSTANCE_UPDATE_WEBHOOK_URL, {
                 method: "POST",
@@ -500,20 +500,12 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             return response.json();
         },
         onSuccess: (_, variables) => {
-            let successMessage = `Instância ${variables.instanceId} atualizada!`;
-            if (variables.id_funcionario !== undefined) {
-                successMessage = `Vínculo de funcionário para instância ${variables.instanceId} salvo!`;
-            }
-            if (variables.trackeamento !== undefined) {
-                successMessage = `Configuração 'Recebe Leads' para instância ${variables.instanceId} salva!`;
-            }
-            showSuccess(successMessage);
+            showSuccess(`Instância "${variables.nome_exibição}" atualizada com sucesso!`);
             queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
-            setIsSavingInstance(prev => ({ ...prev, [variables.instanceId]: false }));
+            setIsDetailModalOpen(false); // Close modal on success
         },
         onError: (error: Error, variables) => {
-            showError(`Erro ao atualizar instância ${variables.instanceId}: ${error.message}`);
-            setIsSavingInstance(prev => ({ ...prev, [variables.instanceId]: false }));
+            showError(`Erro ao atualizar instância "${variables.nome_exibição}": ${error.message}`);
         },
     });
 
@@ -594,14 +586,9 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     }, [qrCodeUrl]);
 
 
-    const handleReconnectClick = (instanceIdentifier: string) => {
-        const instance = instancesList?.find(inst => (inst.nome_instancia_evolution || inst.nome_instancia) === instanceIdentifier);
-        if (instance) {
-            setCurrentInstanceForQr(instance);
-            qrCodeMutation.mutate(instanceIdentifier);
-        } else {
-            showError("Dados da instância não encontrados para reconectar.");
-        }
+    const handleReconnectClick = (instanceIdentifier: string, instanceInfo: InstanceInfo) => {
+        setCurrentInstanceForQr(instanceInfo);
+        qrCodeMutation.mutate(instanceIdentifier);
     };
 
     const handleDeleteClick = (instanceId: number, instanceName: string) => {
@@ -610,35 +597,17 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         }
     };
 
-    const handleEmployeeChange = (instanceId: number, employeeId: string) => {
-        const id = employeeId === 'none' ? null : parseInt(employeeId, 10);
-        setInstanceEmployeeLinks(prev => ({
-            ...prev,
-            [instanceId]: id
-        }));
-        console.log(`[WhatsappInstancesPage] Employee link changed for instance ${instanceId} to employee ID: ${id}`);
+    // Function to open the detail modal
+    const handleEditInstance = (instance: InstanceInfo) => {
+        setSelectedInstanceForDetail(instance);
+        setIsDetailModalOpen(true);
     };
 
-    const handleSaveEmployeeLink = (instance: InstanceInfo) => {
-        const instanceId = instance.id;
-        const newEmployeeId = instanceEmployeeLinks[instanceId];
-
-        if ((newEmployeeId === null && instance.id_funcionario === null) || newEmployeeId === instance.id_funcionario) {
-            console.log(`[WhatsappInstancesPage] No change detected for instance ${instanceId} employee link. Save skipped.`);
-            return; 
-        }
-
-        console.log(`[WhatsappInstancesPage] Saving employee link for instance ${instanceId}: New employee ID is ${newEmployeeId}`);
-        setIsSavingInstance(prev => ({ ...prev, [instanceId]: true })); 
-        updateInstanceMutation.mutate({ instanceId: instanceId, id_funcionario: newEmployeeId }); 
+    // Function to handle save from the detail modal
+    const handleSaveInstanceDetails = (data: Parameters<typeof updateInstanceMutation.mutate>[0]) => {
+        updateInstanceMutation.mutate(data);
     };
 
-    const handleTrackeamentoChange = (instance: InstanceInfo, checked: boolean) => {
-        const instanceId = instance.id;
-        console.log(`[WhatsappInstancesPage] Changing 'Recebe Leads' for instance ${instanceId} to ${checked}`);
-        setIsSavingInstance(prev => ({ ...prev, [instanceId]: true }));
-        updateInstanceMutation.mutate({ instanceId: instanceId, trackeamento: checked });
-    };
 
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
@@ -753,19 +722,15 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                 }
 
                                 const showReconnectButton = status && (status.instance?.state === 'close' || status.instance?.state === 'connecting');
-                                const originalEmployeeId = instance.id_funcionario ?? null;
-                                const currentSelectedEmployeeId = instanceEmployeeLinks[instanceDbId] ?? null;
-                                const hasChanges = currentSelectedEmployeeId !== originalEmployeeId;
-                                const isSavingThisInstance = isSavingInstance[instanceDbId] ?? false;
-
+                                
                                 return (
                                     <div
                                         key={instanceDbId}
-                                        className="whatsapp-item grid grid-cols-[auto_1fr_auto] md:grid-cols-[auto_minmax(150px,1fr)_auto_auto_auto_auto] items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-x-4 gap-y-3" 
+                                        className="whatsapp-item grid grid-cols-[auto_1fr_auto] items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-x-4 gap-y-2" 
                                     >
-                                        <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0 md:row-span-2" /> 
+                                        <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0" /> 
                                         
-                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px] overflow-hidden md:col-start-2">
+                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px] overflow-hidden">
                                             <span 
                                                 className="display-name text-base font-semibold truncate" 
                                                 title={instance.nome_exibição || 'Sem nome'}
@@ -773,113 +738,56 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                 {instance.nome_exibição || 'Sem nome'}
                                             </span>
                                             <span className="instance-phone text-sm text-gray-600">{formatPhone(instance.telefone)}</span>
-                                            {instance.tipo && (
-                                                <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 select-none w-fit">
-                                                    Tipo: {instance.tipo}
+                                            {instance.trackeamento && (
+                                                <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 select-none w-fit">
+                                                    <Zap className="h-3 w-3" /> Recebe Leads
                                                 </span>
                                             )}
                                         </div>
 
-                                        <div className="flex flex-col items-start gap-1 min-w-[120px] md:col-start-3"> 
-                                            <Label htmlFor={`trackeamento-${instanceDbId}`} className="text-xs font-medium text-gray-700 whitespace-nowrap">
-                                                Recebe Leads
-                                            </Label>
-                                            <Switch
-                                                id={`trackeamento-${instanceDbId}`}
-                                                checked={instance.trackeamento}
-                                                onCheckedChange={(checked) => handleTrackeamentoChange(instance, checked)}
-                                                disabled={isSavingThisInstance || updateInstanceMutation.isLoading && updateInstanceMutation.variables?.instanceId === instanceDbId && updateInstanceMutation.variables?.trackeamento !== undefined}
-                                                className="data-[state=checked]:bg-green-500"
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col gap-1 min-w-[150px] md:col-start-4">
-                                            <Label htmlFor={`employee-link-${instanceDbId}`} className="text-xs font-medium text-gray-700">
-                                                Funcionário Vinculado
-                                            </Label>
-                                            {isLoadingEmployees ? (
-                                                 <span className="text-sm text-gray-500 flex items-center gap-1">
-                                                     <Loader2 className="h-3 w-3 animate-spin" /> Carregando...
-                                                 </span>
-                                            ) : employeesError ? (
-                                                 <span className="text-sm text-red-600">Erro ao carregar funcionários.</span>
-                                            ) : (employeesList?.length ?? 0) === 0 ? (
-                                                 <span className="text-sm text-orange-600">Nenhum funcionário disponível.</span>
-                                            ) : (
-                                                <Select
-                                                    value={instanceEmployeeLinks[instanceDbId]?.toString() || 'none'} 
-                                                    onValueChange={(value) => handleEmployeeChange(instanceDbId, value)}
-                                                    disabled={isSavingThisInstance} 
-                                                >
-                                                    <SelectTrigger id={`employee-link-${instanceDbId}`} className="h-8 text-sm">
-                                                        <SelectValue placeholder="Vincular funcionário" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">-- Nenhum --</SelectItem> 
-                                                        {employeesList?.map(employee => (
-                                                            <SelectItem key={employee.id} value={employee.id.toString()}>
-                                                                <div className="flex items-center gap-2"> 
-                                                                    <span>{employee.nome}</span>
-                                                                    {linkedEmployeeIds && linkedEmployeeIds.has(employee.id) && instance.id_funcionario !== employee.id && ( 
-                                                                        <MessagesSquare className="h-3 w-3 text-green-600" title="Vinculado a outra instância" />
-                                                                    )}
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        </div>
-
-                                        <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 md:ml-auto md:col-start-5"> 
+                                        <div className="whatsapp-status flex flex-col items-end gap-1 text-sm font-medium flex-shrink-0"> 
                                             {statusContent}
-                                        </div>
-                                        
-                                        <div className="actions-group flex flex-wrap gap-2 items-center md:col-start-2 md:col-span-4 mt-2 md:mt-0"> 
-                                            {showReconnectButton && instanceIdentifier && (
+                                            <div className="actions-group flex flex-wrap gap-2 justify-end mt-2"> 
+                                                {showReconnectButton && instanceIdentifier && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleReconnectClick(instanceIdentifier, instance)}
+                                                        className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
+                                                        disabled={qrCodeMutation.isLoading || checkStatusMutation.isLoading}
+                                                    >
+                                                        <RefreshCw className="h-3 w-3" /> Reconectar
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleReconnectClick(instanceIdentifier)}
+                                                    onClick={() => handleEditInstance(instance)}
                                                     className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
-                                                    disabled={isSavingThisInstance}
                                                 >
-                                                    Reconectar
+                                                    <Edit className="h-3 w-3" /> Editar
                                                 </Button>
-                                            )}
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={() => handleSaveEmployeeLink(instance)}
-                                                className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
-                                                disabled={!hasChanges || isSavingThisInstance || (updateInstanceMutation.isLoading && updateInstanceMutation.variables?.instanceId === instanceDbId && updateInstanceMutation.variables?.id_funcionario !== undefined)}
-                                            >
-                                                {isSavingThisInstance && updateInstanceMutation.variables?.id_funcionario !== undefined ? ( 
-                                                    <><Loader2 className="h-3 w-3 animate-spin mr-1" />Salvar</>
+                                                {instanceDbId ? (
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteClick(instanceDbId, instance.nome_exibição || `ID ${instanceDbId}`)}
+                                                        className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
+                                                        disabled={deleteInstanceMutation.isLoading}
+                                                    >
+                                                        {deleteInstanceMutation.isLoading ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-3 w-3" />
+                                                        )}
+                                                        Excluir
+                                                    </Button>
                                                 ) : (
-                                                    <><Save className="h-3 w-3 mr-1" />Salvar</>
+                                                    <Button variant="secondary" size="sm" className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0" disabled title="ID não encontrado">
+                                                        <Trash2 className="h-3 w-3" /> Excluir
+                                                    </Button>
                                                 )}
-                                            </Button>
-                                            {instanceDbId ? (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={() => handleDeleteClick(instanceDbId, instance.nome_exibição || `ID ${instanceDbId}`)}
-                                                    className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0"
-                                                    disabled={deleteInstanceMutation.isLoading || isSavingThisInstance}
-                                                >
-                                                    {deleteInstanceMutation.isLoading ? (
-                                                         <Loader2 className="h-3 w-3 animate-spin" />
-                                                    ) : (
-                                                         <Trash2 className="h-3 w-3" />
-                                                    )}
-                                                    Excluir
-                                                </Button>
-                                            ) : (
-                                                 <Button variant="secondary" size="sm" className="flex items-center gap-1 text-xs h-auto py-1 px-2 flex-shrink-0" disabled title="ID não encontrado">
-                                                    <Trash2 className="h-3 w-3" /> Excluir
-                                                </Button>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -1021,6 +929,19 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {selectedInstanceForDetail && (
+                <InstanceDetailModal
+                    isOpen={isDetailModalOpen}
+                    onClose={() => setIsDetailModalOpen(false)}
+                    instanceData={selectedInstanceForDetail}
+                    clinicId={clinicId}
+                    employeesList={employeesList || []}
+                    linkedEmployeeIds={linkedEmployeeIds}
+                    onSave={handleSaveInstanceDetails}
+                    isSaving={updateInstanceMutation.isLoading}
+                />
+            )}
         </div>
     );
 };
