@@ -2,7 +2,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Importa CardDescription
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
 // pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
@@ -22,10 +22,11 @@ interface IndexProps {
 
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-blue-600 p-4"> {/* Fundo azul vibrante */}
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle className="text-center text-primary">Acesse sua conta</CardTitle>
+          <CardTitle className="text-center text-primary text-3xl font-bold mb-2">North CRM</CardTitle> {/* Título principal */}
+          <CardDescription className="text-center text-gray-600">Acesse sua conta</CardDescription> {/* Descrição/subtítulo */}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Adicionando a logo aqui */}
