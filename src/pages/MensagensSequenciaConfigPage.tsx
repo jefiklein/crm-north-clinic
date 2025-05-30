@@ -149,7 +149,6 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
   };
   
-  // useEffect to fetch signed URLs for existing mediaKeys when messageSteps are loaded/changed
   useEffect(() => {
     if (!messageSteps || messageSteps.length === 0) {
       return;
@@ -523,7 +522,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                             
                             {previewUrl && !mediaError && (
                               <div className="mt-2">
-                                {step.type === 'imagem' && <img src={previewUrl} alt={step.originalFileName || "Preview"} className="max-w-xs rounded" />}
+                                {step.type === 'imagem' && <img src={previewUrl} alt={step.originalFileName || "Preview"} className="max-w-xs max-h-48 rounded object-contain" />}
                                 {step.type === 'video' && <video src={previewUrl} controls className="max-w-xs rounded" />}
                                 {step.type === 'audio' && <audio src={previewUrl} controls />}
                               </div>
