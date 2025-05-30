@@ -118,11 +118,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             if (error) {
                  console.error('[WhatsappInstancesPage] Supabase instance list fetch error:', error);
-                 throw new Error(`Erro ao buscar instâncias: ${error.message}`);
+                 return [];
             }
             return data || [];
         },
-        enabled: hasPermission && !!clinicId, 
+        enabled: hasPermission && !!clinicId,
         staleTime: 60 * 1000, 
         refetchOnWindowFocus: false,
     });
@@ -285,59 +285,67 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         },
     });
 
-    const checkStatusMutation = useMutation({
-        mutationFn: async (instanceIdentifier: string) => {
+    const checkStatusMutation = useMutation(
+        async (instanceIdentifier: string) => {
             console.log(`[WhatsappInstancesPage] Polling status for: ${instanceIdentifier}`);
-            const response = await fetch(INSTANCE_STATUS_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nome_instancia: instanceIdentifier })
-            }
+            try {
+                const response = await fetch(INSTANCE_STATUS_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nome_instancia: instanceIdentifier }),
+                };
 
-            if (!response.ok && response.status !== 404) { 
-                const errorText = await response.text();
-                console.error(`[WhatsappInstancesPage] Polling status check failed for ${instanceIdentifier}: ${response.status} - ${errorText}`);
-                throw new Error(`Erro ${response.status}`);
-            }
-            if (response.status === 404) {
-                console.log(`[WhatsappInstancesPage] Status 404 for ${instanceIdentifier}, likely not ready yet.`);
-                return { instance: { state: 'not_found', status: 'not_found' } } as InstanceStatus;
-            }
+                if (!response.ok && response.status !== 404) {
+                    const errorText = await response.text();
+                    console.error(`[WhatsappInstancesPage] Polling status check failed for ${instanceIdentifier}: ${response.status} - ${errorText}`);
+                    throw new Error(`Erro ${response.status}`);
+                }
 
-            const statusData: InstanceStatus[] = await response.json();
-            if (Array.isArray(statusData) && statusData.length > 0 && statusData[0]?.instance?.state) {
-                return statusData[0]; 
-            } else {
-                console.warn(`[WhatsappInstancesPage] Unexpected status response format for ${instanceIdentifier}:`, statusData);
-                return { instance: { state: 'unknown', status: 'unknown' } } as InstanceStatus;
+                if (response.status === 404) {
+                    console.log(`[WhatsappInstancesPage] Status 404 for ${instanceIdentifier}, likely not ready yet.`);
+                    return { instance: { state: 'not_found', status: 'not_found' } } as InstanceStatus;
+                }
+
+                const statusData: InstanceStatus[] = await response.json();
+                if (Array.isArray(statusData) && statusData.length > 0 && statusData[0]?.instance?.state) {
+                    return statusData[0];
+                } else {
+                    console.warn(`[WhatsappInstancesPage] Unexpected status response format for ${instanceIdentifier}:`, statusData);
+                    return { instance: { state: 'unknown', status: 'unknown' } } as InstanceStatus;
+                }
+            } catch (error) {
+                console.error(`[WhatsappInstancesPage] Error polling status for ${instanceIdentifier}:`, error);
+                throw error;
             }
         },
-        onSuccess: (data, instanceIdentifier) => {
-            setInstanceStatuses(prev => ({
-                ...prev,
-                [instanceIdentifier]: data
-            }));
+        {
+            onSuccess: (data, instanceIdentifier) => {
+                setInstanceStatuses((prev) => ({
+                    ...prev,
+                    [instanceIdentifier]: data,
+                }));
 
-            const state = data?.instance?.state;
-            console.log(`[WhatsappInstancesPage] Polling status received for ${instanceIdentifier}: ${state}`);
+                const state = data?.instance?.state;
+                console.log(`[WhatsappInstancesPage] Polling status received for ${instanceIdentifier}: ${state}`);
 
-            if (state === "open") {
-                stopConnectionPolling();
-                stopQrTimer();
-                setIsQrModalOpen(false); 
-                showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
-                refetchInstances(); 
-            }
-        },
-        onError: (error: Error, instanceIdentifier) => {
-            console.error(`[WhatsappInstancesPage] Polling status error for ${instanceIdentifier}:`, error.message);
-        },
-    });
+                if (state === "open") {
+                    stopConnectionPolling();
+                    stopQrTimer();
+                    setIsQrModalOpen(false);
+                    showSuccess(`Instância "${currentInstanceForQr?.nome_exibição || instanceIdentifier}" conectada com sucesso!`);
+                    refetchInstances();
+                }
+            },
+            onError: (error: Error, instanceIdentifier) => {
+                console.error(`[WhatsappInstancesPage] Polling status error for ${instanceIdentifier}:`, error.message);
+            },
+        }
+    );
 
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
             console.log(`[WhatsappInstancesPage] Attempting to delete instance with ID: ${instanceId}`);
-            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; 
+            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`); 
             const response = await fetch(deleteWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -371,7 +379,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}`;
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
-            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; 
+            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`); 
             const evolutionResponse = await fetch(evolutionWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -384,7 +392,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 throw new Error(`Falha ao criar instância na API Evolution: ${evolutionErrorMsg}`);
             }
 
-            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; 
+            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`); 
             const dbResponse = await fetch(dbWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -983,7 +991,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             </div>
                             <div className="form-group">
                                 <Label htmlFor="instanceType">Tipo</Label>
-                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value }) required>
+                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value })} required>
                                     <SelectTrigger id="instanceType">
                                         <SelectValue placeholder="Selecione..." />
                                     </SelectTrigger>
