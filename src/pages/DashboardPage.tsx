@@ -127,6 +127,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
                 }
 
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const rawText = await response.text();
+                    console.warn("Sales webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                    return { total: null, rebuy: null, new: null }; // Return empty data
+                }
+
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de vendas:', data);
 
@@ -205,6 +212,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
                 }
 
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const rawText = await response.text();
+                    console.warn("Leads webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                    return { count_remoteJid: 0 }; // Return empty data
+                }
+
                 const data = await response.json();
                 console.log('Dados recebidos do webhook de leads:', data);
 
@@ -271,6 +285,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     const errorText = await response.text();
                     console.error("Appointments webhook error response:", errorText);
                     throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const rawText = await response.text();
+                    console.warn("Appointments webhook did not return JSON. Raw response:", rawText.substring(0, 200));
+                    return { sum_total_agendamentos: 0, sum_total_realizados: 0 }; // Return empty data
                 }
 
                 const data = await response.json();
@@ -446,7 +467,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                 <h3 className="text-xl font-semibold text-green-800 mb-4">Resumo de Vendas - {currentMonthYear}</h3>
                 {isLoadingSales ? (
                      <div className="flex flex-col items-center justify-center p-8">
-                         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                          <span className="text-gray-700">Carregando dados de vendas...</span>
                      </div>
                 ) : salesError ? (
