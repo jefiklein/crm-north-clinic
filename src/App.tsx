@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom"; // Removed BrowserRouter import
 import Login from "./pages/Login"; // Updated import to Login
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout"; // Our new layout component
@@ -83,7 +83,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        {/* Removed BrowserRouter here */}
           <Routes>
             {/* Login Page - Renders if not logged in */}
             <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />} />
@@ -159,7 +159,7 @@ const App = () => {
             {/* Catch-all route for 404 outside of /dashboard */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        {/* Removed BrowserRouter here */}
       </TooltipProvider>
     </QueryClientProvider>
   );
