@@ -118,11 +118,13 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       let signedUrl: string | null = null;
       try {
         const data = JSON.parse(responseText);
-        signedUrl = data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null); 
-        if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string' && data[0].startsWith('http')) { 
-            signedUrl = data[0];
-        } else if (Array.isArray(data) && data.length > 0 && (data[0]?.signedURL || data[0]?.url || data[0]?.link)) { 
-            signedUrl = data[0]?.signedURL || data[0]?.url || data[0]?.link;
+        signedUrl = data?.signedUrl || data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null); 
+        if (!signedUrl && Array.isArray(data) && data.length > 0) { 
+            if (typeof data[0] === 'string' && data[0].startsWith('http')) {
+                signedUrl = data[0];
+            } else if (data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link) { 
+                signedUrl = data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link;
+            }
         }
 
       } catch (jsonError) {
@@ -138,7 +140,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
       } else {
-        throw new Error(`URL assinada não extraída da resposta do webhook. Resposta: ${responseText.substring(0,100)}`);
+        throw new Error(`URL assinada não extraída da resposta do webhook. Resposta recebida: ${responseText.substring(0,200)}`);
       }
     } catch (e: any) {
       console.error(`[MensagensConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
