@@ -40,9 +40,10 @@ interface FunnelDetails {
 }
 
 // Define the structure for a Message linked to a stage (fetched from Supabase)
+// This now refers to north_clinic_mensagens_sequencias
 interface StageMessage {
     id: number;
-    modelo_mensagem: string | null;
+    nome_sequencia: string | null; // Changed from modelo_mensagem
     timing_type: string | null; // 'immediate' or 'delay'
     delay_value: number | null;
     delay_unit: string | null; // 'minutes', 'hours', 'days'
@@ -51,12 +52,12 @@ interface StageMessage {
 }
 
 // Define the structure for a Message item for selection (from Supabase)
+// This now refers to north_clinic_mensagens_sequencias
 interface SelectableMessageItem {
     id: number;
-    modelo_mensagem: string | null;
-    id_funil: number | null;
-    id_etapa: number | null;
-    // Add other fields if needed for display in the selection list
+    nome_sequencia: string | null; // Changed from modelo_mensagem
+    contexto: string | null; // Added contexto
+    ativo: boolean; // Added ativo
 }
 
 // Mapping from menu item ID (from URL) to actual funnel ID (for database queries)
@@ -154,6 +155,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     });
 
     // Fetch Messages linked to stages in this funnel
+    // Now fetching from north_clinic_mensagens_sequencias
     const { data: stageMessages, isLoading: isLoadingStageMessages, error: stageMessagesError } = useQuery<StageMessage[]>({
         queryKey: ['stageMessagesConfig', clinicId, funnelIdForQuery, stagesData?.map(s => s.id).join(',')],
         queryFn: async ({ queryKey }) => {
@@ -163,18 +165,18 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                  return [];
             }
 
-            const stageIds = stagesData.map(stage => stage.id);
-             if (stageIds.length === 0) {
-                 return [];
-             }
+            // The stageIds are still relevant for filtering, but the join logic changes
+            // const stageIds = stagesData.map(stage => stage.id);
+            //  if (stageIds.length === 0) {
+            //      return [];
+            //  }
 
             const { data, error } = await supabase
-                .from('north_clinic_config_mensagens')
-                .select('id, modelo_mensagem, timing_type, delay_value, delay_unit, id_etapa, id_funil') // Select id_funil
+                .from('north_clinic_mensagens_sequencias') // Changed table
+                .select('id, nome_sequencia, contexto, ativo, id_funil, id_etapa') // Changed select fields
                 .eq('id_clinica', currentClinicId)
-                .eq('context', 'leads')
-                .eq('id_funil', currentFunnelIdForQuery)
-                .in('id_etapa', stageIds);
+                .eq('contexto', 'leads') // Changed context column name
+                .eq('id_funil', currentFunnelIdForQuery); // Filter by funnel ID
 
             if (error) throw new Error(`Erro ao buscar mensagens das etapas: ${error.message}`);
             return data || [];
@@ -188,26 +190,29 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const stageMessagesMap = useMemo(() => {
         const map = new Map<number, StageMessage>();
         stageMessages?.forEach(msg => {
-            map.set(msg.id_etapa, msg);
+            if (msg.id_etapa !== null) { // Only map if id_etapa is not null
+                map.set(msg.id_etapa, msg);
+            }
         });
         return map;
     }, [stageMessages]);
 
     // Fetch all Leads messages for the selection modal
+    // Now fetching from north_clinic_mensagens_sequencias
     const { data: selectableLeadsMessages, isLoading: isLoadingSelectableMessages, error: selectableMessagesError } = useQuery<SelectableMessageItem[]>({
         queryKey: ['selectableLeadsMessages', clinicId, messageSearchTerm],
         queryFn: async () => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
             let query = supabase
-                .from('north_clinic_config_mensagens')
-                .select('id, modelo_mensagem, id_funil, id_etapa')
+                .from('north_clinic_mensagens_sequencias') // Changed table
+                .select('id, nome_sequencia, contexto, ativo') // Changed select fields
                 .eq('id_clinica', clinicId)
-                .eq('context', 'leads'); // Only show leads context messages
+                .eq('contexto', 'leads'); // Only show leads context messages
 
             if (messageSearchTerm) {
-                query = query.ilike('modelo_mensagem', `%${messageSearchTerm}%`);
+                query = query.ilike('nome_sequencia', `%${messageSearchTerm}%`); // Changed column
             }
-            query = query.order('modelo_mensagem', { ascending: true });
+            query = query.order('nome_sequencia', { ascending: true }); // Changed column
 
             const { data, error } = await query;
             if (error) throw new Error(`Erro ao buscar mensagens: ${error.message}`);
@@ -220,19 +225,22 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
 
     // Mutation for deleting a message linked to a stage
+    // This should now delete a sequence
     const deleteMessageMutation = useMutation({
         mutationFn: async (messageId: number) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            const response = await fetch('https://n8n-n8n.sbw0pc.easypanel.host/webhook/4632ce57-e78a-4c62-9578-5a33b576ad73', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: messageId, id_clinica: clinicId })
+            if (!clinicData?.code) throw new Error("Código da clínica não disponível.");
+            // Payload to n8n still uses 'sequenceId' as per previous agreement to not break n8n
+            const payload = { sequenceId: messageId, clinicId: clinicId, clinicCode: clinicData.code };
+            const response = await fetch("https://n8n-n8n.sbw0pc.easypanel.host/webhook/cb701587-26dd-4f7a-bc55-5ba70e807273", {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
             });
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Erro ${response.status}: ${errorText.substring(0, 100)}...`);
+                const errorText = await response.text(); let parsedError = errorText;
+                try { const jsonError = JSON.parse(errorText); parsedError = jsonError.message || jsonError.error || errorText; } catch (parseErr) {}
+                throw new Error(`Falha ao excluir mensagem via n8n (Status: ${response.status}): ${parsedError.substring(0, 200)}`);
             }
-            return response.json();
+            return await response.json();
         },
         onSuccess: () => {
             showSuccess('Mensagem excluída com sucesso!');
@@ -244,14 +252,15 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         },
     });
 
-    // Mutation for linking an existing message to a stage
+    // Mutation for linking an existing message (sequence) to a stage
+    // Now directly updates north_clinic_mensagens_sequencias
     const linkMessageToStageMutation = useMutation({
         mutationFn: async ({ messageId, funnelId, stageId, clinicId }: { messageId: number; funnelId: number; stageId: number; clinicId: string | number }) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            console.log(`Linking message ${messageId} to funnel ${funnelId} and stage ${stageId} for clinic ${clinicId}`);
+            console.log(`Linking message (sequence) ${messageId} to funnel ${funnelId} and stage ${stageId} for clinic ${clinicId}`);
             const { data, error } = await supabase
-                .from('north_clinic_config_mensagens')
-                .update({ id_funil: funnelId, id_etapa: stageId })
+                .from('north_clinic_mensagens_sequencias') // Changed table
+                .update({ id_funil: funnelId, id_etapa: stageId }) // Update these columns
                 .eq('id', messageId)
                 .eq('id_clinica', clinicId)
                 .select(); // Select the updated row to confirm
@@ -287,7 +296,8 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             showError("Dados necessários para navegação não disponíveis.");
             return;
         }
-        const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&funnelId=${funnelIdForQuery}&stageId=${stageToConfigureId}${messageId ? `&id=${messageId}` : ''}`;
+        // Navigate to the sequence config page, passing funnelId and stageId
+        const url = `/dashboard/config-sequencia?clinic_code=${encodeURIComponent(clinicCode)}&context=leads&funnelId=${funnelIdForQuery}&stageId=${stageToConfigureId}${messageId ? `&id=${messageId}` : ''}`;
         navigate(url);
         setIsActionConfigModalOpen(false); // Close the selection modal
     };
@@ -412,7 +422,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                             </Tooltip>
                                                         </div>
                                                     </div>
-                                                    <p className="text-xs text-gray-600 mb-2 line-clamp-3">{stageMessage?.modelo_mensagem || 'Sem texto'}</p>
+                                                    <p className="text-xs text-gray-600 mb-2 line-clamp-3">{stageMessage?.nome_sequencia || 'Sem texto'}</p>
                                                     <div className="flex items-center gap-1 text-xs text-gray-500">
                                                         {stageMessage?.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
                                                         <span>Agendamento: {messageTiming}</span>
@@ -505,9 +515,12 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
                                                 <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
                                                 <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
-                                                    <span className="font-medium text-gray-900 line-clamp-1">{msg.modelo_mensagem || 'Mensagem sem texto'}</span>
-                                                    <span className="text-xs text-gray-600 line-clamp-2">
-                                                        {msg.id_funil && msg.id_etapa ? `Vinculada a Funil ${msg.id_funil} / Etapa ${msg.id_etapa}` : 'Não vinculada a funil/etapa'}
+                                                    <span className="font-medium text-gray-900 line-clamp-1">{msg.nome_sequencia || 'Mensagem sem nome'}</span>
+                                                    <span className={cn(
+                                                        "text-xs font-semibold px-1.5 py-0.5 rounded-full w-fit mt-1",
+                                                        msg.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    )}>
+                                                        {msg.ativo ? 'Ativa' : 'Inativa'}
                                                     </span>
                                                 </Label>
                                             </div>
