@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog"; // Adicionado: Importação dos componentes Dialog
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -159,7 +159,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
             <Label htmlFor="editInstancePhone">Número do WhatsApp</Label>
             <Input
               id="editInstancePhone"
-              value={formData.telefone} {/* Display raw number for editing */}
+              value={formData.telefone}
               onChange={handlePhoneChange}
               disabled={isSaving}
               placeholder="Ex: 5511999999999"
