@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"; // Adicionado: Importação dos componentes Dialog
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -124,7 +124,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
     onSave({
       instanceId: instanceData.id,
       nome_exibição: formData.nome_exibição.trim(),
-      telefone: formData.telefone, // Pass the raw phone number
+      telefone: formData.telefone,
       tipo: formData.tipo,
       trackeamento: formData.trackeamento,
       historico: formData.historico,
