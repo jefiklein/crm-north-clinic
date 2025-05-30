@@ -521,89 +521,85 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </span>
                                         </CardHeader>
                                         <CardContent className="flex-grow overflow-y-auto p-3 flex flex-col gap-3">
-                                            {actionsForStage.length > 0 ? (
-                                                actionsForStage.map(action => (
-                                                    <div key={action.id} className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="font-medium text-sm text-gray-800">
-                                                                {action.action_type === 'message' ? 'Mensagem Automática' : 'Mudar Etapa'}
-                                                            </span>
-                                                            <div className="flex gap-1">
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 p-0"
-                                                                            onClick={() => handleConfigureAction(stage.id, action)}
-                                                                            aria-label="Editar Ação"
-                                                                        >
-                                                                            <Edit className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Editar Ação</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 p-0"
-                                                                            onClick={() => handleDeleteAction(action.id)}
-                                                                            disabled={deleteActionMutation.isLoading}
-                                                                            aria-label="Excluir Ação"
-                                                                        >
-                                                                            {deleteActionMutation.isLoading ? (
-                                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                                            ) : (
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            )}
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p>Excluir Ação</p>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </div>
-                                                        </div>
-                                                        {action.action_type === 'message' && (
-                                                            <>
-                                                                <p className="text-xs text-gray-600 mb-2 line-clamp-3">{action.north_clinic_mensagens_sequencias?.nome_sequencia || 'Mensagem sem nome'}</p>
-                                                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                                                    {action.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
-                                                                    <span>Agendamento: {formatTiming(action.timing_type, action.delay_value, action.delay_unit)}</span>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        {action.action_type === 'change_stage' && (
-                                                            <>
-                                                                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
-                                                                    <ArrowRight className="h-3 w-3" /> Mover para: {action.target_stage_details?.nome_etapa || 'Etapa Desconhecida'}
-                                                                </p>
-                                                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                                                    {action.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
-                                                                    <span>Agendamento: {formatTiming(action.timing_type, action.delay_value, action.delay_unit)}</span>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200 flex flex-col items-center justify-center h-32 text-center text-gray-500">
-                                                    <Info className="h-8 w-8 mb-2" />
-                                                    <p className="text-sm mb-3">Nenhuma ação configurada para esta etapa.</p>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleConfigureAction(stage.id)}
-                                                        className="flex items-center gap-1"
-                                                    >
-                                                        <MessageSquarePlus className="h-4 w-4" /> Configurar Ação
-                                                    </Button>
-                                                </div>
+                                            {actionsForStage.length === 0 && (
+                                                <div className="text-center text-gray-600 italic py-6">Nenhuma ação configurada para esta etapa.</div>
                                             )}
+                                            {actionsForStage.map(action => (
+                                                <div key={action.id} className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-medium text-sm text-gray-800">
+                                                            {action.action_type === 'message' ? 'Mensagem Automática' : 'Mudar Etapa'}
+                                                        </span>
+                                                        <div className="flex gap-1">
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 p-0"
+                                                                        onClick={() => handleConfigureAction(stage.id, action)}
+                                                                        aria-label="Editar Ação"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Editar Ação</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="destructive"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 p-0"
+                                                                        onClick={() => handleDeleteAction(action.id)}
+                                                                        disabled={deleteActionMutation.isLoading}
+                                                                        aria-label="Excluir Ação"
+                                                                    >
+                                                                        {deleteActionMutation.isLoading ? (
+                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        ) : (
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        )}
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Excluir Ação</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </div>
+                                                    </div>
+                                                    {action.action_type === 'message' && (
+                                                        <>
+                                                            <p className="text-xs text-gray-600 mb-2 line-clamp-3">{action.north_clinic_mensagens_sequencias?.nome_sequencia || 'Mensagem sem nome'}</p>
+                                                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                                {action.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
+                                                                <span>Agendamento: {formatTiming(action.timing_type, action.delay_value, action.delay_unit)}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {action.action_type === 'change_stage' && (
+                                                        <>
+                                                            <p className="text-xs text-gray-600 mb-2 flex items-center gap-1">
+                                                                <ArrowRight className="h-3 w-3" /> Mover para: {action.target_stage_details?.nome_etapa || 'Etapa Desconhecida'}
+                                                            </p>
+                                                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                                {action.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
+                                                                <span>Agendamento: {formatTiming(action.timing_type, action.delay_value, action.delay_unit)}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleConfigureAction(stage.id)}
+                                                className="flex items-center gap-1 mt-auto"
+                                            >
+                                                <MessageSquarePlus className="h-4 w-4 mr-1" /> Adicionar Ação
+                                            </Button>
                                         </CardContent>
                                     </Card>
                                 );
