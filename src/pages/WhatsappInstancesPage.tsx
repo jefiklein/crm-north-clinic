@@ -292,7 +292,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nome_instancia: instanceIdentifier })
-            });
+            };
 
             if (!response.ok && response.status !== 404) { 
                 const errorText = await response.text();
@@ -755,11 +755,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                 return (
                                     <div
                                         key={instanceDbId}
-                                        className="whatsapp-item grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto_auto_auto] items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-x-4 gap-y-3" 
+                                        className="whatsapp-item grid grid-cols-[auto_1fr_auto] md:grid-cols-[auto_minmax(150px,1fr)_auto_auto_auto_auto] items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors gap-x-4 gap-y-3" 
                                     >
                                         <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0 md:row-span-2" /> 
                                         
-                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px] overflow-hidden"> 
+                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px] overflow-hidden md:col-start-2">
                                             <span 
                                                 className="display-name text-base font-semibold truncate" 
                                                 title={instance.nome_exibição || 'Sem nome'}
@@ -774,7 +774,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                             )}
                                         </div>
 
-                                        <div className="flex flex-col items-start gap-1 min-w-[120px]"> 
+                                        <div className="flex flex-col items-start gap-1 min-w-[120px] md:col-start-3"> 
                                             <Label htmlFor={`trackeamento-${instanceDbId}`} className="text-xs font-medium text-gray-700 whitespace-nowrap">
                                                 Recebe Leads
                                             </Label>
@@ -787,7 +787,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                             />
                                         </div>
 
-                                        <div className="flex flex-col gap-1 min-w-[150px]">
+                                        <div className="flex flex-col gap-1 min-w-[150px] md:col-start-4">
                                             <Label htmlFor={`employee-link-${instanceDbId}`} className="text-xs font-medium text-gray-700">
                                                 Funcionário Vinculado
                                             </Label>
@@ -825,11 +825,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                             )}
                                         </div>
 
-                                        <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 md:ml-auto"> 
+                                        <div className="whatsapp-status flex items-center gap-2 text-sm font-medium flex-shrink-0 md:ml-auto md:col-start-5"> 
                                             {statusContent}
                                         </div>
                                         
-                                        <div className="actions-group flex flex-wrap gap-2 items-center md:col-start-2 md:col-span-full"> 
+                                        <div className="actions-group flex flex-wrap gap-2 items-center md:col-start-2 md:col-span-4 mt-2 md:mt-0"> 
                                             {showReconnectButton && instanceIdentifier && (
                                                 <Button
                                                     variant="outline"
@@ -983,7 +983,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             </div>
                             <div className="form-group">
                                 <Label htmlFor="instanceType">Tipo</Label>
-                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value })} required>
+                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value }) required>
                                     <SelectTrigger id="instanceType">
                                         <SelectValue placeholder="Selecione..." />
                                     </SelectTrigger>
