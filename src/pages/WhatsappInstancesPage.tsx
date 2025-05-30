@@ -910,6 +910,35 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {/* Ocultando o campo Salvar Histórico de Conversas */}
+                            {false && (
+                                <div className="flex items-center space-x-2 mt-2">
+                                    <Switch
+                                        id="historico"
+                                        checked={false} // Always false when adding, as it's hidden
+                                        onCheckedChange={() => {}} // No-op
+                                        disabled={true} // Always disabled
+                                    />
+                                    <Label htmlFor="historico" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Salvar Histórico de Conversas
+                                    </Label>
+                                </div>
+                            )}
+
+                            {/* Ocultando o campo Confirmar Agendamento Automático */}
+                            {false && (
+                                <div className="flex items-center space-x-2 mt-2">
+                                    <Switch
+                                        id="confirmar_agendamento"
+                                        checked={false} // Always false when adding, as it's hidden
+                                        onCheckedChange={() => {}} // No-op
+                                        disabled={true} // Always disabled
+                                    />
+                                    <Label htmlFor="confirmar_agendamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Confirmar Agendamento Automático
+                                    </Label>
+                                </div>
+                            )}
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="secondary" onClick={() => setIsAddInstanceModalOpen(false)} disabled={createInstanceMutation.isLoading}>
