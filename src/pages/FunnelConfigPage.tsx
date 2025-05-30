@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search, ArrowRight } from "lucide-react";
+import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search, ArrowRight, MessageSquareText, Repeat } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
@@ -95,7 +95,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     // State for the action configuration modal
     const [isActionConfigModalOpen, setIsActionConfigModalOpen] = useState(false);
     const [stageToConfigureId, setStageToConfigureId] = useState<number | null>(null);
-    const [selectedActionType, setSelectedActionType] = useState<'message' | 'change_stage'>('message');
+    const [selectedActionType, setSelectedActionType] = useState<'message' | 'change_stage' | null>(null); // Can be null initially
     const [selectedMessageToLink, setSelectedMessageToLink] = useState<number | null>(null);
     const [messageSearchTerm, setMessageSearchTerm] = useState('');
     const [targetStageForChange, setTargetStageForChange] = useState<number | null>(null);
@@ -107,6 +107,9 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
     // State to store the currently configured action for editing
     const [currentActionBeingEdited, setCurrentActionBeingEdited] = useState<StageAction | null>(null);
+
+    // New state to control the modal's internal view
+    const [modalView, setModalView] = useState<'initial' | 'action_details'>('initial');
 
 
     // Check if the menuIdParam corresponds to a valid funnel ID
@@ -329,6 +332,8 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
         setCurrentActionBeingEdited(actionToEdit || null);
 
         if (actionToEdit) {
+            // If editing, go directly to details view and pre-fill
+            setModalView('action_details');
             setSelectedActionType(actionToEdit.action_type as 'message' | 'change_stage');
             setSelectedMessageToLink(actionToEdit.id_sequencia);
             setTargetStageForChange(actionToEdit.target_etapa_id);
@@ -336,7 +341,9 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             setDelayValue(actionToEdit.delay_value?.toString() || '');
             setDelayUnit(actionToEdit.delay_unit as 'minutes' | 'hours' | 'days' || 'hours');
         } else {
-            setSelectedActionType('message'); // Default to 'message' for new
+            // If new action, start with initial choice view
+            setModalView('initial');
+            setSelectedActionType(null); // Reset action type for new selection
             setSelectedMessageToLink(null);
             setTargetStageForChange(null);
             setTimingType('immediate');
@@ -377,6 +384,11 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const handleSaveAction = () => {
         if (!clinicId || !funnelIdForQuery || !stageToConfigureId) {
             showError("Dados essenciais para salvar a ação estão faltando.");
+            return;
+        }
+
+        if (selectedActionType === null) {
+            showError("Selecione um tipo de ação.");
             return;
         }
 
@@ -574,230 +586,284 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             </div>
 
             {/* Action Configuration Dialog */}
-            <Dialog open={isActionConfigModalOpen} onOpenChange={setIsActionConfigModalOpen}>
+            <Dialog open={isActionConfigModalOpen} onOpenChange={(open) => {
+                setIsActionConfigModalOpen(open);
+                if (!open) { // Reset modal state when closed
+                    setModalView('initial');
+                    setCurrentActionBeingEdited(null);
+                    setSelectedActionType(null);
+                    setSelectedMessageToLink(null);
+                    setTargetStageForChange(null);
+                    setTimingType('immediate');
+                    setDelayValue('');
+                    setDelayUnit('hours');
+                    setMessageSearchTerm('');
+                }
+            }}>
                 <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]">
                     <DialogHeader>
-                        <DialogTitle>{currentActionBeingEdited ? 'Editar Ação' : 'Configurar Nova Ação'} para Etapa</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex flex-col gap-4 py-4 flex-grow overflow-hidden">
-                        {/* Action Type Selection */}
-                        <div>
-                            <Label className="block mb-2 font-medium text-gray-700">Tipo de Ação:</Label>
-                            <RadioGroup
-                                value={selectedActionType}
-                                onValueChange={(value: 'message' | 'change_stage') => {
-                                    setSelectedActionType(value);
-                                    // Reset specific selections when changing type
-                                    setSelectedMessageToLink(null);
-                                    setTargetStageForChange(null);
-                                }}
-                                className="flex space-x-4"
-                                disabled={!!currentActionBeingEdited} // Disable type change if editing
-                            >
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="message" id="action-message" />
-                                    <Label htmlFor="action-message">Mensagem</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="change_stage" id="action-change-stage" />
-                                    <Label htmlFor="action-change-stage">Mudar Etapa</Label>
-                                </div>
-                            </RadioGroup>
-                        </div>
-
-                        {/* Timing Configuration */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label
-                                    htmlFor="timingType"
-                                    className="block mb-1 font-medium text-gray-700"
-                                >
-                                    Agendar Envio *
-                                </label>
-                                <Select
-                                    value={timingType}
-                                    onValueChange={setTimingType}
-                                    id="timingType"
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="immediate">Imediatamente ao entrar na etapa</SelectItem>
-                                        <SelectItem value="delay">Com atraso após entrar na etapa</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {timingType === 'delay' && (
-                                <>
-                                    <div>
-                                        <label
-                                            htmlFor="delayValue"
-                                            className="block mb-1 font-medium text-gray-700"
-                                        >
-                                            Valor do Atraso *
-                                        </label>
-                                        <Input
-                                            id="delayValue"
-                                            type="number"
-                                            placeholder="Ex: 2"
-                                            value={delayValue}
-                                            onChange={(e) => setDelayValue(e.target.value)}
-                                            min="0"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label
-                                            htmlFor="delayUnit"
-                                            className="block mb-1 font-medium text-gray-700"
-                                        >
-                                            Unidade do Atraso *
-                                        </label>
-                                        <Select
-                                            value={delayUnit}
-                                            onValueChange={setDelayUnit}
-                                            id="delayUnit"
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione a unidade" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="minutes">Minutos</SelectItem>
-                                                <SelectItem value="hours">Horas</SelectItem>
-                                                <SelectItem value="days">Dias</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </>
+                        <DialogTitle>
+                            {currentActionBeingEdited ? 'Editar Ação' : 'Configurar Nova Ação'} para Etapa
+                            {stageToConfigureId && stagesData && (
+                                <span className="text-sm text-gray-500 ml-2">
+                                    ({stagesData.find(s => s.id === stageToConfigureId)?.nome_etapa || 'Etapa Desconhecida'})
+                                </span>
                             )}
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    {modalView === 'initial' && (
+                        <div className="flex flex-col items-center justify-center gap-6 py-8">
+                            <p className="text-lg font-medium text-gray-700">Qual tipo de ação você deseja configurar?</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
+                                <Button
+                                    variant="outline"
+                                    className="flex flex-col items-center justify-center h-32 text-lg font-semibold text-primary border-2 border-primary hover:bg-primary hover:text-white transition-colors"
+                                    onClick={() => {
+                                        setSelectedActionType('message');
+                                        setModalView('action_details');
+                                    }}
+                                >
+                                    <MessageSquareText className="h-8 w-8 mb-2" />
+                                    Mensagem Automática
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="flex flex-col items-center justify-center h-32 text-lg font-semibold text-blue-600 border-2 border-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
+                                    onClick={() => {
+                                        setSelectedActionType('change_stage');
+                                        setModalView('action_details');
+                                    }}
+                                >
+                                    <Repeat className="h-8 w-8 mb-2" />
+                                    Mudar Etapa
+                                </Button>
+                            </div>
                         </div>
+                    )}
 
-                        {/* Conditional Content based on selectedActionType */}
-                        {selectedActionType === 'message' && (
-                            <>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                    <Input
-                                        type="text"
-                                        placeholder="Buscar mensagens existentes..."
-                                        value={messageSearchTerm}
-                                        onChange={(e) => setMessageSearchTerm(e.target.value)}
-                                        className="pl-9"
-                                    />
-                                </div>
-
-                                {isLoadingSelectableMessages ? (
-                                    <div className="flex items-center justify-center gap-2 text-primary py-8">
-                                        <Loader2 className="animate-spin" />
-                                        Carregando mensagens...
-                                    </div>
-                                ) : selectableMessagesError ? (
-                                    <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
-                                        <TriangleAlert className="h-5 w-5" />
-                                        Erro ao carregar mensagens: {selectableMessagesError.message}
-                                    </div>
-                                ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
-                                    <div className="text-gray-600 text-center py-8">
-                                        Nenhuma mensagem de leads encontrada.
-                                    </div>
-                                ) : (
-                                    <RadioGroup
-                                        value={selectedMessageToLink?.toString() || ''}
-                                        onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
-                                        className="flex flex-col gap-2 overflow-y-auto pr-2"
-                                    >
-                                        {selectableLeadsMessages?.map(msg => (
-                                            <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
-                                                <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
-                                                <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
-                                                    <span className="font-medium text-gray-900 line-clamp-1">{msg.nome_sequencia || 'Mensagem sem nome'}</span>
-                                                    <span className={cn(
-                                                        "text-xs font-semibold px-1.5 py-0.5 rounded-full w-fit mt-1",
-                                                        msg.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                    )}>
-                                                        {msg.ativo ? 'Ativa' : 'Inativa'}
-                                                    </span>
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                )}
-                            </>
-                        )}
-
-                        {selectedActionType === 'change_stage' && (
-                            <div className="flex flex-col gap-4">
-                                <p className="text-sm text-gray-600">Quando um lead entrar nesta etapa, ele será automaticamente movido para a etapa selecionada abaixo.</p>
-                                <div>
-                                    <Label htmlFor="targetStageSelect" className="block mb-1 font-medium text-gray-700">
-                                        Mover para a Etapa: *
-                                    </Label>
-                                    {isLoadingAllStages ? (
-                                        <div className="flex items-center justify-center gap-2 text-primary py-4">
-                                            <Loader2 className="animate-spin" />
-                                            Carregando etapas...
-                                        </div>
-                                    ) : allStagesError ? (
-                                        <div className="text-red-600 font-semibold flex items-center gap-2 py-4">
-                                            <TriangleAlert className="h-5 w-5" />
-                                            Erro ao carregar etapas: {allStagesError.message}
-                                        </div>
-                                    ) : (allStages?.length ?? 0) === 0 ? (
-                                        <p className="text-gray-600 text-center py-4">Nenhuma etapa disponível.</p>
+                    {modalView === 'action_details' && (
+                        <div className="flex flex-col gap-4 py-4 flex-grow overflow-hidden">
+                            {/* Action Type Display (read-only) */}
+                            <div>
+                                <Label className="block mb-2 font-medium text-gray-700">Tipo de Ação Selecionada:</Label>
+                                <div className="flex items-center space-x-2 p-2 border rounded-md bg-gray-50">
+                                    {selectedActionType === 'message' ? (
+                                        <>
+                                            <MessageSquareText className="h-5 w-5 text-primary" />
+                                            <span className="font-semibold text-primary">Mensagem Automática</span>
+                                        </>
                                     ) : (
-                                        <Select
-                                            value={targetStageForChange?.toString() || ''}
-                                            onValueChange={(value) => setTargetStageForChange(value ? parseInt(value, 10) : null)}
-                                            id="targetStageSelect"
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione a etapa de destino" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {allStages?.map(stage => (
-                                                    <SelectItem key={stage.id} value={stage.id.toString()}>
-                                                        {stage.nome_etapa} (Funil: {stage.id_funil})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <>
+                                            <Repeat className="h-5 w-5 text-blue-600" />
+                                            <span className="font-semibold text-blue-600">Mudar Etapa</span>
+                                        </>
                                     )}
                                 </div>
-                                <div className="text-sm text-orange-600">
-                                    <TriangleAlert className="h-4 w-4 inline-block mr-1" />
-                                    Esta funcionalidade está em desenvolvimento. A ação de "Mudar Etapa" não será salva ou executada ainda.
-                                </div>
                             </div>
-                        )}
-                    </div>
-                    <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
-                        {/* Removed "Criar Nova Mensagem" button */}
-                        <div className="flex gap-2">
-                            <DialogClose asChild>
-                                <Button type="button" variant="secondary" disabled={saveActionToStageMutation.isLoading}>
-                                    Cancelar
-                                </Button>
-                            </DialogClose>
-                            <Button
-                                onClick={handleSaveAction}
-                                disabled={
-                                    saveActionToStageMutation.isLoading ||
-                                    (selectedActionType === 'message' && selectedMessageToLink === null) ||
-                                    (selectedActionType === 'change_stage' && targetStageForChange === null) ||
-                                    (timingType === 'delay' && (delayValue.trim() === '' || isNaN(parseInt(delayValue, 10)) || parseInt(delayValue, 10) < 0 || !delayUnit))
-                                }
-                            >
-                                {saveActionToStageMutation.isLoading ? (
+
+                            {/* Timing Configuration */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label
+                                        htmlFor="timingType"
+                                        className="block mb-1 font-medium text-gray-700"
+                                    >
+                                        Agendar Envio *
+                                    </label>
+                                    <Select
+                                        value={timingType}
+                                        onValueChange={setTimingType}
+                                        id="timingType"
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione o tipo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="immediate">Imediatamente ao entrar na etapa</SelectItem>
+                                            <SelectItem value="delay">Com atraso após entrar na etapa</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {timingType === 'delay' && (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Salvando...
+                                        <div>
+                                            <label
+                                                htmlFor="delayValue"
+                                                className="block mb-1 font-medium text-gray-700"
+                                            >
+                                                Valor do Atraso *
+                                            </label>
+                                            <Input
+                                                id="delayValue"
+                                                type="number"
+                                                placeholder="Ex: 2"
+                                                value={delayValue}
+                                                onChange={(e) => setDelayValue(e.target.value)}
+                                                min="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label
+                                                htmlFor="delayUnit"
+                                                className="block mb-1 font-medium text-gray-700"
+                                            >
+                                                Unidade do Atraso *
+                                            </label>
+                                            <Select
+                                                value={delayUnit}
+                                                onValueChange={setDelayUnit}
+                                                id="delayUnit"
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione a unidade" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="minutes">Minutos</SelectItem>
+                                                    <SelectItem value="hours">Horas</SelectItem>
+                                                    <SelectItem value="days">Dias</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </>
-                                ) : (
-                                    currentActionBeingEdited ? 'Salvar Alterações' : 'Vincular Ação'
                                 )}
-                            </Button>
+                            </div>
+
+                            {/* Conditional Content based on selectedActionType */}
+                            {selectedActionType === 'message' && (
+                                <>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                        <Input
+                                            type="text"
+                                            placeholder="Buscar mensagens existentes..."
+                                            value={messageSearchTerm}
+                                            onChange={(e) => setMessageSearchTerm(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+
+                                    {isLoadingSelectableMessages ? (
+                                        <div className="flex items-center justify-center gap-2 text-primary py-8">
+                                            <Loader2 className="animate-spin" />
+                                            Carregando mensagens...
+                                        </div>
+                                    ) : selectableMessagesError ? (
+                                        <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
+                                            <TriangleAlert className="h-5 w-5" />
+                                            Erro ao carregar mensagens: {selectableMessagesError.message}
+                                        </div>
+                                    ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
+                                        <div className="text-gray-600 text-center py-8">
+                                            Nenhuma mensagem de leads encontrada.
+                                        </div>
+                                    ) : (
+                                        <RadioGroup
+                                            value={selectedMessageToLink?.toString() || ''}
+                                            onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
+                                            className="flex flex-col gap-2 overflow-y-auto pr-2"
+                                        >
+                                            {selectableLeadsMessages?.map(msg => (
+                                                <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
+                                                    <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
+                                                    <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
+                                                        <span className="font-medium text-gray-900 line-clamp-1">{msg.nome_sequencia || 'Mensagem sem nome'}</span>
+                                                        <span className={cn(
+                                                            "text-xs font-semibold px-1.5 py-0.5 rounded-full w-fit mt-1",
+                                                            msg.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                        )}>
+                                                            {msg.ativo ? 'Ativa' : 'Inativa'}
+                                                        </span>
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </RadioGroup>
+                                    )}
+                                </>
+                            )}
+
+                            {selectedActionType === 'change_stage' && (
+                                <div className="flex flex-col gap-4">
+                                    <p className="text-sm text-gray-600">Quando um lead entrar nesta etapa, ele será automaticamente movido para a etapa selecionada abaixo.</p>
+                                    <div>
+                                        <Label htmlFor="targetStageSelect" className="block mb-1 font-medium text-gray-700">
+                                            Mover para a Etapa: *
+                                        </Label>
+                                        {isLoadingAllStages ? (
+                                            <div className="flex items-center justify-center gap-2 text-primary py-4">
+                                                <Loader2 className="animate-spin" />
+                                                Carregando etapas...
+                                            </div>
+                                        ) : allStagesError ? (
+                                            <div className="text-red-600 font-semibold flex items-center gap-2 py-4">
+                                                <TriangleAlert className="h-5 w-5" />
+                                                Erro ao carregar etapas: {allStagesError.message}
+                                            </div>
+                                        ) : (allStages?.length ?? 0) === 0 ? (
+                                            <p className="text-gray-600 text-center py-4">Nenhuma etapa disponível.</p>
+                                        ) : (
+                                            <Select
+                                                value={targetStageForChange?.toString() || ''}
+                                                onValueChange={(value) => setTargetStageForChange(value ? parseInt(value, 10) : null)}
+                                                id="targetStageSelect"
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione a etapa de destino" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {allStages?.map(stage => (
+                                                        <SelectItem key={stage.id} value={stage.id.toString()}>
+                                                            {stage.nome_etapa} (Funil: {stage.id_funil})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-orange-600">
+                                        <TriangleAlert className="h-4 w-4 inline-block mr-1" />
+                                        Esta funcionalidade está em desenvolvimento. A ação de "Mudar Etapa" não será salva ou executada ainda.
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </DialogFooter>
+                    )}
+                    
+                    {modalView === 'action_details' && (
+                        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                            <div className="flex gap-2">
+                                {!currentActionBeingEdited && ( // Only show "Voltar" if it's a new action
+                                    <Button type="button" variant="outline" onClick={() => setModalView('initial')} disabled={saveActionToStageMutation.isLoading}>
+                                        Voltar
+                                    </Button>
+                                )}
+                                <DialogClose asChild>
+                                    <Button type="button" variant="secondary" disabled={saveActionToStageMutation.isLoading}>
+                                        Cancelar
+                                    </Button>
+                                </DialogClose>
+                                <Button
+                                    onClick={handleSaveAction}
+                                    disabled={
+                                        saveActionToStageMutation.isLoading ||
+                                        selectedActionType === null || // Ensure an action type is selected
+                                        (selectedActionType === 'message' && selectedMessageToLink === null) ||
+                                        (selectedActionType === 'change_stage' && targetStageForChange === null) ||
+                                        (timingType === 'delay' && (delayValue.trim() === '' || isNaN(parseInt(delayValue, 10)) || parseInt(delayValue, 10) < 0 || !delayUnit))
+                                    }
+                                >
+                                    {saveActionToStageMutation.isLoading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Salvando...
+                                        </>
+                                    ) : (
+                                        currentActionBeingEdited ? 'Salvar Alterações' : 'Vincular Ação'
+                                    )}
+                                </Button>
+                            </div>
+                        </DialogFooter>
+                    )}
                 </DialogContent>
             </Dialog>
         </TooltipProvider>
