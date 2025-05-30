@@ -24,6 +24,7 @@ import FunnelConfigPage from "./pages/FunnelConfigPage"; // Import the NEW Funne
 import SelectClinicPage from "./pages/SelectClinicPage"; // Import the new SelectClinicPage
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from "./contexts/AuthContext"; // Import useAuth
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -38,36 +39,29 @@ interface ClinicData {
 const queryClient = new QueryClient();
 
 const App = () => {
-  // State to hold clinic data and manage login status
-  const [clinicData, setClinicData] = useState<ClinicData | null>(() => {
-    // Initialize state from localStorage on mount
-    const savedData = localStorage.getItem('clinicData');
-    try {
-      return savedData ? JSON.parse(savedData) : null;
-    } catch (e) {
-      console.error("Failed to parse clinicData from localStorage", e);
-      return null;
-    }
-  });
+  // Use useAuth hook to get clinicData and logout function
+  const { clinicData, logout, isLoadingAuth } = useAuth();
 
-  // Effect to update localStorage whenever clinicData changes
+  // Log clinicData whenever it changes in App.tsx
   useEffect(() => {
-    if (clinicData) {
-      localStorage.setItem('clinicData', JSON.stringify(clinicData));
-    } else {
-      localStorage.removeItem('clinicData');
-    }
+    console.log("[App.tsx] clinicData state updated:", clinicData);
   }, [clinicData]);
 
-  // Function to handle logout
+  // Function to handle logout (now comes from AuthContext)
   const handleLogout = () => {
-    setClinicData(null);
+    logout();
   };
 
   // Simple component to protect routes
   const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    // If authentication is still loading, you might want to show a loading spinner
+    if (isLoadingAuth) {
+      return <div className="flex items-center justify-center min-h-screen">Carregando autenticação...</div>;
+    }
+    
     if (!clinicData || !clinicData.id) { // Check for clinicData.id to ensure a clinic is selected
       // If not logged in or no clinic selected, redirect to the login page or select-clinic page
+      console.log("[App.tsx] ProtectedRoute: Redirecting to / because clinicData is missing or invalid.", clinicData);
       return <Navigate to="/" replace />;
     }
     // If logged in and clinic selected, render the children (the route component)
