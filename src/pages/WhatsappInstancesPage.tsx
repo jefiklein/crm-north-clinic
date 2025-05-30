@@ -99,6 +99,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         id_funcionario: null as number | null, // Added to state
     });
     const [addInstanceAlert, setAddInstanceAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+    const [isCreatingInstance, setIsCreatingInstance] = useState(false); // New state for immediate loading feedback
 
     // State for the new detail modal
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -484,6 +485,9 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         onError: (error: Error) => {
             showError(`Erro ao criar instância: ${error.message}`);
         },
+        onSettled: () => { // Ensure loading state is reset
+            setIsCreatingInstance(false);
+        }
     });
 
     // Modified updateInstanceMutation to be called from InstanceDetailModal
@@ -864,18 +868,21 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     <DialogHeader>
                         <DialogTitle>Adicionar Nova Instância</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={(e) => {
+                    <form onSubmit={async (e) => { // Made onSubmit async
                         e.preventDefault();
                         setAddInstanceAlert(null);
+                        setIsCreatingInstance(true); // Set local loading state immediately
 
                         const { nome_exibição, telefone, tipo } = addInstanceFormData;
 
                         if (!nome_exibição || !telefone || !tipo) {
                             setAddInstanceAlert({ message: 'Por favor, preencha todos os campos obrigatórios.', type: 'error' });
+                            setIsCreatingInstance(false); // Reset loading state
                             return;
                         }
                         if (!validatePhone(telefone)) {
                             setAddInstanceAlert({ message: 'Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).', type: 'error' });
+                            setIsCreatingInstance(false); // Reset loading state
                             return;
                         }
                         
@@ -886,9 +893,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
                         if (isDuplicateName) {
                             setAddInstanceAlert({ message: `Já existe uma instância com o nome "${nome_exibição}". Por favor, use um nome diferente.`, type: 'error' });
+                            setIsCreatingInstance(false); // Reset loading state
                             return;
                         }
                         
+                        // Call mutate, onSettled will handle setIsCreatingInstance(false)
                         createInstanceMutation.mutate(addInstanceFormData);
                     }}>
                         <div className="grid gap-4 py-4">
@@ -910,6 +919,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     value={addInstanceFormData.nome_exibição}
                                     onChange={(e) => setAddInstanceFormData({ ...addInstanceFormData, nome_exibição: e.target.value })}
                                     required
+                                    disabled={isCreatingInstance} // Disable input during submission
                                 />
                             </div>
                             <div className="form-group">
@@ -920,12 +930,13 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     value={addInstanceFormData.telefone}
                                     onChange={(e) => setAddInstanceFormData({ ...addInstanceFormData, telefone: e.target.value })}
                                     required
+                                    disabled={isCreatingInstance} // Disable input during submission
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Digite o número completo com código do país (55) e DDD</p>
                             </div>
                             <div className="form-group">
                                 <Label htmlFor="instanceType">Tipo</Label>
-                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value })} required>
+                                <Select value={addInstanceFormData.tipo} onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, tipo: value })} required disabled={isCreatingInstance}>
                                     <SelectTrigger id="instanceType">
                                         <SelectValue placeholder="Selecione..." />
                                     </SelectTrigger>
@@ -948,7 +959,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     <Select
                                         value={addInstanceFormData.id_funcionario?.toString() || 'none'}
                                         onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, id_funcionario: value === 'none' ? null : parseInt(value, 10) })}
-                                        disabled={createInstanceMutation.isLoading}
+                                        disabled={isCreatingInstance} // Disable during submission
                                     >
                                         <SelectTrigger id="add-employee-link" className="h-9 text-sm">
                                             <SelectValue placeholder="Vincular funcionário" />
@@ -977,7 +988,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     id="add-trackeamento"
                                     checked={addInstanceFormData.trackeamento}
                                     onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, trackeamento: checked })}
-                                    disabled={createInstanceMutation.isLoading}
+                                    disabled={isCreatingInstance} // Disable during submission
                                 />
                                 <Label htmlFor="add-trackeamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     Recebe Leads (Trackeamento)
@@ -992,7 +1003,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         id="historico"
                                         checked={addInstanceFormData.historico} // Use state value
                                         onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, historico: checked })} // Allow change
-                                        disabled={createInstanceMutation.isLoading}
+                                        disabled={isCreatingInstance}
                                     />
                                     <Label htmlFor="historico" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Salvar Histórico de Conversas
@@ -1007,7 +1018,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                         id="confirmar_agendamento"
                                         checked={addInstanceFormData.confirmar_agendamento} // Use state value
                                         onCheckedChange={(checked) => setAddInstanceFormData({ ...addInstanceFormData, confirmar_agendamento: checked })} // Allow change
-                                        disabled={createInstanceMutation.isLoading}
+                                        disabled={isCreatingInstance}
                                     />
                                     <Label htmlFor="confirmar_agendamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Confirmar Agendamento Automático
@@ -1016,11 +1027,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             )}
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="secondary" onClick={() => setIsAddInstanceModal(false)} disabled={createInstanceMutation.isLoading}>
+                            <Button type="button" variant="secondary" onClick={() => setIsAddInstanceModal(false)} disabled={isCreatingInstance}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={createInstanceMutation.isLoading}>
-                                {createInstanceMutation.isLoading ? (
+                            <Button type="submit" disabled={isCreatingInstance}> {/* Use local loading state */}
+                                {isCreatingInstance ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Criando...
