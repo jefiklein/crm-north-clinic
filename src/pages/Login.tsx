@@ -26,7 +26,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
       <Card className="w-[400px]">
         <CardHeader>
           <CardTitle className="text-center text-primary text-3xl font-bold mb-2">North CRM</CardTitle> {/* Título principal */}
-          <CardDescription className="text-center text-gray-600">Acesse sua conta</CardDescription> {/* Descrição/subtítulo */}
+          {/* <CardDescription className="text-center text-gray-600">Acesse sua conta</CardDescription> Removido */}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Adicionando a logo aqui */}
