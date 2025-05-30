@@ -317,7 +317,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 console.error(`[WhatsappInstancesPage] Error polling status for ${instanceIdentifier}:`, error);
                 throw error;
             }
-        },
+        }, 
         {
             onSuccess: (data, instanceIdentifier) => {
                 setInstanceStatuses((prev) => ({
