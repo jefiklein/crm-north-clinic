@@ -163,6 +163,26 @@ export const AuthProvider = ({ children }: { ReactNode }) => {
     };
   }, []); // Dependências vazias para rodar apenas uma vez na montagem
 
+  // NEW: Diagnostic useEffect to test direct Supabase queries for funnels and stages
+  useEffect(() => {
+    if (clinicData) {
+      const testSupabaseQueries = async () => {
+        console.log("[AuthContext - DIAGNOSTIC] Testing direct query for north_clinic_crm_funil...");
+        const { data: funnelsTest, error: funnelsTestError } = await supabase
+          .from('north_clinic_crm_funil')
+          .select('*');
+        console.log("[AuthContext - DIAGNOSTIC] north_clinic_crm_funil result:", { data: funnelsTest, error: funnelsTestError });
+
+        console.log("[AuthContext - DIAGNOSTIC] Testing direct query for north_clinic_crm_etapa...");
+        const { data: stagesTest, error: stagesTestError } = await supabase
+          .from('north_clinic_crm_etapa')
+          .select('*');
+        console.log("[AuthContext - DIAGNOSTIC] north_clinic_crm_etapa result:", { data: stagesTest, error: stagesTestError });
+      };
+      testSupabaseQueries();
+    }
+  }, [clinicData]); // Run this effect when clinicData is available
+
   const logout = async () => {
     console.log("[AuthContext] logout: Iniciando logout...");
     setIsLoadingAuth(true);
