@@ -112,10 +112,11 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
       setError("O nome de exibição é obrigatório.");
       return;
     }
-    if (!validatePhone(formData.telefone)) {
-      setError("Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).");
-      return;
-    }
+    // Phone validation is still needed for initial creation, but not for editing if disabled
+    // if (!validatePhone(formData.telefone)) {
+    //   setError("Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).");
+    //   return;
+    // }
     if (!formData.tipo) {
       setError("O tipo da instância é obrigatório.");
       return;
@@ -124,7 +125,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
     onSave({
       instanceId: instanceData.id,
       nome_exibição: formData.nome_exibição.trim(),
-      telefone: formData.telefone,
+      telefone: formData.telefone, // Send current value, even if disabled
       tipo: formData.tipo,
       trackeamento: formData.trackeamento,
       historico: formData.historico,
@@ -161,7 +162,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
               id="editInstancePhone"
               value={formData.telefone}
               onChange={handlePhoneChange}
-              disabled={isSaving}
+              disabled={true} {/* Campo de telefone desabilitado para edição */}
               placeholder="Ex: 5511999999999"
             />
             <p className="text-xs text-gray-500 mt-1">Número completo com código do país (55) e DDD</p>
