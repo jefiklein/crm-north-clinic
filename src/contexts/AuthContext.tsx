@@ -202,5 +202,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [navigate, setAndPersistClinicData]);
 
-  // ... (diagnostic useEffect and logout function remain the same)
+  // Diagnostic useEffect to log clinicData changes
+  useEffect(() => {
+    console.log("[AuthContext] clinicData state changed:", clinicData);
+  }, [clinicData]);
+
+  // Logout function
+  const logout = useCallback(async () => {
+    console.log("[AuthContext] logout: Iniciando logout...");
+    setIsLoadingAuth(true); // Set loading true during logout process
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("[AuthContext] logout: Erro ao fazer logout:", error);
+        showError(`Erro ao fazer logout: ${error.message}`);
+      } else {
+        console.log("[AuthContext] logout: Logout bem-sucedido.");
+        // The onAuthStateChange listener will handle state clearing and navigation to '/'
+      }
+    } catch (e: any) {
+      console.error("[AuthContext] logout: Erro inesperado durante o logout:", e);
+      showError(`Erro inesperado ao fazer logout: ${e.message}`);
+    } finally {
+      setIsLoadingAuth(false); // Ensure loading is false after logout attempt
+    }
+  }, []);
+
+  const value = {
+    session,
+    clinicData,
+    availableClinics,
+    selectClinic,
+    isLoadingAuth,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// Custom hook to use the AuthContext
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
