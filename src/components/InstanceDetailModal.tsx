@@ -91,12 +91,15 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
         id_funcionario: instanceData.id_funcionario ?? null,
       });
       setError(null);
+      // Log para depuração do campo 'tipo'
+      console.log("[InstanceDetailModal] Carregando dados da instância. Tipo:", instanceData.tipo, "Telefone:", instanceData.telefone);
     }
   }, [isOpen, instanceData]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     let digits = input.replace(/\D/g, '');
+    // Allow up to 13 digits (55 + 2 DDD + 9 + 8 digits)
     if (digits.length > 13) {
       digits = digits.substring(0, 13);
     }
@@ -121,7 +124,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
     onSave({
       instanceId: instanceData.id,
       nome_exibição: formData.nome_exibição.trim(),
-      telefone: formData.telefone,
+      telefone: formData.telefone, // Pass the raw phone number
       tipo: formData.tipo,
       trackeamento: formData.trackeamento,
       historico: formData.historico,
@@ -156,9 +159,10 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
             <Label htmlFor="editInstancePhone">Número do WhatsApp</Label>
             <Input
               id="editInstancePhone"
-              value={formatPhone(formData.telefone)}
+              value={formData.telefone} {/* Display raw number for editing */}
               onChange={handlePhoneChange}
               disabled={isSaving}
+              placeholder="Ex: 5511999999999"
             />
             <p className="text-xs text-gray-500 mt-1">Número completo com código do país (55) e DDD</p>
           </div>
