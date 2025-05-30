@@ -405,23 +405,8 @@ export const Sidebar: React.FC = () => {
         });
 
         console.log("Sidebar: Filtered menu items:", filteredItems);
-
-        // Manually add the "Cadastrar Usuário" item if user has admin permission
-        // REMOVED: This item is now expected to be in the database
-        // const registerUserMenuItem: MenuItem = {
-        //     id: 'register-user', // Unique ID for this item
-        //     nome: 'Cadastrar Usuário',
-        //     icon_key: 'user-plus', // Lucide icon key
-        //     permissao_necessaria: 1, // Only for admins (assuming 1 is admin)
-        //     ativo: true,
-        //     ordem: 999, // Place it at the end
-        // };
-
+        
         let finalMenuItems = [...filteredItems];
-        // REMOVED: Logic to push hardcoded item
-        // if (userPermissionLevel <= registerUserMenuItem.permissao_necessaria) {
-        //     finalMenuItems.push(registerUserMenuItem);
-        // }
         
         // Re-sort to ensure the new item is in place if order matters
         finalMenuItems.sort((a, b) => (a.ordem || Infinity) - (b.ordem || Infinity));
@@ -456,8 +441,8 @@ export const Sidebar: React.FC = () => {
   // Determine active menu item based on current route
   const getActive = (item: MenuItem) => {
       // Determine the expected internal path for this item
-      // Use String(item.id) === '1' for robust comparison
-      const itemPath = String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`;
+      // Special handling for 'register-user' based on icon_key
+      const itemPath = item.icon_key === 'user-plus' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
 
       // Check if the current location pathname matches the item's path
       // Use startsWith for /dashboard to match /dashboard and /dashboard/
@@ -510,7 +495,7 @@ export const Sidebar: React.FC = () => {
 
             // Determine the target path for react-router-dom Link
             // Special handling for 'register-user'
-            const finalTo = item.id === 'register-user' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
+            const finalTo = item.icon_key === 'user-plus' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
 
 
             // Always render as a react-router-dom Link for internal navigation
