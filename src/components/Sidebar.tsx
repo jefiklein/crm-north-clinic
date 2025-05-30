@@ -407,20 +407,21 @@ export const Sidebar: React.FC = () => {
         console.log("Sidebar: Filtered menu items:", filteredItems);
 
         // Manually add the "Cadastrar Usuário" item if user has admin permission
-        const registerUserMenuItem: MenuItem = {
-            id: 'register-user', // Unique ID for this item
-            nome: 'Cadastrar Usuário',
-            icon_key: 'user-plus', // Lucide icon key
-            permissao_necessaria: 1, // Only for admins (assuming 1 is admin)
-            ativo: true,
-            ordem: 999, // Place it at the end
-        };
+        // REMOVED: This item is now expected to be in the database
+        // const registerUserMenuItem: MenuItem = {
+        //     id: 'register-user', // Unique ID for this item
+        //     nome: 'Cadastrar Usuário',
+        //     icon_key: 'user-plus', // Lucide icon key
+        //     permissao_necessaria: 1, // Only for admins (assuming 1 is admin)
+        //     ativo: true,
+        //     ordem: 999, // Place it at the end
+        // };
 
         let finalMenuItems = [...filteredItems];
-        // Check if the user's permission level is sufficient for this specific item
-        if (userPermissionLevel <= registerUserMenuItem.permissao_necessaria) {
-            finalMenuItems.push(registerUserMenuItem);
-        }
+        // REMOVED: Logic to push hardcoded item
+        // if (userPermissionLevel <= registerUserMenuItem.permissao_necessaria) {
+        //     finalMenuItems.push(registerUserMenuItem);
+        // }
         
         // Re-sort to ensure the new item is in place if order matters
         finalMenuItems.sort((a, b) => (a.ordem || Infinity) - (b.ordem || Infinity));
