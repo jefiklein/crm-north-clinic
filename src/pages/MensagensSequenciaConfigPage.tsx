@@ -402,19 +402,23 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(messagePayloadForN8N),
       });
 
-      if (!webhookResponse.ok) { 
+      if (!webhookResponse.ok) {
         const errTxt = await webhookResponse.text();
-        let detailedError = errTxt;
-        try {
-            const jsonError = JSON.parse(errTxt);
-            detailedError = jsonError.message || jsonError.error || errTxt;
-        } catch (parseError) {
-            // Not a JSON error, use raw text
+        let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`; // Default error
+        if (errTxt) { // If there's a response body, try to use it
+            try {
+                const jsonError = JSON.parse(errTxt);
+                detailedError = jsonError.message || jsonError.error || `Erro ${webhookResponse.status}: ${errTxt.substring(0,100)}`;
+            } catch (parseError) {
+                detailedError = `Erro ${webhookResponse.status}: ${errTxt.substring(0,150)}`;
+            }
         }
         console.error("[MensagensConfigPage] Webhook response not OK:", webhookResponse.status, detailedError);
-        throw new Error(`Salvar sequência falhou (${webhookResponse.status}): ${detailedError.substring(0,250)}`);
+        // <-- MODIFIED: Throwing error here should be caught by the catch block below
+        throw new Error(detailedError); 
       }
       
+      // This code should only be reached if webhookResponse.ok is true
       toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
       if (currentClinicId) queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
       
@@ -423,7 +427,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         else navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
       }, 1000);
 
-    } catch (e: any) { 
+    } catch (e: any) {
       console.error("[MensagensConfigPage] Error in handleSave:", e);
       setError(e.message || "Erro ao salvar.");
       toast({ title: "Erro ao Salvar", description: e.message, variant: "destructive" });
