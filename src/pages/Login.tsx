@@ -62,15 +62,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   social_provider_text: 'Entrar com {{provider}}',
                   link_text: 'Já tem uma conta? Entrar',
                 },
-                sign_up: {
-                  email_label: 'Seu email',
-                  password_label: 'Crie uma senha',
-                  email_input_placeholder: 'email@exemplo.com',
-                  password_input_placeholder: '••••••••',
-                  button_label: 'Cadastrar',
-                  social_provider_text: 'Cadastrar com {{provider}}',
-                  link_text: 'Não tem uma conta? Cadastre-se',
-                },
+                // Removido o bloco sign_up
                 forgotten_password: {
                   email_label: 'Seu email',
                   email_input_placeholder: 'email@exemplo.com',
