@@ -22,7 +22,7 @@ interface PermissionLevel {
     description: string | null;
 }
 
-const REQUIRED_PERMISSION_LEVEL = 3; // Assuming 1 is the admin level - ALTERADO PARA 3
+const REQUIRED_PERMISSION_LEVEL = 2; // Ajustado para Nível 2 (Administrador da Clínica)
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
