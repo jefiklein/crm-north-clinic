@@ -71,7 +71,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
   const [formData, setFormData] = useState({
     nome_exibição: instanceData.nome_exibição,
     telefone: instanceData.telefone ? String(instanceData.telefone) : '',
-    tipo: instanceData.tipo || '',
+    tipo: instanceData.tipo?.trim() || '', // Normaliza o tipo aqui
     trackeamento: instanceData.trackeamento,
     historico: instanceData.historico,
     confirmar_agendamento: instanceData.confirmar_agendamento,
@@ -81,10 +81,11 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      const initialTipo = instanceData.tipo?.trim() || ''; // Normaliza o tipo ao reabrir
       setFormData({
         nome_exibição: instanceData.nome_exibição,
         telefone: instanceData.telefone ? String(instanceData.telefone) : '',
-        tipo: instanceData.tipo || '',
+        tipo: initialTipo, // Usa o valor normalizado
         trackeamento: instanceData.trackeamento,
         historico: instanceData.historico,
         confirmar_agendamento: instanceData.confirmar_agendamento,
@@ -92,7 +93,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
       });
       setError(null);
       // Log para depuração do campo 'tipo'
-      console.log("[InstanceDetailModal] Carregando dados da instância. Tipo:", instanceData.tipo, "Telefone:", instanceData.telefone);
+      console.log("[InstanceDetailModal] Carregando dados da instância. Original Tipo:", instanceData.tipo, "Processed Tipo for form:", initialTipo);
     }
   }, [isOpen, instanceData]);
 
@@ -174,6 +175,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="">Selecione...</SelectItem> {/* Adicionado para lidar com valores vazios/nulos */}
                 <SelectItem value="Recepção">Recepção</SelectItem>
                 <SelectItem value="Vendas">Vendas</SelectItem>
                 <SelectItem value="Prospecção">Prospecção</SelectItem>
