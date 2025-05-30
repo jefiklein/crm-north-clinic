@@ -175,7 +175,6 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {/* REMOVIDO: SelectItem com value="" que causava o erro */}
                 <SelectItem value="Recepção">Recepção</SelectItem>
                 <SelectItem value="Venda">Venda</SelectItem>
                 <SelectItem value="Prospecção">Prospecção</SelectItem>
@@ -242,18 +241,23 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
           </div>
           <p className="text-xs text-gray-500 mt-1">Se ativado, as mensagens desta instância serão salvas no histórico de conversas.</p>
 
-          <div className="flex items-center space-x-2 mt-2">
-            <Switch
-              id="confirmar_agendamento"
-              checked={formData.confirmar_agendamento}
-              onCheckedChange={(checked) => setFormData({ ...formData, confirmar_agendamento: checked })}
-              disabled={isSaving}
-            />
-            <Label htmlFor="confirmar_agendamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Confirmar Agendamento Automático
-            </Label>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância enviará mensagens automáticas de confirmação de agendamento.</p>
+          {/* Ocultando o campo Confirmar Agendamento Automático */}
+          {false && (
+            <>
+              <div className="flex items-center space-x-2 mt-2">
+                <Switch
+                  id="confirmar_agendamento"
+                  checked={formData.confirmar_agendamento}
+                  onCheckedChange={(checked) => setFormData({ ...formData, confirmar_agendamento: checked })}
+                  disabled={isSaving}
+                />
+                <Label htmlFor="confirmar_agendamento" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Confirmar Agendamento Automático
+                </Label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância enviará mensagens automáticas de confirmação de agendamento.</p>
+            </>
+          )}
 
         </div>
         <DialogFooter>
