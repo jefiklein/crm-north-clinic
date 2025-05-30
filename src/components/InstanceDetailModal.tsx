@@ -71,7 +71,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
   const [formData, setFormData] = useState({
     nome_exibição: instanceData.nome_exibição,
     telefone: instanceData.telefone ? String(instanceData.telefone) : '',
-    tipo: instanceData.tipo?.trim() || '', // Normaliza o tipo aqui
+    tipo: instanceData.tipo?.trim() || '__placeholder__', // Use um valor de placeholder único
     trackeamento: instanceData.trackeamento,
     historico: instanceData.historico,
     confirmar_agendamento: instanceData.confirmar_agendamento,
@@ -81,11 +81,11 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const initialTipo = instanceData.tipo?.trim() || ''; // Normaliza o tipo ao reabrir
+      const initialTipo = instanceData.tipo?.trim() || '__placeholder__'; // Use o valor de placeholder único
       setFormData({
         nome_exibição: instanceData.nome_exibição,
         telefone: instanceData.telefone ? String(instanceData.telefone) : '',
-        tipo: initialTipo, // Usa o valor normalizado
+        tipo: initialTipo, // Usa o valor normalizado ou o placeholder
         trackeamento: instanceData.trackeamento,
         historico: instanceData.historico,
         confirmar_agendamento: instanceData.confirmar_agendamento,
@@ -118,7 +118,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
     //   setError("Número de telefone inválido. Use o formato 55 + DDD + Número (Ex: 5511999999999).");
     //   return;
     // }
-    if (!formData.tipo) {
+    if (!formData.tipo || formData.tipo === '__placeholder__') { // Valida se o tipo foi selecionado
       setError("O tipo da instância é obrigatório.");
       return;
     }
@@ -127,7 +127,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
       instanceId: instanceData.id,
       nome_exibição: formData.nome_exibição.trim(),
       telefone: formData.telefone, // Send current value, even if disabled
-      tipo: formData.tipo,
+      tipo: formData.tipo === '__placeholder__' ? '' : formData.tipo, // Converte o placeholder de volta para string vazia
       trackeamento: formData.trackeamento,
       historico: formData.historico,
       confirmar_agendamento: formData.confirmar_agendamento,
@@ -175,7 +175,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {/* Removido o SelectItem com value="" que causava o erro */}
+                <SelectItem value="__placeholder__">Selecione...</SelectItem> {/* Item com valor de placeholder */}
                 <SelectItem value="Recepção">Recepção</SelectItem>
                 <SelectItem value="Vendas">Vendas</SelectItem>
                 <SelectItem value="Prospecção">Prospecção</SelectItem>
