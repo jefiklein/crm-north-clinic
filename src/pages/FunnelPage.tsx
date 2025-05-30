@@ -504,10 +504,20 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     };
 
     const openNewLeadModal = () => setIsNewLeadModalOpen(true);
-    const closeNewLeadModal = () => setIsNewLeadModal(false);
+    const closeNewLeadModal = () => setIsNewLeadModalOpen(false); // Corrected setter
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };
+
+    // --- DIAGNOSTIC LOGS ---
+    console.log("[FunnelPage Render Check] isLoading (overall):", isLoading);
+    console.log("[FunnelPage Render Check] fetchError (overall):", fetchError);
+    console.log("[FunnelPage Render Check] stagesData:", stagesData);
+    console.log("[FunnelPage Render Check] stagesData.length:", stagesData?.length);
+    console.log("[FunnelPage Render Check] funnelDetailsData:", funnelDetailsData);
+    console.log("[FunnelPage Render Check] leadsQueryData:", leadsQueryData);
+    console.log("[FunnelPage Render Check] totalItems:", totalItems);
+    // --- END DIAGNOSTIC LOGS ---
 
     if (isInvalidFunnel) {
         console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
@@ -585,7 +595,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                             <TriangleAlert className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Erro ao carregar dados do funil: {fetchError.message}</span>
                         </div>
-                    ) : (stagesData?.length ?? 0) === 0 ? (
+                    ) : (stagesData?.length ?? 0) === 0 ? ( 
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
                             <Info className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Nenhuma etapa configurada para este funil ou nenhum dado retornado.</span>

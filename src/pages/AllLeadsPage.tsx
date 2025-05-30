@@ -358,6 +358,17 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         }
     };
 
+    // --- DIAGNOSTIC LOGS ---
+    console.log("[AllLeadsPage Render Check] isLoading (overall):", isLoading);
+    console.log("[AllLeadsPage Render Check] fetchError (overall):", fetchError);
+    console.log("[AllLeadsPage Render Check] allStages:", allStages);
+    console.log("[AllLeadsPage Render Check] allStages.length:", allStages?.length);
+    console.log("[AllLeadsPage Render Check] allFunnelDetails:", allFunnelDetails);
+    console.log("[AllLeadsPage Render Check] allFunnelDetails.length:", allFunnelDetails?.length);
+    console.log("[AllLeadsPage Render Check] paginatedLeadsData:", paginatedLeadsData);
+    console.log("[AllLeadsPage Render Check] totalItems:", totalItems);
+    // --- END DIAGNOSTIC LOGS ---
+
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
