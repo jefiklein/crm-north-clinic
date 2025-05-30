@@ -228,18 +228,23 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
           </div>
           <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância terá um monitoramento e trackeamento de leads. Ative somente se essa instância é usada para prospecção e venda para leads.</p>
 
-          <div className="flex items-center space-x-2 mt-2">
-            <Switch
-              id="historico"
-              checked={formData.historico}
-              onCheckedChange={(checked) => setFormData({ ...formData, historico: checked })}
-              disabled={isSaving}
-            />
-            <Label htmlFor="historico" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Salvar Histórico de Conversas
-            </Label>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Se ativado, as mensagens desta instância serão salvas no histórico de conversas.</p>
+          {/* Ocultando o campo Salvar Histórico de Conversas */}
+          {false && (
+            <>
+              <div className="flex items-center space-x-2 mt-2">
+                <Switch
+                  id="historico"
+                  checked={formData.historico}
+                  onCheckedChange={(checked) => setFormData({ ...formData, historico: checked })}
+                  disabled={isSaving}
+                />
+                <Label htmlFor="historico" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Salvar Histórico de Conversas
+                </Label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Se ativado, as mensagens desta instância serão salvas no histórico de conversas.</p>
+            </>
+          )}
 
           {/* Ocultando o campo Confirmar Agendamento Automático */}
           {false && (
