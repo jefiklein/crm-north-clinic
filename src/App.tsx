@@ -40,7 +40,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   // Use useAuth hook to get clinicData and logout function
-  const { clinicData, logout, isLoadingAuth, availableClinics } = useAuth(); // Added availableClinics
+  const { clinicData, logout, isLoadingAuth, availableClinics, session } = useAuth(); // Added availableClinics
 
   // Log clinicData whenever it changes in App.tsx
   useEffect(() => {
@@ -52,111 +52,73 @@ const App = () => {
     logout();
   };
 
-  // Simple component to protect routes
-  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-    // If authentication is still loading, show a loading spinner or null
-    if (isLoadingAuth) {
-      console.log("[App.tsx] ProtectedRoute: Autenticação ainda carregando...");
-      return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando autenticação...</div>;
-    }
-    
-    // If authentication has finished loading and clinicData is null, redirect to login
-    // If availableClinics is loaded and empty, also redirect to select-clinic
-    if (!clinicData || !clinicData.id || (availableClinics && availableClinics.length === 0)) { 
-      console.log("[App.tsx] ProtectedRoute: Redirecionando para /select-clinic porque clinicData está ausente ou inválido após o carregamento da autenticação, ou não há clínicas disponíveis.", clinicData, availableClinics);
-      return <Navigate to="/select-clinic" replace />;
-    }
-    
-    // If authentication has finished loading and clinicData is available, render the children
-    console.log("[App.tsx] ProtectedRoute: clinicData disponível. Renderizando rotas protegidas.", clinicData);
-    return children;
-  };
+  // Top-level routing logic based on authentication and clinic selection state
+  if (isLoadingAuth) {
+    return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando autenticação...</div>;
+  }
 
+  // If not logged in, always redirect to login page
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} /> {/* Catch all and redirect to login */}
+      </Routes>
+    );
+  }
+
+  // If logged in but no clinic selected AND there are available clinics (or none found)
+  // This covers:
+  // 1. User just logged in and has multiple clinics -> go to select-clinic
+  // 2. User just logged in and has no clinics -> go to select-clinic (to show "no clinic associated")
+  // 3. User is logged in, has a clinic selected, but explicitly navigated to /select-clinic -> allow them to stay on /select-clinic
+  if (!clinicData || !clinicData.id || (availableClinics && availableClinics.length === 0)) {
+    // Allow access to /select-clinic, otherwise redirect to it
+    return (
+      <Routes>
+        <Route path="/select-clinic" element={<SelectClinicPage />} />
+        <Route path="*" element={<Navigate to="/select-clinic" replace />} /> {/* Redirect any other path to select-clinic */}
+      </Routes>
+    );
+  }
+
+  // If logged in AND a clinic is selected, render the main application routes
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        {/* Removed BrowserRouter here */}
-          <Routes>
-            {/* Login Page - Renders if not logged in */}
-            <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login /* onLogin={handleLogin} */ />} />
-            
-            {/* Route for selecting clinic */}
-            <Route path="/select-clinic" element={<SelectClinicPage />} />
+        <Routes>
+          {/* Redirect from login page if already authenticated and clinic selected */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Redirect from select-clinic page if a clinic is now selected */}
+          <Route path="/select-clinic" element={<Navigate to="/dashboard" replace />} />
 
-            {/* Protected Routes - Require login */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  {/* Pass handleLogout to Layout */}
-                  <Layout onLogout={handleLogout} /> {/* Removed clinicName prop */}
-                </ProtectedRoute>
-              }
-            >
-              {/* Nested routes within the Layout */}
-              {/* Use path="" for the default route /dashboard */}
-              {/* DashboardPage no longer needs onLogout prop as Header handles it */}
-              <Route path="" element={<DashboardPage clinicData={clinicData} />} />
+          <Route
+            path="/dashboard"
+            element={<Layout onLogout={handleLogout} />}
+          >
+            {/* Nested routes within the Layout */}
+            <Route path="" element={<DashboardPage clinicData={clinicData} />} />
+            <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
+            <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
+            <Route path="14" element={<CashbackBalancePage clinicData={clinicData} />} />
+            <Route path="14/sales" element={<CashbackSalesPage clinicData={clinicData} />} />
+            <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
+            <Route path="9" element={<LeadsMessagesPage clinicData={clinicData} />} />
+            <Route path="config-sequencia" element={<MensagensSequenciaConfigPage clinicData={clinicData} />} />
+            <Route path="funnel-config/:funnelId" element={<FunnelConfigPage clinicData={clinicData} />} />
+            <Route path="2" element={<ConversasPage clinicData={clinicData} />} />
+            <Route path="10" element={<WhatsappInstancesPage clinicData={clinicData} />} />
+            <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
+            <Route path="config-mensagem" element={<MensagensConfigPage clinicData={clinicData} />} />
+            <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
+            <Route path="*" element={<UnderConstructionPage />} />
+          </Route>
 
-              {/* Route for the Fila de Mensagens page - Using menu item ID 12 */}
-              <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
-
-              {/* Route for the All Leads page - Using menu item ID 3 */}
-              <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
-
-              {/* Route for the main Cashback page (now balance) - Using menu item ID 14 */}
-              <Route path="14" element={<CashbackBalancePage clinicData={clinicData} />} /> {/* Changed to CashbackBalancePage */}
-
-              {/* Nested route for Cashback Sales page under the Cashback menu item (14) */}
-              <Route path="14/sales" element={<CashbackSalesPage clinicData={clinicData} />} /> {/* New route for sales */}
-
-              {/* Nested route for Cashback Messages page under the Cashback menu item (14) */}
-              <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
-
-              {/* NEW Route for Cashback Balance page (removed as it's now the main 14 route) */}
-              {/* <Route path="cashback/balance" element={<CashbackBalancePage clinicData={clinicData} />} /> */}
-
-
-              {/* Route for the Leads Messages page - Using menu item ID 9 */}
-              <Route path="9" element={<LeadsMessagesPage clinicData={clinicData} />} />
-
-              {/* NEW Route for the Message Sequence Config page */}
-              {/* This route will be used for configuring sequences for Leads */}
-              <Route path="config-sequencia" element={<MensagensSequenciaConfigPage clinicData={clinicData} />} />
-
-              {/* NEW Route for Funnel Configuration page */}
-              <Route path="funnel-config/:funnelId" element={<FunnelConfigPage clinicData={clinicData} />} />
-
-
-              {/* Route for the Conversas page - Using menu item ID 2 */}
-              <Route path="2" element={<ConversasPage clinicData={clinicData} />} />
-
-              {/* Route for the Whatsapp Instances page - Using menu item ID 10 */}
-              <Route path="10" element={<WhatsappInstancesPage clinicData={clinicData} />} />
-
-              {/* Route for the Mensagens List page (General) - Using menu item ID 11 */}
-              <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
-
-              {/* Route for the Message Config/Edit page (moved inside layout) */}
-              {/* This route is used by *all* message list pages (General, Cashback, etc.) */}
-              <Route path="config-mensagem" element={<MensagensConfigPage clinicData={clinicData} />} />
-
-              {/* Dynamic route for all Funnel Pages (IDs 4, 5, 6, 7, 8) */}
-              {/* The :funnelId parameter will be the menu item ID */}
-              {/* This route should come AFTER specific routes like /dashboard/2, /dashboard/3, /dashboard/9, /dashboard/10, /dashboard/11, /dashboard/12, /dashboard/14, /dashboard/cashback/balance */}
-              <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
-
-              {/* Catch-all for any other path under /dashboard */}
-              {/* This must be the LAST route defined within the /dashboard group */}
-              <Route path="*" element={<UnderConstructionPage />} />
-            </Route>
-
-            {/* Catch-all route for 404 outside of /dashboard */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        {/* Removed BrowserRouter here */}
+          {/* Catch-all for 404 if somehow outside protected routes */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </TooltipProvider>
     </QueryClientProvider>
   );
