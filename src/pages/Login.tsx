@@ -50,6 +50,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
               },
             }}
             theme="light"
+            view="sign_in" {/* <-- Adicionado para mostrar apenas a tela de login */}
             localization={{
               variables: {
                 sign_in: {
