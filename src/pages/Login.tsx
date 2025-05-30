@@ -26,14 +26,14 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
       <Card className="w-[400px]">
         <CardHeader>
           <CardTitle className="text-center text-primary text-3xl font-bold mb-2">North CRM</CardTitle> {/* Título principal */}
-          <CardDescription className="text-center text-gray-600">Acesse sua conta</CardDescription> {/* Descrição/subtítulo */}
+          {/* Removido o CardDescription com "Acesse sua conta" */}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Adicionando a logo aqui */}
           <img
             src="/north-crm-azul.jpeg"
             alt="Logo North CRM"
-            className="mx-auto h-24 w-auto mb-4"
+            className="mx-auto h-32 w-auto mb-4" {/* Aumentado o tamanho do logo para h-32 */}
           />
           <Auth
             supabaseClient={supabase}
