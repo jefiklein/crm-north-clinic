@@ -293,7 +293,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ nome_instancia: instanceIdentifier }),
-                };
+                });
 
                 if (!response.ok && response.status !== 404) {
                     const errorText = await response.text();
@@ -345,7 +345,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     const deleteInstanceMutation = useMutation({
         mutationFn: async (instanceId: number) => {
             console.log(`[WhatsappInstancesPage] Attempting to delete instance with ID: ${instanceId}`);
-            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`); 
+            const deleteWebhookUrl = `${N8N_BASE_URL}/webhook/0f301331-e090-4d26-b15d-960ef0d518c8`; 
             const response = await fetch(deleteWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -379,7 +379,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             const uniqueIdentifier = `${clinicId}_${normalizedType}_${normalizedName}`;
 
             console.log("[WhatsappInstancesPage] Attempting to create Evolution instance via webhook:", uniqueIdentifier);
-            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`); 
+            const evolutionWebhookUrl = `${N8N_BASE_URL}/webhook/c5c567ef-6cdf-4144-86cb-909cf92102e7`; 
             const evolutionResponse = await fetch(evolutionWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -392,7 +392,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 throw new Error(`Falha ao criar instância na API Evolution: ${evolutionErrorMsg}`);
             }
 
-            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`); 
+            const dbWebhookUrl = `${N8N_BASE_URL}/webhook/dc047481-f110-42dc-b444-7790bcc5b977`; 
             const dbResponse = await fetch(dbWebhookUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
