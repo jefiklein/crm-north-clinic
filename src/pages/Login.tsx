@@ -50,6 +50,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
               },
             }}
             theme="light"
+            view="sign_in" // Adicionado para exibir apenas a tela de login
             localization={{
               variables: {
                 sign_in: {
@@ -68,18 +69,13 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   password_input_placeholder: '••••••••',
                   button_label: 'Cadastrar',
                   social_provider_text: 'Cadastrar com {{provider}}',
-                  link_text: 'Não tem uma conta? Cadastre-se',
+                  link_text: '', // Removido o texto do link de cadastro
                 },
                 forgotten_password: {
                   email_label: 'Seu email',
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar instruções de redefinição',
                   link_text: 'Esqueceu sua senha?',
-                },
-                update_password: {
-                  password_label: 'Nova senha',
-                  password_input_placeholder: '••••••••',
-                  button_label: 'Atualizar senha',
                 },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
