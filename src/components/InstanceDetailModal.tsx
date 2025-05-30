@@ -162,7 +162,7 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
               id="editInstancePhone"
               value={formData.telefone}
               onChange={handlePhoneChange}
-              disabled={true} {/* Campo de telefone desabilitado para edição */}
+              disabled={true} // Campo de telefone desabilitado para edição
               placeholder="Ex: 5511999999999"
             />
             <p className="text-xs text-gray-500 mt-1">Número completo com código do país (55) e DDD</p>
