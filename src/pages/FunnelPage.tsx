@@ -38,7 +38,7 @@ interface FunnelStage {
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
-    remoteJid: string; // Changed from 'telefone' to 'remoteJid'
+    telefone: number | null; // REVERTED: Back to 'telefone' as number | null
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
@@ -87,7 +87,7 @@ interface FunnelPageProps {
 }
 
 // Webhook URL for updating lead stage
-const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/eaf897be-7829-4e59-b16c-028138e88939';
+const UPDATE_LEAD_STAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/eaf897be-7829-4e59-b16c-028138e8939';
 
 // Helper functions 
 function renderStars(score: number | null): JSX.Element[] {
@@ -137,8 +137,16 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const clinicId = clinicData?.id;
     const clinicCode = clinicData?.code;
 
-    // Add this log for initial parameter values
-    console.log("[FunnelPage - DIAGNOSIS] menuIdParam:", menuIdParam, "parsed menuId:", menuId, "mapped funnelIdForQuery:", funnelIdForQuery);
+    // Debugging Logs 
+    console.log("FunnelPage: Rendering");
+    console.log("FunnelPage: menuIdParam from URL:", menuIdParam);
+    console.log("FunnelPage: Parsed menuId:", menuId);
+    console.log("FunnelPage: isNaN(menuId):", isNaN(menuId));
+    console.log("FunnelPage: menuIdToFunnelIdMap:", menuIdToFunnelIdMap);
+    console.log("FunnelPage: menuId in map?", menuIdToFunnelIdMap.hasOwnProperty(menuId));
+    console.log("FunnelPage: clinicData:", clinicData);
+    console.log("FunnelPage: !clinicData:", !clinicData);
+    console.log("FunnelPage: funnelIdForQuery:", funnelIdForQuery);
 
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
@@ -263,14 +271,14 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Changed 'telefone' to 'remoteJid'
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // REVERTED: Back to 'telefone'
                 .eq('id_clinica', currentClinicId) 
                 .in('id_etapa', stageIds); 
 
             if (currentSearchTerm) {
                 const searchTermLower = currentSearchTerm.toLowerCase();
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,remoteJid.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`); // Changed 'telefone::text' to 'remoteJid'
-                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR remoteJid ILIKE '%${currentSearchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`); // REVERTED: Back to 'telefone::text'
+                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${currentSearchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             let orderByColumn = 'created_at';
@@ -513,20 +521,10 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     };
 
     const openNewLeadModal = () => setIsNewLeadModalOpen(true);
-    const closeNewLeadModal = () => setIsNewLeadModalOpen(false); // Corrected setter
+    const closeNewLeadModal = () => setIsNewLeadModalOpen(false);
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };
-
-    // --- DIAGNOSTIC LOGS ---
-    console.log("[FunnelPage Render Check] isLoading (overall):", isLoading);
-    console.log("[FunnelPage Render Check] fetchError (overall):", fetchError);
-    console.log("[FunnelPage Render Check] stagesData:", stagesData);
-    console.log("[FunnelPage Render Check] stagesData.length:", stagesData?.length);
-    console.log("[FunnelPage Render Check] funnelDetailsData:", funnelDetailsData);
-    console.log("[FunnelPage Render Check] leadsQueryData:", leadsQueryData);
-    console.log("[FunnelPage Render Check] totalItems:", totalItems);
-    // --- END DIAGNOSTIC LOGS ---
 
     if (isInvalidFunnel) {
         console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
@@ -604,7 +602,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                             <TriangleAlert className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Erro ao carregar dados do funil: {fetchError.message}</span>
                         </div>
-                    ) : (stagesData?.length ?? 0) === 0 ? ( 
+                    ) : (stagesData?.length ?? 0) === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
                             <Info className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Nenhuma etapa configurada para este funil ou nenhum dado retornado.</span>
@@ -673,7 +671,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                             onDragEnd={() => setDragOverStageId(null)} 
                                                         >
                                                             <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
-                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.remoteJid.split('@')[0])}</div> {/* Changed to remoteJid */}
+                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div> {/* REVERTED: Back to 'telefone' */}
                                                             {lead.lead_score !== null && (
                                                                 <div className="lead-score flex items-center gap-1 mb-2">
                                                                     {renderStars(lead.lead_score)}
@@ -718,7 +716,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.remoteJid.split('@')[0])}</span> {/* Changed to remoteJid */}
+                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span> {/* REVERTED: Back to 'telefone' */}
                                                     </div>
                                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
