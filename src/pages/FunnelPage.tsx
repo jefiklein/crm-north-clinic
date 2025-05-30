@@ -150,6 +150,19 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const isInvalidFunnel = !clinicData || isNaN(menuId) || funnelIdForQuery === undefined;
 
+    // Add a log for the overall invalid funnel status
+    useEffect(() => {
+        console.log("[FunnelPage] isInvalidFunnel:", isInvalidFunnel);
+        if (isInvalidFunnel) {
+            console.log("[FunnelPage] Reason for invalid funnel:", {
+                clinicDataPresent: !!clinicData,
+                menuIdIsNumber: !isNaN(menuId),
+                funnelIdForQueryDefined: funnelIdForQuery !== undefined
+            });
+        }
+    }, [isInvalidFunnel, clinicData, menuId, funnelIdForQuery]);
+
+
     const { data: stagesData, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['funnelStages', funnelIdForQuery], 
         queryFn: async () => {
@@ -305,6 +318,18 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         staleTime: 60 * 1000, 
         refetchOnWindowFocus: false,
     });
+
+    // Add a log for the enabled status of the leads query
+    useEffect(() => {
+        console.log("[FunnelPage] Leads query enabled status:", {
+            clinicId: !!clinicId,
+            funnelIdForQuery: !isNaN(funnelIdForQuery),
+            isInvalidFunnel: !isInvalidFunnel,
+            stagesData: !!stagesData,
+            overallEnabled: !!clinicId && !isNaN(funnelIdForQuery) && !isInvalidFunnel && !!stagesData
+        });
+    }, [clinicId, funnelIdForQuery, isInvalidFunnel, stagesData]);
+
 
     // NEW: Fetch Actions linked to stages in this funnel from north_clinic_funil_etapa_sequencias
     const { data: stageActions, isLoading: isLoadingStageActions, error: stageActionsError } = useQuery<StageAction[]>({
@@ -478,7 +503,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     };
 
     const openNewLeadModal = () => setIsNewLeadModalOpen(true);
-    const closeNewLeadModal = () => setIsNewLeadModalOpen(false);
+    const closeNewLeadModal = () => setIsNewLeadModal(false);
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };

@@ -107,6 +107,12 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
     const clinicId = clinicData?.id;
 
+    // Add a log here to check clinicData and clinicId
+    useEffect(() => {
+        console.log("[AllLeadsPage] clinicData:", clinicData);
+        console.log("[AllLeadsPage] clinicId:", clinicId);
+    }, [clinicData, clinicId]);
+
     // Fetch All Stages directly from Supabase (for displaying stage names) - REMOVED id_clinica filter
     const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
         queryKey: ['allStages'], // Removed clinicId from key
@@ -308,6 +314,16 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         staleTime: 60 * 1000, // 1 minute
         refetchOnWindowFocus: false,
     });
+
+    // Add a log for the enabled status of the leads query
+    useEffect(() => {
+        console.log("[AllLeadsPage] Leads query enabled status:", {
+            clinicId: !!clinicId,
+            allStages: !!allStages,
+            allFunnelDetails: !!allFunnelDetails,
+            overallEnabled: !!clinicId && !!allStages && !!allFunnelDetails
+        });
+    }, [clinicId, allStages, allFunnelDetails]);
 
     // Combine loading states and errors (include stages and funnels)
     const isLoading = isLoadingLeads || isLoadingStages || isLoadingFunnels;
