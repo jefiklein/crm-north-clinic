@@ -525,10 +525,8 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </span>
                                         </CardHeader>
                                         <CardContent className="flex-grow overflow-y-auto p-3 flex flex-col gap-3">
-                                            {actionsForStage.length === 0 && (
-                                                <div className="text-center text-gray-600 italic py-6">Nenhuma ação configurada para esta etapa.</div>
-                                            )}
-                                            {actionsForStage.map(action => (
+                                            {actionsForStage.length > 0 ? (
+                                                actionsForStage.map(action => (
                                                     <div key={action.id} className="config-card bg-white rounded-md p-3 shadow-sm border border-gray-200">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <span className="font-medium text-sm text-gray-800">
@@ -596,6 +594,8 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                         )}
                                                     </div>
                                                 ))
+                                            ) : (
+                                                <div className="text-center text-gray-600 italic py-6">Nenhuma ação configurada para esta etapa.</div>
                                             )}
                                             <Button
                                                 variant="outline"
