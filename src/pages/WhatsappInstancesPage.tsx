@@ -399,7 +399,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     confirmar_agendamento: false,
                     id_server_evolution: null,
                 })
-            );
+            };
 
             if (!dbResponse.ok) {
                 let dbErrorMsg = `Erro ${dbResponse.status} ao salvar no DB`;
@@ -939,7 +939,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         );
 
                         if (isDuplicateName) {
-                            setAddInstanceAlert({ message: `Já existe uma instância com o nome "${nome_exibição}". Por favor, use um nome diferente.`, type: 'error' });
+                            setAddInstanceAlert({ message: `Já existe uma instância com o nome "${nome_exibição}". Por favor, use um nome diferente.', type: 'error' });
                             return;
                         }
                         
