@@ -16,3 +16,8 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Expose supabase client globally for debugging in development
+if (import.meta.env.DEV) {
+  (window as any).supabase = supabase;
+}
