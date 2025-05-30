@@ -341,7 +341,7 @@ export const Sidebar: React.FC = () => {
 
   // Retrieve clinicData from localStorage directly within the component for now
   // A better approach would be using React Context or a state management library
-  const clinicData: ClinicData | null = JSON.parse(localStorage.getItem('clinicData') || 'null');
+  const clinicData: ClinicData | null = JSON.parse(localStorage.getItem('selectedClinicData') || 'null'); // Use selectedClinicData
 
   console.log("Sidebar: clinicData from localStorage:", clinicData);
 
@@ -406,7 +406,27 @@ export const Sidebar: React.FC = () => {
 
         console.log("Sidebar: Filtered menu items:", filteredItems);
 
-        setMenuItems(filteredItems as MenuItem[]); // Cast to MenuItem[]
+        // Manually add the "Cadastrar Usuário" item if user has admin permission
+        const registerUserMenuItem: MenuItem = {
+            id: 'register-user', // Unique ID for this item
+            nome: 'Cadastrar Usuário',
+            icon_key: 'user-plus', // Lucide icon key
+            permissao_necessaria: 1, // Only for admins (assuming 1 is admin)
+            ativo: true,
+            ordem: 999, // Place it at the end
+        };
+
+        let finalMenuItems = [...filteredItems];
+        // Check if the user's permission level is sufficient for this specific item
+        if (userPermissionLevel <= registerUserMenuItem.permissao_necessaria) {
+            finalMenuItems.push(registerUserMenuItem);
+        }
+        
+        // Re-sort to ensure the new item is in place if order matters
+        finalMenuItems.sort((a, b) => (a.ordem || Infinity) - (b.ordem || Infinity));
+
+
+        setMenuItems(finalMenuItems as MenuItem[]); // Cast to MenuItem[]
 
       } catch (err: any) {
         console.error("Sidebar: Erro ao buscar menu:", err);
@@ -488,14 +508,15 @@ export const Sidebar: React.FC = () => {
             const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
 
             // Determine the target path for react-router-dom Link
-            // Use String(item.id) === '1' for robust comparison
-            const internalTo = String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`;
+            // Special handling for 'register-user'
+            const finalTo = item.id === 'register-user' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
+
 
             // Always render as a react-router-dom Link for internal navigation
             return (
                 <Link
                     key={item.id}
-                    to={internalTo} // Use the determined internal path
+                    to={finalTo} // Use the determined internal path
                     // Updated colors for internal links and active state
                     className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
                 >
