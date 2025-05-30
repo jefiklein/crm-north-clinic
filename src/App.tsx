@@ -21,6 +21,7 @@ import LeadsMessagesPage from "./pages/LeadsMessagesPage"; // Import the new Lea
 import MensagensSequenciaConfigPage from "./pages/MensagensSequenciaConfigPage"; // Import the NEW sequence config page
 import CashbackBalancePage from "./pages/CashbackBalancePage"; // Import the NEW CashbackBalancePage
 import FunnelConfigPage from "./pages/FunnelConfigPage"; // Import the NEW FunnelConfigPage
+import SelectClinicPage from "./pages/SelectClinicPage"; // Import the new SelectClinicPage
 
 import React, { useState, useEffect } from 'react';
 
@@ -70,11 +71,11 @@ const App = () => {
 
   // Simple component to protect routes
   const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-    if (!clinicData || !clinicData.code) {
-      // If not logged in, redirect to the login page
+    if (!clinicData || !clinicData.id) { // Check for clinicData.id to ensure a clinic is selected
+      // If not logged in or no clinic selected, redirect to the login page or select-clinic page
       return <Navigate to="/" replace />;
     }
-    // If logged in, render the children (the route component)
+    // If logged in and clinic selected, render the children (the route component)
     return children;
   };
 
@@ -87,6 +88,9 @@ const App = () => {
           <Routes>
             {/* Login Page - Renders if not logged in */}
             <Route path="/" element={clinicData ? <Navigate to="/dashboard" replace /> : <Login /* onLogin={handleLogin} */ />} />
+            
+            {/* Route for selecting clinic */}
+            <Route path="/select-clinic" element={<SelectClinicPage />} />
 
             {/* Protected Routes - Require login */}
             <Route
@@ -94,7 +98,7 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   {/* Pass handleLogout to Layout */}
-                  <Layout onLogout={handleLogout} /> {/* Layout contains Sidebar, Header, and Outlet */}
+                  <Layout onLogout={handleLogout} clinicName={clinicData?.nome || ''} /> {/* Pass clinicName to Header */}
                 </ProtectedRoute>
               }
             >

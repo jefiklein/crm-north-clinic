@@ -63,23 +63,75 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         navigate('/'); // Redireciona para a página de login
         showSuccess("Você foi desconectado.");
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        // Se o usuário logou ou atualizou, verifica se já tem uma clínica selecionada
-        // Se não tiver, ou se a clínica selecionada não for mais válida, redireciona para seleção
-        if (!clinicData || !clinicData.id) { // clinicData aqui é o estado atual, pode não ter sido atualizado pelo localStorage ainda
-            const storedClinicData = localStorage.getItem('clinicData');
-            if (!storedClinicData) {
-                navigate('/select-clinic'); // Redireciona para a seleção de clínica
-            } else {
-                try {
-                    const parsedData = JSON.parse(storedClinicData);
-                    if (!parsedData.id) {
-                        navigate('/select-clinic');
-                    }
-                } catch (e) {
-                    console.error("Failed to parse stored clinic data on SIGNED_IN", e);
-                    navigate('/select-clinic');
-                }
+        if (currentSession?.user) {
+          console.log("User signed in/updated, fetching clinic data...");
+          const userId = currentSession.user.id;
+
+          // 1. Buscar roles do usuário
+          const { data: userRoles, error: rolesError } = await supabase
+            .from('user_clinic_roles')
+            .select('clinic_id, permission_level_id, is_active')
+            .eq('user_id', userId)
+            .eq('is_active', true) // Apenas roles ativas
+            .limit(1); // Por enquanto, pegamos a primeira role ativa
+
+          if (rolesError) {
+            console.error("Error fetching user roles:", rolesError);
+            showError(`Erro ao buscar permissões: ${rolesError.message}`);
+            setClinicData(null);
+            navigate('/select-clinic'); // Redireciona para seleção/erro
+            return;
+          }
+
+          if (userRoles && userRoles.length > 0) {
+            const primaryRole = userRoles[0];
+            const clinicId = primaryRole.clinic_id;
+            const permissionLevel = primaryRole.permission_level_id;
+
+            // 2. Buscar dados da clínica
+            const { data: clinicConfig, error: clinicError } = await supabase
+              .from('north_clinic_config_clinicas')
+              .select('id, nome_da_clinica, authentication, acesso_crm, acesso_config_msg, id_permissao')
+              .eq('id', clinicId)
+              .eq('ativo', true) // Apenas clínicas ativas
+              .single();
+
+            if (clinicError) {
+              console.error("Error fetching clinic config:", clinicError);
+              showError(`Erro ao buscar dados da clínica: ${clinicError.message}`);
+              setClinicData(null);
+              navigate('/select-clinic');
+              return;
             }
+
+            if (clinicConfig) {
+              const fetchedClinicData: ClinicData = {
+                code: clinicConfig.authentication || '', // Usar 'authentication' como 'code'
+                nome: clinicConfig.nome_da_clinica,
+                id: clinicConfig.id,
+                acesso_crm: clinicConfig.acesso_crm,
+                acesso_config_msg: clinicConfig.acesso_config_msg,
+                id_permissao: permissionLevel, // Usar o nível de permissão da role
+              };
+              console.log("Clinic data fetched and set:", fetchedClinicData);
+              setClinicData(fetchedClinicData);
+              navigate('/dashboard'); // Redireciona para o dashboard após carregar a clínica
+            } else {
+              console.warn("No active clinic found for user's role.");
+              showError("Nenhuma clínica ativa encontrada para seu usuário.");
+              setClinicData(null);
+              navigate('/select-clinic');
+            }
+          } else {
+            console.warn("No active roles found for user.");
+            showError("Seu usuário não possui permissões ativas para nenhuma clínica.");
+            setClinicData(null);
+            navigate('/select-clinic');
+          }
+        } else {
+          // No user in session, clear clinic data and redirect to login
+          setClinicData(null);
+          navigate('/');
         }
       }
     });
