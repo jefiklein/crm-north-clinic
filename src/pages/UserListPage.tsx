@@ -51,7 +51,7 @@ interface UserListPageProps {
     clinicData: ClinicData | null;
 }
 
-const REQUIRED_PERMISSION_LEVEL = 1; // Admin level
+const REQUIRED_PERMISSION_LEVEL = 3; // Admin level - ALTERADO PARA 3
 
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
