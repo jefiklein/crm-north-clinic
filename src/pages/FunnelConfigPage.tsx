@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search, ArrowRight, MessageSquareText, Repeat, Check, ChevronsUpDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn } from '@/lib/utils';
+import { cn } '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
 import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -85,6 +85,9 @@ interface FunnelConfigPageProps {
 
 // New N8N webhook URL for saving/updating actions
 const N8N_SAVE_ACTION_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/c3ace473-a07c-4bff-9c48-46ced144a319';
+// New N8N webhook URL for deleting actions
+const N8N_DELETE_ACTION_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/184b3691-67db-4bab-9cb0-4bf18b13832b';
+
 
 const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const queryClient = useQueryClient();
@@ -248,14 +251,25 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const deleteActionMutation = useMutation({
         mutationFn: async (actionId: number) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
-            const { error } = await supabase
-                .from('north_clinic_funil_etapa_sequencias')
-                .delete()
-                .eq('id', actionId)
-                .eq('id_clinica', clinicId); // Ensure clinic ownership
+            
+            console.log(`[FunnelConfigPage] Calling webhook to delete action ${actionId} for clinic ${clinicId}`);
+            const response = await fetch(N8N_DELETE_ACTION_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actionId: actionId, clinicId: clinicId }),
+            });
 
-            if (error) throw new Error(`Erro ao excluir ação: ${error.message}`);
-            return true;
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status} ao excluir ação`;
+                try { 
+                    const errorData = await response.json(); 
+                    errorMsg = errorData.message || JSON.stringify(errorData) || errorMsg; 
+                } catch (e) { 
+                    errorMsg = `${errorMsg}: ${await response.text()}`; 
+                }
+                throw new Error(errorMsg);
+            }
+            return response.json();
         },
         onSuccess: () => {
             showSuccess('Ação excluída com sucesso!');
