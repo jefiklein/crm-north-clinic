@@ -9,16 +9,10 @@ const SelectClinicPage: React.FC = () => {
     const navigate = useNavigate();
     const { logout, availableClinics, selectClinic, isLoadingAuth, clinicData } = useAuth(); // Get availableClinics and selectClinic
 
-    // Redirect to dashboard if a clinic is already selected and availableClinics are loaded
-    useEffect(() => {
-        if (!isLoadingAuth && clinicData && availableClinics && availableClinics.length > 0) {
-            // If a clinic is already selected and it's in the available list, go to dashboard
-            if (availableClinics.some(c => String(c.id) === String(clinicData.id))) {
-                navigate('/dashboard');
-            }
-        }
-    }, [isLoadingAuth, clinicData, availableClinics, navigate]);
-
+    // REMOVED: useEffect that was causing the redirect loop.
+    // The initial redirection logic is now handled by ProtectedRoute in App.tsx.
+    // If a user is on this page, it's either because they need to select a clinic
+    // after login, or they explicitly navigated here to change clinics.
 
     const handleGoToLogin = async () => {
         await logout(); // Perform logout to clear session
