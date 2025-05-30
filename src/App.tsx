@@ -30,8 +30,8 @@ interface ClinicData {
   code: string;
   nome: string;
   id: string | number | null;
-  acesso_crm: boolean;
-  acesso_config_msg: boolean;
+  // acesso_crm: boolean; // Removido
+  // acesso_config_msg: boolean; // Removido
   id_permissao: number;
 }
 
@@ -58,11 +58,6 @@ const App = () => {
       localStorage.removeItem('clinicData');
     }
   }, [clinicData]);
-
-  // Function to handle successful login (this function will become redundant soon)
-  // const handleLogin = (data: ClinicData) => {
-  //   setClinicData(data);
-  // };
 
   // Function to handle logout
   const handleLogout = () => {

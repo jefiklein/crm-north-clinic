@@ -9,8 +9,8 @@ interface ClinicData {
   code: string;
   nome: string;
   id: string | number | null;
-  acesso_crm: boolean;
-  acesso_config_msg: boolean;
+  // acesso_crm: boolean; // Removido
+  // acesso_config_msg: boolean; // Removido
   id_permissao: number; // Permissão do usuário para esta clínica
 }
 
@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log("[AuthContext] onAuthStateChange: Buscando dados da clínica com ID:", clinicId);
             const { data: clinicConfig, error: clinicError } = await supabase
               .from('north_clinic_config_clinicas')
-              .select('id, nome_da_clinica, authentication, acesso_crm, acesso_config_msg, id_permissao')
+              .select('id, nome_da_clinica, authentication, id_permissao') // Removido acesso_crm, acesso_config_msg
               .eq('id', clinicId)
               .eq('ativo', true) // Apenas clínicas ativas
               .single();
@@ -127,8 +127,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 code: clinicConfig.authentication || '', // Usar 'authentication' como 'code'
                 nome: clinicConfig.nome_da_clinica,
                 id: clinicConfig.id,
-                acesso_crm: clinicConfig.acesso_crm,
-                acesso_config_msg: clinicConfig.acesso_config_msg,
+                // acesso_crm: clinicConfig.acesso_crm, // Removido
+                // acesso_config_msg: clinicConfig.acesso_config_msg, // Removido
                 id_permissao: permissionLevel, // Usar o nível de permissão da role
               };
               console.log("[AuthContext] onAuthStateChange: Dados da clínica carregados e definidos:", fetchedClinicData);
