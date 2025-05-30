@@ -22,7 +22,8 @@ import MensagensSequenciaConfigPage from "./pages/MensagensSequenciaConfigPage";
 import CashbackBalancePage from "./pages/CashbackBalancePage";
 import FunnelConfigPage from "./pages/FunnelConfigPage";
 import SelectClinicPage from "./pages/SelectClinicPage";
-import UserRegistrationPage from "./pages/UserRegistrationPage"; // Import the new page
+import UserRegistrationPage from "./pages/UserRegistrationPage";
+import UserListPage from "./pages/UserListPage"; // Import the new page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -103,7 +104,8 @@ const App = () => {
             <Route path="10" element={<WhatsappInstancesPage clinicData={clinicData} />} />
             <Route path="11" element={<MensagensListPage clinicData={clinicData} />} />
             <Route path="config-mensagem" element={<MensagensConfigPage clinicData={clinicData} />} />
-            <Route path="register-user" element={<UserRegistrationPage />} /> {/* New route */}
+            <Route path="register-user" element={<UserRegistrationPage />} />
+            <Route path="15" element={<UserListPage clinicData={clinicData} />} /> {/* New route for UserListPage */}
             <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
             <Route path="*" element={<UnderConstructionPage />} />
           </Route>
