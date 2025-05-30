@@ -759,8 +759,13 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                     >
                                         <MessagesSquare className="h-8 w-8 text-green-600 flex-shrink-0 md:row-span-2" /> 
                                         
-                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px]">
-                                            <span className="display-name text-base font-semibold">{instance.nome_exibição || 'Sem nome'}</span>
+                                        <div className="whatsapp-info flex flex-col flex-grow min-w-[150px] overflow-hidden"> 
+                                            <span 
+                                                className="display-name text-base font-semibold truncate" 
+                                                title={instance.nome_exibição || 'Sem nome'}
+                                            >
+                                                {instance.nome_exibição || 'Sem nome'}
+                                            </span>
                                             <span className="instance-phone text-sm text-gray-600">{formatPhone(instance.telefone)}</span>
                                             {instance.tipo && (
                                                 <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 select-none w-fit">
