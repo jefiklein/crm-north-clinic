@@ -54,17 +54,20 @@ const App = () => {
 
   // Simple component to protect routes
   const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-    // If authentication is still loading, you might want to show a loading spinner
+    // If authentication is still loading, show a loading spinner or null
     if (isLoadingAuth) {
-      return <div className="flex items-center justify-center min-h-screen">Carregando autenticação...</div>;
+      console.log("[App.tsx] ProtectedRoute: Autenticação ainda carregando...");
+      return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando autenticação...</div>;
     }
     
-    if (!clinicData || !clinicData.id) { // Check for clinicData.id to ensure a clinic is selected
-      // If not logged in or no clinic selected, redirect to the login page or select-clinic page
-      console.log("[App.tsx] ProtectedRoute: Redirecting to / because clinicData is missing or invalid.", clinicData);
+    // If authentication has finished loading and clinicData is null, redirect to login
+    if (!clinicData || !clinicData.id) { 
+      console.log("[App.tsx] ProtectedRoute: Redirecionando para / porque clinicData está ausente ou inválido após o carregamento da autenticação.", clinicData);
       return <Navigate to="/" replace />;
     }
-    // If logged in and clinic selected, render the children (the route component)
+    
+    // If authentication has finished loading and clinicData is available, render the children
+    console.log("[App.tsx] ProtectedRoute: clinicData disponível. Renderizando rotas protegidas.", clinicData);
     return children;
   };
 
