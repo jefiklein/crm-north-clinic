@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -14,8 +14,9 @@ interface ClinicData {
 
 interface AuthContextType {
   session: Session | null;
-  clinicData: ClinicData | null;
-  setClinicData: (data: ClinicData | null) => void;
+  clinicData: ClinicData | null; // A clínica atualmente selecionada
+  availableClinics: ClinicData[] | null; // Todas as clínicas que o usuário pode acessar
+  selectClinic: (clinicId: number | string) => void; // Função para selecionar uma clínica
   isLoadingAuth: boolean;
   logout: () => Promise<void>;
 }
@@ -24,20 +25,41 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [clinicData, setClinicDataState] = useState<ClinicData | null>(null);
+  const [clinicData, setClinicDataState] = useState<ClinicData | null>(null); // A clínica atualmente selecionada
+  const [availableClinics, setAvailableClinics] = useState<ClinicData[] | null>(null); // Lista de clínicas disponíveis
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const navigate = useNavigate();
 
   // Função para atualizar clinicData e persistir no localStorage
-  const setClinicData = (data: ClinicData | null) => {
-    console.log("[AuthContext] setClinicData: Atualizando estado e localStorage com:", data);
+  const setAndPersistClinicData = useCallback((data: ClinicData | null) => {
+    console.log("[AuthContext] setAndPersistClinicData: Atualizando estado e localStorage com:", data);
     setClinicDataState(data);
     if (data) {
-      localStorage.setItem('clinicData', JSON.stringify(data));
+      localStorage.setItem('selectedClinicData', JSON.stringify(data)); // Chave diferente para a clínica selecionada
     } else {
-      localStorage.removeItem('clinicData');
+      localStorage.removeItem('selectedClinicData');
     }
-  };
+  }, []);
+
+  // Função para selecionar uma clínica da lista de disponíveis
+  const selectClinic = useCallback((clinicId: number | string) => {
+    console.log("[AuthContext] selectClinic: Tentando selecionar clínica com ID:", clinicId);
+    if (availableClinics) {
+      const selected = availableClinics.find(c => String(c.id) === String(clinicId));
+      if (selected) {
+        setAndPersistClinicData(selected);
+        showSuccess(`Clínica "${selected.nome}" selecionada.`);
+        navigate('/dashboard'); // Redireciona para o dashboard após a seleção
+      } else {
+        showError("Clínica selecionada não encontrada ou não disponível.");
+        console.error("[AuthContext] selectClinic: Clínica não encontrada na lista de disponíveis.", clinicId, availableClinics);
+      }
+    } else {
+      showError("Lista de clínicas disponíveis não carregada.");
+      console.error("[AuthContext] selectClinic: availableClinics é null.");
+    }
+  }, [availableClinics, setAndPersistClinicData, navigate]);
+
 
   useEffect(() => {
     console.log("[AuthContext] useEffect: Iniciando processo de autenticação...");
@@ -47,84 +69,123 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(currentSession);
 
       if (currentSession?.user) {
-        console.log("[AuthContext] handleAuthSession: Usuário presente. Buscando dados da clínica...");
+        console.log("[AuthContext] handleAuthSession: Usuário presente. Buscando todas as clínicas vinculadas...");
         const userId = currentSession.user.id;
 
         try {
-          // 1. Buscar roles do usuário
-          console.log("[AuthContext] handleAuthSession: Buscando roles do usuário...");
+          // 1. Buscar TODAS as roles ativas do usuário
+          console.log("[AuthContext] handleAuthSession: Buscando todas as roles ativas do usuário...");
           const { data: userRoles, error: rolesError } = await supabase
             .from('user_clinic_roles')
             .select('clinic_id, permission_level_id, is_active')
             .eq('user_id', userId)
-            .eq('is_active', true)
-            .limit(1);
+            .eq('is_active', true); // Buscar todas as roles ativas
 
           if (rolesError) {
             console.error("[AuthContext] handleAuthSession: Erro ao buscar permissões do usuário:", rolesError);
             showError(`Erro ao buscar permissões: ${rolesError.message}`);
-            setClinicData(null);
+            setAvailableClinics(null);
+            setAndPersistClinicData(null);
             navigate('/select-clinic');
             return;
           }
 
           if (userRoles && userRoles.length > 0) {
-            const primaryRole = userRoles[0];
-            const clinicId = primaryRole.clinic_id;
-            const permissionLevel = primaryRole.permission_level_id;
-            console.log("[AuthContext] handleAuthSession: Role encontrada. Clinic ID:", clinicId, "Nível de Permissão:", permissionLevel);
+            console.log("[AuthContext] handleAuthSession: Roles encontradas:", userRoles);
+            
+            // Buscar detalhes de CADA clínica vinculada
+            const clinicIds = userRoles.map(role => role.clinic_id);
+            console.log("[AuthContext] handleAuthSession: IDs de clínicas para buscar detalhes:", clinicIds);
 
-            // 2. Buscar dados da clínica
-            console.log("[AuthContext] handleAuthSession: Buscando dados da clínica com ID:", clinicId);
-            const { data: clinicConfig, error: clinicError } = await supabase
+            const { data: clinicConfigs, error: clinicError } = await supabase
               .from('north_clinic_config_clinicas')
               .select('id, nome_da_clinica, authentication, id_permissao')
-              .eq('id', clinicId)
-              .eq('ativo', true)
-              .single();
+              .in('id', clinicIds) // Buscar todas as clínicas com esses IDs
+              .eq('ativo', true); // Apenas clínicas ativas
 
             if (clinicError) {
-              console.error("[AuthContext] handleAuthSession: Erro ao buscar configuração da clínica:", clinicError);
-              showError(`Erro ao buscar dados da clínica: ${clinicError.message}`);
-              setClinicData(null);
+              console.error("[AuthContext] handleAuthSession: Erro ao buscar configurações das clínicas:", clinicError);
+              showError(`Erro ao buscar dados das clínicas: ${clinicError.message}`);
+              setAvailableClinics(null);
+              setAndPersistClinicData(null);
               navigate('/select-clinic');
               return;
             }
 
-            if (clinicConfig) {
-              const fetchedClinicData: ClinicData = {
-                code: clinicConfig.authentication || '',
-                nome: clinicConfig.nome_da_clinica,
-                id: clinicConfig.id,
-                id_permissao: permissionLevel,
-              };
-              console.log("[AuthContext] handleAuthSession: Dados da clínica carregados e definidos:", fetchedClinicData);
-              setClinicData(fetchedClinicData);
-              // Se já estiver no dashboard, não navega novamente para evitar loops
-              if (window.location.pathname === '/' || window.location.pathname.startsWith('/select-clinic')) {
-                navigate('/dashboard');
+            const fetchedClinics: ClinicData[] = (clinicConfigs || []).map(config => {
+                // Encontrar o nível de permissão correto para esta clínica
+                const role = userRoles.find(r => r.clinic_id === config.id);
+                return {
+                    code: config.authentication || '',
+                    nome: config.nome_da_clinica,
+                    id: config.id,
+                    id_permissao: role?.permission_level_id || 0, // Usar o nível de permissão da role
+                };
+            });
+            console.log("[AuthContext] handleAuthSession: Clínicas disponíveis carregadas:", fetchedClinics);
+            setAvailableClinics(fetchedClinics);
+
+            // Lógica para definir a clínica atualmente selecionada
+            const storedClinicData = localStorage.getItem('selectedClinicData');
+            let selectedClinic: ClinicData | null = null;
+
+            if (storedClinicData) {
+              try {
+                const parsedStoredData: ClinicData = JSON.parse(storedClinicData);
+                // Verificar se a clínica armazenada ainda está na lista de clínicas disponíveis
+                if (fetchedClinics.some(c => String(c.id) === String(parsedStoredData.id))) {
+                  selectedClinic = parsedStoredData;
+                  console.log("[AuthContext] handleAuthSession: Clínica selecionada do localStorage é válida:", selectedClinic);
+                } else {
+                  console.warn("[AuthContext] handleAuthSession: Clínica do localStorage não é mais válida. Limpando.");
+                  localStorage.removeItem('selectedClinicData');
+                }
+              } catch (e) {
+                console.error("[AuthContext] handleAuthSession: Erro ao analisar clinicData do localStorage", e);
+                localStorage.removeItem('selectedClinicData');
               }
-            } else {
-              console.warn("[AuthContext] handleAuthSession: Nenhuma clínica ativa encontrada para a role do usuário.");
-              showError("Nenhuma clínica ativa encontrada para seu usuário.");
-              setClinicData(null);
-              navigate('/select-clinic');
             }
+
+            if (!selectedClinic && fetchedClinics.length === 1) {
+              // Se não houver clínica selecionada e apenas uma disponível, seleciona automaticamente
+              selectedClinic = fetchedClinics[0];
+              console.log("[AuthContext] handleAuthSession: Apenas uma clínica disponível, selecionando automaticamente:", selectedClinic);
+            }
+
+            setAndPersistClinicData(selectedClinic); // Define a clínica selecionada (pode ser null)
+
+            // Redirecionamento baseado no número de clínicas e seleção
+            if (fetchedClinics.length > 1 && !selectedClinic) {
+              console.log("[AuthContext] handleAuthSession: Múltiplas clínicas, redirecionando para seleção.");
+              navigate('/select-clinic');
+            } else if (fetchedClinics.length === 0) {
+              console.warn("[AuthContext] handleAuthSession: Nenhuma clínica ativa encontrada para o usuário.");
+              showError("Nenhuma clínica ativa encontrada para seu usuário.");
+              navigate('/select-clinic');
+            } else if (window.location.pathname === '/' || window.location.pathname.startsWith('/select-clinic')) {
+              // Se já estiver no dashboard, não navega novamente para evitar loops
+              // Se veio da tela de login ou seleção, vai para o dashboard
+              navigate('/dashboard');
+            }
+
           } else {
             console.warn("[AuthContext] handleAuthSession: Nenhuma role ativa encontrada para o usuário.");
             showError("Seu usuário não possui permissões ativas para nenhuma clínica.");
-            setClinicData(null);
+            setAvailableClinics([]); // Nenhuma clínica disponível
+            setAndPersistClinicData(null);
             navigate('/select-clinic');
           }
         } catch (e: any) {
           console.error("[AuthContext] handleAuthSession: Erro inesperado durante o processamento da sessão:", e);
           showError(`Erro inesperado: ${e.message}`);
-          setClinicData(null);
+          setAvailableClinics(null);
+          setAndPersistClinicData(null);
           navigate('/select-clinic');
         }
       } else {
-        console.log("[AuthContext] handleAuthSession: Nenhuma sessão de usuário. Limpando dados da clínica.");
-        setClinicData(null);
+        console.log("[AuthContext] handleAuthSession: Nenhuma sessão de usuário. Limpando dados da clínica e disponíveis.");
+        setAvailableClinics(null);
+        setAndPersistClinicData(null);
         // Se não houver sessão e não estiver na página de login ou select-clinic, redireciona
         if (window.location.pathname !== '/' && !window.location.pathname.startsWith('/select-clinic')) {
           navigate('/');
@@ -133,19 +194,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoadingAuth(false); // Finaliza o carregamento da autenticação
     };
 
-    // 1. Tenta carregar clinicData do localStorage (estado provisório)
-    const savedClinicData = localStorage.getItem('clinicData');
-    if (savedClinicData) {
-      try {
-        const parsedData = JSON.parse(savedClinicData);
-        console.log("[AuthContext] useEffect: clinicData carregado do localStorage (provisório):", parsedData);
-        setClinicDataState(parsedData);
-      } catch (e) {
-        console.error("[AuthContext] useEffect: Falha ao analisar clinicData do localStorage", e);
-        localStorage.removeItem('clinicData');
-      }
-    }
-
     // 2. Verifica a sessão atual do Supabase (estado definitivo)
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       console.log("[AuthContext] useEffect: getSession() inicial. Sessão:", initialSession);
@@ -153,7 +201,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }).catch(error => {
       console.error("[AuthContext] useEffect: Erro ao obter sessão inicial:", error);
       setIsLoadingAuth(false);
-      setClinicData(null);
+      setAvailableClinics(null);
+      setAndPersistClinicData(null);
       navigate('/');
     });
 
@@ -162,7 +211,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("[AuthContext] onAuthStateChange: Evento:", event, "Sessão:", currentSession);
       if (event === 'SIGNED_OUT') {
         console.log("[AuthContext] onAuthStateChange: Usuário deslogado. Limpando dados da clínica e navegando para /.");
-        setClinicData(null);
+        setAvailableClinics(null);
+        setAndPersistClinicData(null);
         navigate('/');
         showSuccess("Você foi desconectado.");
         setIsLoadingAuth(false); // Garante que o estado de carregamento seja falso após o logout
@@ -176,7 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("[AuthContext] useEffect: Desinscrevendo do onAuthStateChange.");
       subscription.unsubscribe();
     };
-  }, []); // Dependências vazias para rodar apenas uma vez na montagem
+  }, [navigate, setAndPersistClinicData]); // Adiciona dependências para useCallback
 
   // NEW: Diagnostic useEffect to test direct Supabase queries for funnels and stages
   useEffect(() => {
@@ -213,7 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ session, clinicData, setClinicData, isLoadingAuth, logout }}>
+    <AuthContext.Provider value={{ session, clinicData, availableClinics, selectClinic, isLoadingAuth, logout }}>
       {children}
     </AuthContext.Provider>
   );

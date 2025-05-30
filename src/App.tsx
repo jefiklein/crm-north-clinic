@@ -40,7 +40,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   // Use useAuth hook to get clinicData and logout function
-  const { clinicData, logout, isLoadingAuth } = useAuth();
+  const { clinicData, logout, isLoadingAuth, availableClinics } = useAuth(); // Added availableClinics
 
   // Log clinicData whenever it changes in App.tsx
   useEffect(() => {
@@ -61,9 +61,10 @@ const App = () => {
     }
     
     // If authentication has finished loading and clinicData is null, redirect to login
-    if (!clinicData || !clinicData.id) { 
-      console.log("[App.tsx] ProtectedRoute: Redirecionando para / porque clinicData está ausente ou inválido após o carregamento da autenticação.", clinicData);
-      return <Navigate to="/" replace />;
+    // If availableClinics is loaded and empty, also redirect to select-clinic
+    if (!clinicData || !clinicData.id || (availableClinics && availableClinics.length === 0)) { 
+      console.log("[App.tsx] ProtectedRoute: Redirecionando para /select-clinic porque clinicData está ausente ou inválido após o carregamento da autenticação, ou não há clínicas disponíveis.", clinicData, availableClinics);
+      return <Navigate to="/select-clinic" replace />;
     }
     
     // If authentication has finished loading and clinicData is available, render the children
@@ -90,7 +91,7 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   {/* Pass handleLogout to Layout */}
-                  <Layout onLogout={handleLogout} clinicName={clinicData?.nome || ''} /> {/* Pass clinicName to Header */}
+                  <Layout onLogout={handleLogout} /> {/* Removed clinicName prop */}
                 </ProtectedRoute>
               }
             >
