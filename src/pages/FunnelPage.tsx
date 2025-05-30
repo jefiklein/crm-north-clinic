@@ -248,6 +248,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
             }
 
             const stageIds = stagesData.map(stage => stage.id);
+            console.log(`FunnelPage: Stage IDs for leads query: [${stageIds.join(', ')}]`); // Log the stage IDs
             if (stageIds.length === 0) {
                  console.warn("FunnelPage: Skipping leads fetch because no stage IDs found for the funnel.");
                  return { leads: [], totalCount: 0 };
