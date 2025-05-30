@@ -184,7 +184,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 .select(`
                     *,
                     north_clinic_mensagens_sequencias ( nome_sequencia, ativo ),
-                    target_stage_details:north_clinic_crm_etapa!north_clinic_funil_etapa_sequencias_target_etapa_id_fkey ( nome_etapa, id_funil )
+                    target_stage_details:north_clinic_crm_etapa!target_etapa_id(nome_etapa, id_funil)
                 `)
                 .eq('id_clinica', currentClinicId)
                 .eq('id_funil', currentFunnelIdForQuery);
