@@ -34,11 +34,11 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
-// Define the structure for Leads fetched from Supabase - UPDATED to use remoteJid
+// Define the structure for Leads fetched from Supabase - UPDATED to use telefone
 interface SupabaseLead {
     id: number;
     nome_lead: string | null;
-    remoteJid: string; // Use remoteJid instead of telefone
+    telefone: number | null; // Changed from remoteJid to telefone
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
@@ -86,15 +86,11 @@ function formatLeadTimestamp(iso: string | null): string {
     }
 }
 
-// UPDATED: Function to open lead details using remoteJid
-function openLeadDetails(remoteJid: string) {
-    if (!remoteJid) return;
-    // Extract the number part before the '@'
-    const phoneNumber = remoteJid.split('@')[0];
-    if (phoneNumber) {
-        // Open in a new tab
-        window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${phoneNumber}`, '_blank');
-    }
+// UPDATED: Function to open lead details using telefone
+function openLeadDetails(telefone: number | null) {
+    if (!telefone) return;
+    // Open in a new tab
+    window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${telefone}`, '_blank');
 }
 
 
@@ -242,16 +238,16 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                // UPDATED SELECT: Use remoteJid instead of telefone
-                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                // UPDATED SELECT: Use telefone instead of remoteJid
+                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
                 .eq('id_clinica', clinicId); // Filter by clinic ID - KEEP THIS
 
             // Apply filtering if searchTerm is not empty
             if (searchTerm) {
                 const searchTermLower = searchTerm.toLowerCase();
-                // UPDATED FILTER: Search remoteJid instead of telefone::text
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,remoteJid.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
-                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR remoteJid ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+                // UPDATED FILTER: Search telefone::text instead of remoteJid
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${searchTerm}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`[AllLeadsPage] Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${searchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             // Apply sorting
@@ -436,18 +432,18 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     ) : (
                         leadsToDisplay.map(lead => {
                             const stageInfo = getStageAndFunnelInfo(lead.id_etapa);
-                            // Extract phone number from remoteJid
-                            const phoneNumber = lead.remoteJid ? lead.remoteJid.split('@')[0] : null;
+                            // Use lead.telefone directly as it's now the correct column
+                            const phoneNumber = lead.telefone;
                             return (
                                 <div
                                     key={lead.id}
                                     className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => openLeadDetails(lead.remoteJid)} // Use remoteJid here
+                                    onClick={() => openLeadDetails(lead.telefone)} // Use lead.telefone here
                                 >
                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                        {/* Display formatted phone number extracted from remoteJid */}
+                                        {/* Display formatted phone number from telefone */}
                                         <span className="lead-phone text-sm text-gray-600">{formatPhone(phoneNumber)}</span>
                                         {/* Removed rendering of interests */}
                                     </div>
