@@ -24,7 +24,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children }: { ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [clinicData, setClinicDataState] = useState<ClinicData | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -113,6 +113,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               .eq('id', clinicId)
               .eq('ativo', true) // Apenas clínicas ativas
               .single();
+
+            console.log("[AuthContext] onAuthStateChange: Resultado da busca de config da clínica - data:", clinicConfig, "error:", clinicError);
 
             if (clinicError) {
               console.error("[AuthContext] onAuthStateChange: Erro ao buscar configuração da clínica:", clinicError);
