@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search, ArrowRight, MessageSquareText, Repeat } from "lucide-react";
+import { Loader2, TriangleAlert, Info, MessageSquarePlus, Clock, Hourglass, Edit, Trash2, Search, ArrowRight, MessageSquareText, Repeat, Check, ChevronsUpDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from '@/lib/utils';
 import UnderConstructionPage from './UnderConstructionPage';
@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select for target stage
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"; // Import Command components
 
 interface ClinicData {
   code: string;
@@ -97,7 +99,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const [stageToConfigureId, setStageToConfigureId] = useState<number | null>(null);
     const [selectedActionType, setSelectedActionType] = useState<'message' | 'change_stage' | null>(null); // Can be null initially
     const [selectedMessageToLink, setSelectedMessageToLink] = useState<number | null>(null);
-    const [messageSearchTerm, setMessageSearchTerm] = useState('');
+    const [messageSearchTerm, setMessageSearchTerm] = useState(''); // Keep for query, but UI will use CommandInput
     const [targetStageForChange, setTargetStageForChange] = useState<number | null>(null);
     
     // State for timing configuration within the modal
@@ -110,6 +112,9 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
     // New state to control the modal's internal view
     const [modalView, setModalView] = useState<'initial' | 'action_details'>('initial');
+
+    // State for combobox open status
+    const [isComboboxOpen, setIsComboboxOpen] = useState(false);
 
 
     // Check if the menuIdParam corresponds to a valid funnel ID
@@ -214,7 +219,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
 
     // Fetch all Leads messages for the selection modal
     const { data: selectableLeadsMessages, isLoading: isLoadingSelectableMessages, error: selectableMessagesError } = useQuery<SelectableMessageItem[]>({
-        queryKey: ['selectableLeadsMessages', clinicId, messageSearchTerm],
+        queryKey: ['selectableLeadsMessages', clinicId], // Removed messageSearchTerm from key as CommandInput handles filtering
         queryFn: async () => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
             let query = supabase
@@ -223,9 +228,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 .eq('id_clinica', clinicId)
                 .eq('contexto', 'leads');
 
-            if (messageSearchTerm) {
-                query = query.ilike('nome_sequencia', `%${messageSearchTerm}%`);
-            }
+            // No filtering by messageSearchTerm here, CommandInput will filter client-side
             query = query.order('nome_sequencia', { ascending: true });
 
             const { data, error } = await query;
@@ -440,6 +443,12 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const fetchError = stagesError || funnelDetailsError || stageActionsError;
 
     const funnelName = funnelDetailsData?.nome_funil || `Funil ID ${funnelIdForQuery}`;
+
+    // Get the selected message name for display in the combobox trigger
+    const selectedMessageName = useMemo(() => {
+        return selectableLeadsMessages?.find(msg => msg.id === selectedMessageToLink)?.nome_sequencia || "Selecione uma mensagem...";
+    }, [selectedMessageToLink, selectableLeadsMessages]);
+
 
     // Display UnderConstructionPage if the funnel is invalid
     if (isInvalidFunnel) {
@@ -732,53 +741,65 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                             {/* Conditional Content based on selectedActionType */}
                             {selectedActionType === 'message' && (
                                 <>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar mensagens existentes..."
-                                            value={messageSearchTerm}
-                                            onChange={(e) => setMessageSearchTerm(e.target.value)}
-                                            className="pl-9"
-                                        />
-                                    </div>
-
-                                    {isLoadingSelectableMessages ? (
-                                        <div className="flex items-center justify-center gap-2 text-primary py-8">
-                                            <Loader2 className="animate-spin" />
-                                            Carregando mensagens...
-                                        </div>
-                                    ) : selectableMessagesError ? (
-                                        <div className="text-red-600 font-semibold flex items-center gap-2 py-8">
-                                            <TriangleAlert className="h-5 w-5" />
-                                            Erro ao carregar mensagens: {selectableMessagesError.message}
-                                        </div>
-                                    ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
-                                        <div className="text-gray-600 text-center py-8">
-                                            Nenhuma mensagem de leads encontrada.
-                                        </div>
-                                    ) : (
-                                        <RadioGroup
-                                            value={selectedMessageToLink?.toString() || ''}
-                                            onValueChange={(value) => setSelectedMessageToLink(parseInt(value, 10))}
-                                            className="flex flex-col gap-2 overflow-y-auto pr-2"
-                                        >
-                                            {selectableLeadsMessages?.map(msg => (
-                                                <div key={msg.id} className="flex items-start space-x-3 p-3 border rounded-md hover:bg-gray-50">
-                                                    <RadioGroupItem value={msg.id.toString()} id={`msg-${msg.id}`} />
-                                                    <Label htmlFor={`msg-${msg.id}`} className="flex flex-col flex-grow cursor-pointer">
-                                                        <span className="font-medium text-gray-900 line-clamp-1">{msg.nome_sequencia || 'Mensagem sem nome'}</span>
-                                                        <span className={cn(
-                                                            "text-xs font-semibold px-1.5 py-0.5 rounded-full w-fit mt-1",
-                                                            msg.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                        )}>
-                                                            {msg.ativo ? 'Ativa' : 'Inativa'}
-                                                        </span>
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                        </RadioGroup>
-                                    )}
+                                    <Label htmlFor="messageSelect" className="block mb-1 font-medium text-gray-700">
+                                        Mensagem para Vincular *
+                                    </Label>
+                                    <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={isComboboxOpen}
+                                                className="w-full justify-between"
+                                                disabled={isLoadingSelectableMessages || !!selectableMessagesError}
+                                            >
+                                                {selectedMessageName}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar mensagem..." />
+                                                <CommandList>
+                                                    {isLoadingSelectableMessages ? (
+                                                        <CommandEmpty>
+                                                            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando mensagens...
+                                                        </CommandEmpty>
+                                                    ) : selectableMessagesError ? (
+                                                        <CommandEmpty>
+                                                            <TriangleAlert className="h-5 w-5 text-red-500 mr-2" /> Erro: {selectableMessagesError.message}
+                                                        </CommandEmpty>
+                                                    ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
+                                                        <CommandEmpty>Nenhuma mensagem encontrada.</CommandEmpty>
+                                                    ) : (
+                                                        <CommandGroup>
+                                                            {selectableLeadsMessages?.map((msg) => (
+                                                                <CommandItem
+                                                                    key={msg.id}
+                                                                    value={msg.nome_sequencia || `Mensagem ${msg.id}`} // Use nome_sequencia for search value
+                                                                    onSelect={() => {
+                                                                        setSelectedMessageToLink(msg.id);
+                                                                        setIsComboboxOpen(false);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            selectedMessageToLink === msg.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {msg.nome_sequencia}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Button variant="link" size="sm" onClick={() => handleNavigateToMessageConfig()} className="mt-2">
+                                        + Criar Nova Mensagem
+                                    </Button>
                                 </>
                             )}
 
