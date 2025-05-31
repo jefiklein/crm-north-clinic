@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'; // Updated to latest stable version
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,11 +50,8 @@ serve(async (req) => {
       }
     );
 
-    console.log(`Edge Function: supabaseAdmin.auth.admin object keys: ${JSON.stringify(Object.keys(supabaseAdmin.auth.admin || {}))}`);
-    console.log(`Edge Function: typeof supabaseAdmin.auth.admin.createUser: ${typeof supabaseAdmin.auth.admin.createUser}`);
-
-    if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.createUser !== 'function') {
-      console.error("Edge Function: supabaseAdmin.auth.admin is not fully initialized or createUser is not a function. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
+    if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.createUser !== 'function' || typeof supabaseAdmin.auth.admin.getUserByEmail !== 'function' || typeof supabaseAdmin.auth.admin.generateLink !== 'function') {
+      console.error("Edge Function: Supabase admin client methods not fully available. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
       return new Response(JSON.stringify({ error: 'Server configuration error: Supabase admin client methods not available. Please verify your SUPABASE_SERVICE_ROLE_KEY in Supabase dashboard.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -63,28 +60,57 @@ serve(async (req) => {
 
     let targetUserId: string;
     let successMessage = 'Usuário cadastrado e papel atribuído/atualizado com sucesso.';
-    let resetLink = null;
+    let linkType: 'invite' | 'recovery';
+    let userExists = false;
 
-    // 1. Directly attempt to create the user in Supabase Auth
-    console.log(`Edge Function: Attempting to create new user ${email}.`);
-    const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
-      email: email.trim(),
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName?.trim() || null,
-        last_name: lastName?.trim() || null,
-      },
-    });
+    // 1. Check if user already exists by email
+    console(`Edge Function: Checking if user ${email} already exists.`);
+    const { data: existingUserData, error: existingUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email.trim());
 
-    if (userCreationError) {
-      console.error(`Edge Function: Error creating new user: ${userCreationError.message || JSON.stringify(userCreationError)}`);
-      return new Response(JSON.stringify({ error: userCreationError.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+    if (existingUserData?.user) {
+      userExists = true;
+      targetUserId = existingUserData.user.id;
+      linkType = 'recovery'; // Send recovery link for existing users
+      successMessage = 'Usuário já cadastrado. Papel atualizado e link de redefinição de senha enviado.';
+      console.log(`Edge Function: User ${email} already exists with ID: ${targetUserId}. Will send recovery link.`);
+
+      // Optionally update user metadata for existing users
+      if (firstName || lastName) {
+        console.log(`Edge Function: Updating user metadata for existing user ${targetUserId}.`);
+        const { error: updateMetadataError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+          user_metadata: {
+            first_name: firstName?.trim() || existingUserData.user.user_metadata.first_name || null,
+            last_name: lastName?.trim() || existingUserData.user.user_metadata.last_name || null,
+          },
+        });
+        if (updateMetadataError) {
+          console.warn(`Edge Function: Failed to update metadata for existing user ${targetUserId}: ${updateMetadataError.message}`);
+        }
+      }
+
+    } else {
+      // User does not exist, proceed to create
+      linkType = 'invite'; // Send invite link for new users
+      console.log(`Edge Function: User ${email} does not exist. Attempting to create new user.`);
+      const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
+        email: email.trim(),
+        email_confirm: true,
+        user_metadata: {
+          first_name: firstName?.trim() || null,
+          last_name: lastName?.trim() || null,
+        },
       });
+
+      if (userCreationError) {
+        console.error(`Edge Function: Error creating new user: ${userCreationError.message || JSON.stringify(userCreationError)}`);
+        return new Response(JSON.stringify({ error: userCreationError.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        });
+      }
+      targetUserId = userCreationData.user.id;
+      console.log("Edge Function: New user created successfully. ID:", targetUserId);
     }
-    console.log("Edge Function: New user created successfully. ID:", userCreationData.user.id);
-    targetUserId = userCreationData.user.id;
 
     // 2. Check and assign/update role in public.user_clinic_roles
     console.log(`Edge Function: Checking existing role for user ${targetUserId} in clinic ${clinicId}.`);
@@ -148,27 +174,26 @@ serve(async (req) => {
       console.log("Edge Function: New role inserted successfully.");
     }
 
-    // 3. Generate and send the password reset link (or invite link for new users)
+    // 3. Generate and send the appropriate link (invite or recovery)
     const redirectToUrl = `${req.headers.get('origin')}/login`;
-    console.log(`Edge Function: Attempting to generate invite link for ${email} with redirectTo: ${redirectToUrl}`);
-    const { data: inviteLinkData, error: inviteLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite', // <-- ALTERADO AQUI para 'invite'
+    console.log(`Edge Function: Attempting to generate ${linkType} link for ${email} with redirectTo: ${redirectToUrl}`);
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: linkType,
       email: email.trim(),
       options: {
         redirectTo: redirectToUrl,
       },
     });
 
-    if (inviteLinkError) {
-      console.error(`Edge Function: Error generating invite link: ${inviteLinkError.message || JSON.stringify(inviteLinkError)}`);
-      successMessage += ` No entanto, houve um erro ao enviar o email de convite: ${inviteLinkError.message}. O usuário pode usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha.`;
+    if (linkError) {
+      console.error(`Edge Function: Error generating ${linkType} link: ${linkError.message || JSON.stringify(linkError)}`);
+      successMessage += ` No entanto, houve um erro ao enviar o email de ${linkType === 'invite' ? 'convite' : 'redefinição de senha'}: ${linkError.message}. O usuário pode usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha.`;
       // Do NOT return a non-2xx status here, as the user was successfully created/updated in the DB.
     } else {
-      console.log("Edge Function: Invite link generated successfully.");
-      resetLink = inviteLinkData.properties.action_link;
+      console.log(`Edge Function: ${linkType} link generated successfully.`);
     }
 
-    return new Response(JSON.stringify({ success: true, message: successMessage, resetLink: resetLink }), {
+    return new Response(JSON.stringify({ success: true, message: successMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200, // Always return 200 OK if user and role operations succeeded
     });
