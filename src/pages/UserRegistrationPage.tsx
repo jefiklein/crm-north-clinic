@@ -8,6 +8,7 @@ import { Loader2, TriangleAlert, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext'; // To get clinicData and check permissions
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface ClinicData {
   code: string;
@@ -30,6 +31,7 @@ const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/2
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
+    const navigate = useNavigate(); // Initialize useNavigate
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -165,6 +167,10 @@ const UserRegistrationPage: React.FC = () => {
             setFirstName('');
             setLastName('');
             setSelectedPermissionLevel('');
+            
+            // Navigate to the user list page after successful registration
+            navigate('/dashboard/15');
+
         } catch (err: any) {
             console.error("Registration process error:", err);
             setError(err.message || "Ocorreu um erro ao cadastrar o usuário.");
