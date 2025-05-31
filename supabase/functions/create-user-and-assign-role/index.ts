@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.5'; // Mantendo a versão 2.38.5 por enquanto
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.40.0'; // Alterado para a versão 2.40.0
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,8 +28,8 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    console.log(`Edge Function: SUPABASE_URL: ${SUPABASE_URL ? 'Present' : 'Missing'}`);
-    console.log(`Edge Function: SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY ? 'Present (masked: ' + SUPABASE_SERVICE_ROLE_KEY.substring(0, 5) + '...)' : 'Missing'}`);
+    console.log(`Edge Function: SUPABASE_URL present: ${!!SUPABASE_URL}`);
+    console.log(`Edge Function: SUPABASE_SERVICE_ROLE_KEY present: ${!!SUPABASE_SERVICE_ROLE_KEY} (masked: ${SUPABASE_SERVICE_ROLE_KEY?.substring(0, 10)}...)`);
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error("Edge Function: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables. Cannot initialize admin client.");
@@ -50,13 +50,17 @@ serve(async (req) => {
       }
     );
 
-    // NOVO LOG: Inspecionar o objeto auth e admin
-    console.log(`Edge Function: Keys on supabaseAdmin.auth: ${Object.keys(supabaseAdmin.auth).join(', ')}`);
-    if (supabaseAdmin.auth.admin) {
-      console.log(`Edge Function: Keys on supabaseAdmin.auth.admin: ${Object.keys(supabaseAdmin.auth.admin).join(', ')}`);
-      console.log(`Edge Function: typeof supabaseAdmin.auth.admin.getUserByEmail: ${typeof supabaseAdmin.auth.admin.getUserByEmail}`);
-    } else {
-      console.log("Edge Function: supabaseAdmin.auth.admin is undefined or null. Service role key might be invalid or not picked up.");
+    // NOVO LOG: Inspecionar o objeto auth e admin de forma mais detalhada
+    console.log(`Edge Function: supabaseAdmin.auth.admin object keys: ${JSON.stringify(Object.keys(supabaseAdmin.auth.admin || {}))}`);
+    console.log(`Edge Function: typeof supabaseAdmin.auth.admin.getUserByEmail: ${typeof supabaseAdmin.auth.admin.getUserByEmail}`);
+
+    // VERIFICAÇÃO DEFENSIVA ANTES DE CHAMAR getUserByEmail
+    if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.getUserByEmail !== 'function') {
+      console.error("Edge Function: supabaseAdmin.auth.admin is not fully initialized or getUserByEmail is not a function. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
+      return new Response(JSON.stringify({ error: 'Server configuration error: Supabase admin client methods not available. Please verify your SUPABASE_SERVICE_ROLE_KEY in Supabase dashboard.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
     }
 
     let targetUserId: string;
