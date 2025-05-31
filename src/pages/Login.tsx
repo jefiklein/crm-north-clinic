@@ -89,7 +89,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar link mágico',
-                  link_text: '', // Removido o link para link mágico
+                  link_text: 'Entrar com link mágico', // Restaurado o link para link mágico
                   check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
                 },
                 verify_otp: {
