@@ -53,7 +53,8 @@ serve(async (req) => {
     });
 
     if (userCreationError) {
-      console.error("Edge Function: Error creating user:", userCreationError.message, userCreationError);
+      // Melhorando o log de erro para garantir que a mensagem apareça
+      console.error(`Edge Function: Error creating user: ${userCreationError.message || JSON.stringify(userCreationError)}`);
       return new Response(JSON.stringify({ error: userCreationError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -74,7 +75,8 @@ serve(async (req) => {
     });
 
     if (resetLinkError) {
-      console.error("Edge Function: Error generating reset link:", resetLinkError.message, resetLinkError);
+      // Melhorando o log de erro para garantir que a mensagem apareça
+      console.error(`Edge Function: Error generating reset link: ${resetLinkError.message || JSON.stringify(resetLinkError)}`);
       return new Response(JSON.stringify({ error: resetLinkError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -97,7 +99,8 @@ serve(async (req) => {
 
     if (!assignRoleResponse.ok) {
       const errorText = await assignRoleResponse.text();
-      console.error("Edge Function: Error assigning role via webhook:", assignRoleResponse.status, errorText);
+      // Melhorando o log de erro para garantir que a mensagem apareça
+      console.error(`Edge Function: Error assigning role via webhook: Status ${assignRoleResponse.status}, Response: ${errorText}`);
       return new Response(JSON.stringify({ error: `Failed to assign role: ${errorText}` }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -111,7 +114,8 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function: Unexpected error in main try-catch block:", error.message, error);
+    // Melhorando o log de erro para garantir que a mensagem apareça
+    console.error(`Edge Function: Unexpected error in main try-catch block: ${error.message || JSON.stringify(error)}`);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
