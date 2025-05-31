@@ -4,6 +4,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importa CardDescription
 import { useLocation } from 'react-router-dom'; // Adiciona esta importação
+import { useEffect } from 'react'; // Importa useEffect
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
 // pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
@@ -38,6 +39,35 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
   console.log("[Login.tsx] location.search:", location.search); 
   console.log("[Login.tsx] queryParams.get('type'):", queryParams.get('type')); 
   console.log("[Login.tsx] initialView determined:", initialView);
+
+  // NOVO: Efeito para extrair e logar parâmetros do hash
+  useEffect(() => {
+    console.log("[Login.tsx - DEBUG HASH PARAMS] Iniciando extração de parâmetros do hash...");
+    const hash = window.location.hash;
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1)); // Remove o '#' inicial
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const tokenType = hashParams.get('token_type');
+      const expiresIn = hashParams.get('expires_in');
+      const type = hashParams.get('type'); // Este é o 'type=invite' ou 'type=recovery'
+
+      console.log("[Login.tsx - DEBUG HASH PARAMS] Parâmetros encontrados no HASH:");
+      console.log("  access_token:", accessToken ? "PRESENTE" : "AUSENTE");
+      console.log("  refresh_token:", refreshToken ? "PRESENTE" : "AUSENTE");
+      console.log("  token_type:", tokenType);
+      console.log("  expires_in:", expiresIn);
+      console.log("  type (invite/recovery):", type);
+
+      if (type === 'invite' || type === 'recovery') {
+        console.log("[Login.tsx - DEBUG HASH PARAMS] Tipo de fluxo de autenticação detectado no HASH:", type);
+      } else {
+        console.log("[Login.tsx - DEBUG HASH PARAMS] Nenhum tipo de fluxo de autenticação (invite/recovery) detectado no HASH.");
+      }
+    } else {
+      console.log("[Login.tsx - DEBUG HASH PARAMS] HASH da URL está vazio.");
+    }
+  }, [location.hash]); // Depende de location.hash para re-executar quando o hash muda
 
 
   return (
@@ -111,13 +141,6 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   button_label: 'Enviar link mágico',
                   link_text: 'Entrar com link mágico', // Restaurado o link para link mágico
                   check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
-                },
-                verify_otp: {
-                  email_input_placeholder: 'Seu email',
-                  phone_input_placeholder: 'Seu telefone',
-                  token_input_placeholder: 'Código OTP',
-                  button_label: 'Verificar código OTP',
-                  link_text: 'Já tem um código OTP?',
                 },
                 update_password: { // Adicionado para a view de atualização de senha
                   password_label: 'Sua nova senha',
