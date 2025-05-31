@@ -106,7 +106,9 @@ const Login: React.FC<IndexProps> = () => {
                   social_provider_text: 'Cadastrar com {{provider}}',
                   link_text: '',
                 },
-                // Removido o forgotten_password padrão para usar nosso próprio fluxo
+                forgotten_password: { // Adicionado para esconder o link padrão
+                  link_text: '', // Define como vazio para esconder o link
+                },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar link mágico',
