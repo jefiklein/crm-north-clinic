@@ -88,6 +88,7 @@ export function devErrorAndNavigationPlugin(): Plugin {
 }
 
 export default defineConfig(() => ({
+  base: '/', // Adicionada esta linha
   server: {
     host: "::",
     port: 8080,
