@@ -31,6 +31,11 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
     initialView = 'update_password';
   }
 
+  // Adicionando log para depuração
+  console.log("[Login.tsx] location.hash:", location.hash);
+  console.log("[Login.tsx] initialView determined:", initialView);
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
