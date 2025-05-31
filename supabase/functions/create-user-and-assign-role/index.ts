@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.5'; // Alterado para a versão 2.38.5
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,9 +29,18 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     console.log(`Edge Function: SUPABASE_URL present: ${!!SUPABASE_URL}, SUPABASE_SERVICE_ROLE_KEY present: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
 
+    // Adicionando uma verificação explícita para as variáveis de ambiente
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Edge Function: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+      return new Response(JSON.stringify({ error: 'Server configuration error: Missing Supabase credentials.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
     const supabaseAdmin = createClient(
-      SUPABASE_URL ?? '',
-      SUPABASE_SERVICE_ROLE_KEY ?? '',
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
       {
         auth: {
           autoRefreshToken: false,
@@ -146,12 +155,10 @@ serve(async (req) => {
     }
 
     // 3. Generate and send the password reset link (or invite link for new users)
-    // This will send an email to the user to set their password if they don't have one,
-    // or a password reset link if they do.
     const redirectToUrl = `${req.headers.get('origin')}/login`;
     console.log(`Edge Function: Attempting to generate password reset link for ${email} with redirectTo: ${redirectToUrl}`);
     const { data: resetLinkData, error: resetLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'password_reset', // This type works for both new invites and existing users
+      type: 'password_reset',
       email: email.trim(),
       options: {
         redirectTo: redirectToUrl,
