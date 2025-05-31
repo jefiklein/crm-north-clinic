@@ -74,6 +74,7 @@ const App = () => {
     return (
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} /> {/* Adicionada esta linha para reconhecer /login */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
