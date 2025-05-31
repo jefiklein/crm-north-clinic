@@ -52,6 +52,7 @@ interface UserListPageProps {
 }
 
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
+const SUPER_ADMIN_PERMISSION_ID = 1; // Assumindo que o ID 1 é para Super Admin
 
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
@@ -154,11 +155,19 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
             }
 
             // Filter out users who don't have an active role in the current clinic
-            const filteredData = (data || []).filter(user =>
-                user.user_clinic_roles.some(role =>
-                    String(role.clinic_id) === String(clinicId) && role.is_active
-                )
-            );
+            // AND filter out users who have the SUPER_ADMIN_PERMISSION_ID for the current clinic
+            const filteredData = (data || []).filter(user => {
+                const rolesForCurrentClinic = user.user_clinic_roles.filter(role => String(role.clinic_id) === String(clinicId));
+                
+                // Check if the user has an active role for the current clinic
+                const hasActiveRoleForCurrentClinic = rolesForCurrentClinic.some(role => role.is_active);
+
+                // Check if the user has the Super Admin role for the current clinic
+                const isSuperAdminForCurrentClinic = rolesForCurrentClinic.some(role => role.permission_level_id === SUPER_ADMIN_PERMISSION_ID);
+
+                // Only return users who have an active role AND are NOT Super Admin for this clinic
+                return hasActiveRoleForCurrentClinic && !isSuperAdminForCurrentClinic;
+            });
 
             return { users: filteredData, totalCount: count ?? 0 };
         },
