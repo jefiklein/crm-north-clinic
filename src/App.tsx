@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"; // Import useNavigate
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
@@ -24,7 +24,7 @@ import FunnelConfigPage from "./pages/FunnelConfigPage";
 import SelectClinicPage from "./pages/SelectClinicPage";
 import UserRegistrationPage from "./pages/UserRegistrationPage";
 import UserListPage from "./pages/UserListPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage"; // Import the new page
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -40,25 +40,27 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { clinicData, logout, isLoadingAuth, availableClinics, session } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate(); // Initialize useNavigate
+  // const location = useLocation(); // No longer needed for hash interception
+  // const navigate = useNavigate(); // No longer needed for hash interception
 
   useEffect(() => {
     console.log("[App.tsx] clinicData state updated:", clinicData);
   }, [clinicData]);
 
-  // NEW: Effect to intercept password recovery links
+  // REMOVED: Effect to intercept password recovery links.
+  // This is now handled by configuring Supabase to redirect directly to /reset-password.
+  /*
   useEffect(() => {
     const hash = window.location.hash;
-    const hashParams = new URLSearchParams(hash.substring(1)); // Remove '#'
+    const hashParams = new URLSearchParams(hash.substring(1));
     const type = hashParams.get('type');
 
     if (type === 'recovery') {
       console.log("[App.tsx] Detected password recovery link. Redirecting to /reset-password.");
-      // Redirect to the new reset password page, preserving the hash
       navigate('/reset-password' + hash, { replace: true });
     }
-  }, [location.hash, navigate]); // Depend on location.hash to react to changes
+  }, [location.hash, navigate]);
+  */
 
   const handleLogout = () => {
     logout();
@@ -82,7 +84,7 @@ const App = () => {
           {/* SelectClinicPage is a direct route */}
           <Route path="/select-clinic" element={<SelectClinicPage />} />
 
-          {/* NEW: Route for password reset */}
+          {/* Route for password reset - Supabase will redirect directly here */}
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected routes: only accessible if clinicData is available */}
