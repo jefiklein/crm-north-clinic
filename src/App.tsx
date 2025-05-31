@@ -49,9 +49,21 @@ const App = () => {
     logout();
   };
 
-  // NEW: Combined loading state for the entire app
-  // This ensures we wait for both initial auth loading AND clinic data loading
-  const isAppLoading = isLoadingAuth || (session && !clinicData && availableClinics === null);
+  // NEW: Simplificando a condição de carregamento inicial
+  const isAppLoading = isLoadingAuth;
+
+  // Adicionando logs para depuração
+  useEffect(() => {
+    console.log("[App.tsx Debug] Estado de carregamento e autenticação:", {
+      isLoadingAuth,
+      session: !!session, // Convert to boolean for simpler logging
+      clinicData: !!clinicData,
+      availableClinics: availableClinics === null ? 'null' : availableClinics.length, // Log count or 'null'
+      isAppLoading,
+      currentPath: location.pathname
+    });
+  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname]);
+
 
   if (isAppLoading) {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
