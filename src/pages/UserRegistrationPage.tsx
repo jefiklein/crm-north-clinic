@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, TriangleAlert, UserPlus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // Ainda necessário para buscar níveis de permissão
 import { showSuccess, showError } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext'; // To get clinicData and check permissions
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
@@ -25,6 +25,9 @@ interface PermissionLevel {
 
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
+
+// URL do webhook N8N para criação de usuário e atribuição de papel
+const N8N_USER_REGISTRATION_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -86,57 +89,37 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // 1. Tentar cadastrar o usuário no Supabase Auth
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            // Preparar o payload para o webhook do N8N
+            const payload = {
                 email: email.trim(),
-                password: Math.random().toString(36).substring(2, 15), // Gerar uma senha temporária aleatória
-                options: {
-                    data: {
-                        first_name: firstName.trim(),
-                        last_name: lastName.trim(),
-                    },
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                clinic_id: clinicData.id,
+                permission_level_id: parseInt(selectedPermissionLevel, 10),
+            };
+
+            console.log("[UserRegistrationPage] Enviando dados para o webhook N8N:", payload);
+
+            const response = await fetch(N8N_USER_REGISTRATION_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
+                body: JSON.stringify(payload),
             });
 
-            if (signUpError) {
-                if (signUpError.message.includes('already registered')) {
-                    setError("Este email já está cadastrado. Por favor, use a opção 'Esqueceu sua senha?' para redefinir.");
-                    showError("Este email já está cadastrado.");
-                } else {
-                    setError(signUpError.message || "Erro desconhecido ao cadastrar usuário.");
-                    showError(`Erro: ${signUpError.message}`);
-                }
+            const responseData = await response.json(); // Assumindo que o webhook sempre retorna JSON
+
+            console.log("[UserRegistrationPage] Resposta do webhook N8N:", responseData);
+
+            if (!response.ok || responseData.error) {
+                const errorMessage = responseData.message || responseData.error || `Erro desconhecido (Status: ${response.status})`;
+                setError(errorMessage);
+                showError(`Erro: ${errorMessage}`);
                 return;
             }
 
-            const userId = signUpData.user?.id;
-
-            if (!userId) {
-                setError("Erro ao obter ID do usuário após o cadastro.");
-                showError("Erro ao cadastrar usuário.");
-                return;
-            }
-
-            // 2. Atribuir o papel na tabela user_clinic_roles
-            const { error: roleError } = await supabase
-                .from('user_clinic_roles')
-                .insert({
-                    user_id: userId,
-                    clinic_id: clinicData.id,
-                    permission_level_id: parseInt(selectedPermissionLevel, 10),
-                    is_active: true,
-                });
-
-            if (roleError) {
-                console.error("Erro ao atribuir papel:", roleError);
-                setError(roleError.message || "Erro ao atribuir papel ao usuário.");
-                showError(`Erro ao atribuir papel: ${roleError.message}`);
-                // Opcional: Se a atribuição de papel falhar, você pode querer deletar o usuário recém-criado no auth.
-                // Isso exigiria uma Edge Function ou Service Role Key, então por enquanto, apenas reportamos o erro.
-                return;
-            }
-
-            showSuccess("Usuário cadastrado com sucesso! Um e-mail de confirmação foi enviado. O usuário precisará confirmar o e-mail e, em seguida, usar a opção 'Esqueceu sua senha?' para definir a senha.");
+            showSuccess("Usuário cadastrado com sucesso! Um e-mail de convite foi enviado para o usuário definir a senha.");
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -268,7 +251,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email de confirmação. Ele precisará confirmar o e-mail e, em seguida, usar a opção "Esqueceu sua senha?" na tela de login para definir a senha.
+                    Após o cadastro, o usuário receberá um email de convite para definir a senha.
                 </p>
             </CardContent>
         </div>
