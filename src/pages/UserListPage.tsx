@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Corrigido aqui
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Search, Plus, User, Info, TriangleAlert, Loader2, UserPlus } from "lucide-react";
@@ -57,10 +57,9 @@ const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Ad
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
     const { isLoadingAuth } = useAuth(); // Use useAuth to check overall auth loading
-    // Removidos os estados de filtro e ordenação
-    // const [searchTerm, setSearchTerm] = useState('');
-    // const [sortValue, setSortValue] = useState('created_at_desc');
-    // const [filterPermissionLevel, setFilterPermissionLevel] = useState<string>('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortValue, setSortValue] = useState('created_at_desc');
+    const [filterPermissionLevel, setFilterPermissionLevel] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
 
     const ITEMS_PER_PAGE = 15;
@@ -70,7 +69,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     // Lógica de permissão corrigida: userPermissionLevel DEVE SER MAIOR OU IGUAL ao REQUIRED_PERMISSION_LEVEL
     const hasPermission = !isLoadingAuth && userPermissionLevel !== undefined && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
-    // Fetch all permission levels for the filter dropdown (mantido caso queira reativar o filtro)
+    // Fetch all permission levels for the filter dropdown
     const { data: permissionLevels, isLoading: isLoadingPermissionLevels, error: permissionLevelsError } = useQuery<PermissionLevel[]>({
         queryKey: ['permissionLevels'],
         queryFn: async () => {
@@ -87,16 +86,16 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
 
     // Fetch users with their roles for the current clinic
     const { data: usersData, isLoading: isLoadingUsers, error: usersError } = useQuery<{ users: SupabaseUser[], totalCount: number } | null>({
-        queryKey: ['clinicUsers', currentClinicId], // Query key simplificada
+        queryKey: ['clinicUsers', currentClinicId, searchTerm, sortValue, filterPermissionLevel], // Removed currentPage and ITEMS_PER_PAGE from key
         queryFn: async ({ queryKey }) => {
-            const [, clinicId] = queryKey;
+            const [, clinicId, search, sort, permissionFilter] = queryKey;
 
             if (!clinicId) {
                 console.warn("UserListPage: Skipping users fetch due to missing clinicId.");
                 return { users: [], totalCount: 0 };
             }
 
-            console.log(`[UserListPage Debug] Fetching users for clinic ID: ${clinicId}`);
+            console.log(`UserListPage: Fetching users for clinic ${clinicId} with filters:`, { search, sort, permissionFilter });
 
             let query = supabase
                 .from('profiles')
@@ -113,11 +112,33 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                         is_active,
                         permission_levels(name, description)
                     )
-                `, { count: 'exact' }); // Keep count: 'exact' for initial fetch, but we'll use client-side count
+                `, { count: 'exact' }) // Keep count: 'exact' for initial fetch, but we'll use client-side count
+                .filter('user_clinic_roles.clinic_id', 'eq', clinicId); // Filter by roles in this clinic
 
+            // Apply search filter (mantido no Supabase para eficiência)
+            if (search) {
+                const searchTermLower = search.toLowerCase();
+                query = query.or(`first_name.ilike.%${searchTermLower}%,last_name.ilike.%${searchTermLower}%,email.ilike.%${searchTermLower}%`);
+            }
+
+            // Apply sorting (mantido no Supabase para eficiência)
+            let orderByColumn = 'created_at';
+            let ascending = false;
+            switch (sort) {
+                case 'created_at_desc': orderByColumn = 'created_at'; ascending = false; break;
+                case 'created_at_asc': orderByColumn = 'created_at'; ascending = true; break;
+                case 'name_asc': orderByColumn = 'first_name'; ascending = true; break;
+                case 'name_desc': orderByColumn = 'first_name'; ascending = false; break;
+                case 'email_asc': orderByColumn = 'email'; ascending = true; break;
+                case 'email_desc': orderByColumn = 'email'; ascending = false; break;
+                default: break;
+            }
+            query = query.order(orderByColumn, { ascending: ascending });
+
+            // NÃO APLICAR PAGINAÇÃO AQUI. Buscamos todos os dados relevantes primeiro.
             const { data, error } = await query;
 
-            console.log('[UserListPage Debug] Supabase raw fetch result (all profiles with roles):', { data, error });
+            console.log('UserListPage: Supabase users raw fetch result:', { data, error });
 
             if (error) {
                 console.error("UserListPage: Supabase users fetch error:", error);
@@ -127,28 +148,14 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
             const allUsersFromSupabase = data || [];
 
             // Filtragem completa no lado do cliente para garantir consistência com a contagem
-            const finalFilteredUsers = allUsersFromSupabase.filter(user => {
-                console.log(`[UserListPage Debug] Processing user: ${user.email} (ID: ${user.id})`);
-                console.log(`[UserListPage Debug]   User roles array for ${user.email}:`, user.user_clinic_roles);
-
-                const hasActiveRoleForCurrentClinic = user.user_clinic_roles.some(role => {
-                    const isForCurrentClinic = String(role.clinic_id) === String(clinicId);
-                    const isActiveRole = role.is_active;
-
-                    console.log(`[UserListPage Debug]     Checking role ID ${role.id} for ${user.email}: clinic_id=${role.clinic_id} (matches current: ${isForCurrentClinic}), is_active=${isActiveRole}`);
-
-                    return isForCurrentClinic && isActiveRole;
-                });
-
-                if (!hasActiveRoleForCurrentClinic) {
-                    console.log(`[UserListPage Debug] User ${user.email} filtered OUT (no active role for clinic ${clinicId}).`);
-                } else {
-                    console.log(`[UserListPage Debug] User ${user.email} included (has active role for clinic ${clinicId}).`);
-                }
-                return hasActiveRoleForCurrentClinic;
-            });
-
-            console.log('[UserListPage Debug] Final filtered users for display:', finalFilteredUsers);
+            const finalFilteredUsers = allUsersFromSupabase.filter(user =>
+                user.user_clinic_roles.some(role =>
+                    String(role.clinic_id) === String(clinicId) && // Deve ser da clínica atual
+                    role.is_active && // Deve ser um papel ativo
+                    role.permission_level_id !== SUPER_ADMIN_PERMISSION_ID && // NÃO deve ser Super Admin
+                    (permissionFilter === 'all' || role.permission_level_id === parseInt(permissionFilter, 10)) // Aplica o filtro de permissão selecionado
+                )
+            );
 
             // A contagem total agora é o tamanho da lista filtrada
             return { users: finalFilteredUsers, totalCount: finalFilteredUsers.length };
@@ -223,8 +230,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                     Lista de Usuários
                 </h1>
                 <div className="search-wrapper flex items-center gap-4 flex-grow min-w-[250px]">
-                    {/* Removido o campo de busca */}
-                    {/* <div className="relative flex-grow max-w-sm">
+                    <div className="relative flex-grow max-w-sm">
                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                          <Input
                             type="text"
@@ -233,12 +239,11 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                             className="pl-9"
                          />
-                    </div> */}
+                    </div>
                     <span id="recordsCount" className="text-sm text-gray-600 whitespace-nowrap">
                         {isLoadingUsers ? 'Carregando...' : `${totalItems} registro(s)`}
                     </span>
-                    {/* Removidos os selects de filtro e ordenação */}
-                    {/* <Select value={filterPermissionLevel} onValueChange={(value) => { setFilterPermissionLevel(value); setCurrentPage(1); }}>
+                    <Select value={filterPermissionLevel} onValueChange={(value) => { setFilterPermissionLevel(value); setCurrentPage(1); }}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Filtrar por Permissão" />
                         </SelectTrigger>
@@ -263,7 +268,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                             <SelectItem value="email_asc">Email (A-Z)</SelectItem>
                             <SelectItem value="email_desc">Email (Z-A)</SelectItem>
                         </SelectContent>
-                    </Select> */}
+                    </Select>
                 </div>
                 <Button onClick={handleAddUser} className="flex-shrink-0">
                     <UserPlus className="h-4 w-4 mr-2" /> Adicionar Usuário
@@ -282,6 +287,11 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                             <TriangleAlert className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Erro ao carregar usuários: {usersError.message}</span>
                             <Button variant="outline" onClick={() => { /* refetch logic */ }} className="mt-4">Tentar Novamente</Button>
+                        </div>
+                    ) : totalItems === 0 && searchTerm !== '' ? (
+                         <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
+                            <Info className="h-16 w-16 mb-4" />
+                            <span className="text-lg text-center">Nenhum usuário encontrado com o filtro "{searchTerm}".</span>
                         </div>
                     ) : totalItems === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">

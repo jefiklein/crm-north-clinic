@@ -5,10 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, TriangleAlert, UserPlus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client'; // Ainda necessário para buscar níveis de permissão
+import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext'; // To get clinicData and check permissions
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface ClinicData {
   code: string;
@@ -26,15 +25,11 @@ interface PermissionLevel {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
-// URL do webhook N8N para atribuição de papel (agora espera user_id)
-const N8N_USER_ROLE_ASSIGNMENT_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
-
-// URL da nova Edge Function para convidar o usuário
-const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'YOUR_SUPABASE_PROJECT_ID' pelo seu ID de projeto
+// Webhook URL para atribuir o papel do usuário na clínica
+const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
-    const navigate = useNavigate(); // Initialize useNavigate
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -78,6 +73,15 @@ const UserRegistrationPage: React.FC = () => {
         }
     }, [hasPermission]);
 
+    const generateRandomPassword = (length = 12) => {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+        let password = "";
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    };
+
     const handleRegister = async () => {
         setError(null);
         if (!clinicData?.id) {
@@ -90,78 +94,77 @@ const UserRegistrationPage: React.FC = () => {
         }
 
         setIsRegistering(true);
+        const tempPassword = generateRandomPassword(); // Generate a temporary password
 
         try {
-            // PASSO 1: Convidar o usuário via Edge Function
-            console.log("[UserRegistrationPage] Chamando Edge Function para convidar usuário...");
-            const inviteResponse = await fetch(INVITE_USER_EDGE_FUNCTION_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
+            // 1. Register user in Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: email.trim(),
+                password: tempPassword, // Use a temporary password
+                options: {
+                    data: {
+                        first_name: firstName.trim() || null,
+                        last_name: lastName.trim() || null,
+                    },
+                    // emailRedirectTo: 'http://localhost:8080/login' // Optional: redirect after email confirmation
                 },
+            });
+
+            if (authError) {
+                console.error("Supabase Auth SignUp Error:", authError);
+                throw new Error(authError.message);
+            }
+
+            if (!authData.user) {
+                throw new Error("Usuário não retornado após o cadastro. Verifique o email e tente novamente.");
+            }
+
+            const newUserId = authData.user.id;
+
+            // 2. Call webhook to insert into user_clinic_roles table
+            console.log("Calling webhook to assign role:", {
+                userId: newUserId,
+                clinicId: clinicData.id,
+                permissionLevelId: parseInt(selectedPermissionLevel, 10),
+                email: email.trim(),
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+            });
+
+            const webhookResponse = await fetch(ASSIGN_ROLE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    userId: newUserId,
+                    clinicId: clinicData.id,
+                    permissionLevelId: parseInt(selectedPermissionLevel, 10),
                     email: email.trim(),
-                    first_name: firstName.trim(),
-                    last_name: lastName.trim(),
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
                 }),
             });
 
-            const inviteData = await inviteResponse.json();
-            console.log("[UserRegistrationPage] Resposta da Edge Function de convite:", inviteData);
-
-            if (!inviteResponse.ok || inviteData.error) {
-                const errorMessage = inviteData.error || `Erro desconhecido ao convidar usuário (Status: ${inviteResponse.status})`;
-                setError(errorMessage);
-                showError(`Erro ao convidar usuário: ${errorMessage}`);
-                return;
+            if (!webhookResponse.ok) {
+                const errorText = await webhookResponse.text();
+                console.error("Webhook Error Response:", errorText);
+                let parsedError = errorText;
+                try {
+                    const jsonError = JSON.parse(errorText);
+                    parsedError = jsonError.message || jsonError.error || errorText;
+                } catch (parseErr) {
+                    // Not a JSON error, use raw text
+                }
+                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}. Por favor, remova o usuário criado manualmente no Supabase Auth se necessário.`);
             }
 
-            const userId = inviteData.userId;
-            if (!userId) {
-                setError("ID do usuário não retornado após o convite.");
-                showError("Erro: ID do usuário não retornado.");
-                return;
-            }
+            const webhookData = await webhookResponse.json();
+            console.log("Webhook Success Response:", webhookData);
 
-            // PASSO 2: Chamar o webhook do N8N para atribuir o papel, passando o userId
-            console.log("[UserRegistrationPage] Chamando webhook N8N para atribuir papel com userId:", userId);
-            const roleAssignmentPayload = {
-                user_id: userId, // O ID do usuário obtido da Edge Function
-                email: email.trim(), // Opcional, mas pode ser útil para o N8N
-                first_name: firstName.trim(),
-                last_name: lastName.trim(),
-                clinic_id: clinicData.id,
-                permission_level_id: parseInt(selectedPermissionLevel, 10),
-            };
-
-            const roleAssignmentResponse = await fetch(N8N_USER_ROLE_ASSIGNMENT_WEBHOOK_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(roleAssignmentPayload),
-            });
-
-            const roleAssignmentData = await roleAssignmentResponse.json();
-            console.log("[UserRegistrationPage] Resposta do webhook N8N de atribuição de papel:", roleAssignmentData);
-
-            if (!roleAssignmentResponse.ok || roleAssignmentData.error) {
-                const errorMessage = roleAssignmentData.message || roleAssignmentData.error || `Erro desconhecido ao atribuir papel (Status: ${roleAssignmentResponse.status})`;
-                setError(errorMessage);
-                showError(`Erro ao atribuir papel: ${errorMessage}`);
-                // Considere aqui um rollback ou log de erro mais robusto se a atribuição de papel falhar após o convite
-                return;
-            }
-
-            showSuccess("Usuário cadastrado com sucesso! Um e-mail de convite foi enviado para o usuário definir a senha.");
+            showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado.");
             setEmail('');
             setFirstName('');
             setLastName('');
             setSelectedPermissionLevel('');
-            
-            // Navegar para a página de lista de usuários após o registro bem-sucedido
-            navigate('/dashboard/15');
-
         } catch (err: any) {
             console.error("Registration process error:", err);
             setError(err.message || "Ocorreu um erro ao cadastrar o usuário.");
@@ -198,7 +201,7 @@ const UserRegistrationPage: React.FC = () => {
     }
 
     return (
-        <Card className="user-registration-container max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+        <div className="user-registration-container max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <CardHeader>
                 <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
                     <UserPlus className="h-6 w-6" /> Cadastrar Novo Usuário
@@ -235,61 +238,61 @@ const UserRegistrationPage: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label htmlFor="lastName">Sobrenome</LabeL>
-                            <Input
-                                id="lastName"
-                                type="text"
-                                placeholder="Silva"
-                                value={lastName}
-                                onChange={(e) => setLastName(e.target.value)}
-                                disabled={isRegistering}
-                            />
+                        <Label htmlFor="lastName">Sobrenome</Label>
+                        <Input
+                            id="lastName"
+                            type="text"
+                            placeholder="Silva"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            disabled={isRegistering}
+                        />
+                    </div>
+                </div>
+                <div className="form-group">
+                    <Label htmlFor="permissionLevel">Nível de Permissão *</Label>
+                    {isLoadingPermissions ? (
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Carregando níveis...
                         </div>
-                    </div>
-                    <div className="form-group">
-                        <Label htmlFor="permissionLevel">Nível de Permissão *</Label>
-                        {isLoadingPermissions ? (
-                            <div className="flex items-center gap-2 text-gray-500">
-                                <Loader2 className="h-4 w-4 animate-spin" /> Carregando níveis...
-                            </div>
-                        ) : (
-                            <Select
-                                value={selectedPermissionLevel}
-                                onValueChange={setSelectedPermissionLevel}
-                                disabled={isRegistering || permissionLevels.length === 0}
-                            >
-                                <SelectTrigger id="permissionLevel">
-                                    <SelectValue placeholder="Selecione o nível de permissão" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {permissionLevels.map(level => (
-                                        <SelectItem key={level.id} value={String(level.id)}>
-                                            {level.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                        <p className="text-sm text-gray-500 mt-1">
-                            {permissionLevels.find(p => String(p.id) === selectedPermissionLevel)?.description || "Selecione um nível para ver a descrição."}
-                        </p>
-                    </div>
-                    <Button onClick={handleRegister} disabled={isRegistering}>
-                        {isRegistering ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Cadastrando...
-                            </>
-                        ) : (
-                            "Cadastrar Usuário"
-                        )}
-                    </Button>
-                    <p className="text-sm text-gray-600 mt-4">
-                        Após o cadastro, o usuário receberá um email de convite para definir a senha.
+                    ) : (
+                        <Select
+                            value={selectedPermissionLevel}
+                            onValueChange={setSelectedPermissionLevel}
+                            disabled={isRegistering || permissionLevels.length === 0}
+                        >
+                            <SelectTrigger id="permissionLevel">
+                                <SelectValue placeholder="Selecione o nível de permissão" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {permissionLevels.map(level => (
+                                    <SelectItem key={level.id} value={String(level.id)}>
+                                        {level.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    <p className="text-sm text-gray-500 mt-1">
+                        {permissionLevels.find(p => String(p.id) === selectedPermissionLevel)?.description || "Selecione um nível para ver a descrição."}
                     </p>
-                </CardContent>
-            </Card>
-        );
+                </div>
+                <Button onClick={handleRegister} disabled={isRegistering}>
+                    {isRegistering ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Cadastrando...
+                        </>
+                    ) : (
+                        "Cadastrar Usuário"
+                    )}
+                </Button>
+                <p className="text-sm text-gray-600 mt-4">
+                    Após o cadastro, o usuário receberá um email de confirmação. Ele poderá então fazer login com o email e uma senha temporária gerada automaticamente. Caso não saiba a senha, poderá usar a opção "Esqueceu a senha?" na tela de login para definir uma nova.
+                </p>
+            </CardContent>
+        </div>
+    );
 };
 
 export default UserRegistrationPage;

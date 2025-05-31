@@ -2,9 +2,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importa CardDescription
-import { useLocation } from 'react-router-dom'; // Adiciona esta importação
-import { useEffect } from 'react'; // Importa useEffect
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Importa CardDescription
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
 // pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
@@ -23,53 +21,6 @@ interface IndexProps {
 }
 
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  let initialView = queryParams.get('view') || 'sign_in'; // Obter 'view' da URL, padrão para 'sign_in'
-
-  // NOVO: Verifica se a hash da URL contém 'type=invite' para forçar a view de atualização de senha
-  // ALTERADO: Agora verifica location.search (query parameters) para 'type=invite'
-  if (location.hash.includes('type=invite') || queryParams.get('type') === 'invite' || queryParams.get('type') === 'recovery') { // Adicionado 'recovery'
-    initialView = 'update_password';
-  }
-
-  // Adicionando logs para depuração
-  console.log("[Login.tsx] window.location.href:", window.location.href); // NOVO LOG
-  console.log("[Login.tsx] location.hash:", location.hash);
-  console.log("[Login.tsx] location.search:", location.search); 
-  console.log("[Login.tsx] queryParams.get('type'):", queryParams.get('type')); 
-  console.log("[Login.tsx] initialView determined:", initialView);
-
-  // NOVO: Efeito para extrair e logar parâmetros do hash
-  useEffect(() => {
-    console.log("[Login.tsx - DEBUG HASH PARAMS] Iniciando extração de parâmetros do hash...");
-    const hash = window.location.hash;
-    if (hash) {
-      const hashParams = new URLSearchParams(hash.substring(1)); // Remove o '#' inicial
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      const tokenType = hashParams.get('token_type');
-      const expiresIn = hashParams.get('expires_in');
-      const type = hashParams.get('type'); // Este é o 'type=invite' ou 'type=recovery'
-
-      console.log("[Login.tsx - DEBUG HASH PARAMS] Parâmetros encontrados no HASH:");
-      console.log("  access_token:", accessToken ? "PRESENTE" : "AUSENTE");
-      console.log("  refresh_token:", refreshToken ? "PRESENTE" : "AUSENTE");
-      console.log("  token_type:", tokenType);
-      console.log("  expires_in:", expiresIn);
-      console.log("  type (invite/recovery):", type);
-
-      if (type === 'invite' || type === 'recovery') {
-        console.log("[Login.tsx - DEBUG HASH PARAMS] Tipo de fluxo de autenticação detectado no HASH:", type);
-      } else {
-        console.log("[Login.tsx - DEBUG HASH PARAMS] Nenhum tipo de fluxo de autenticação (invite/recovery) detectado no HASH.");
-      }
-    } else {
-      console.log("[Login.tsx - DEBUG HASH PARAMS] HASH da URL está vazio.");
-    }
-  }, [location.hash]); // Depende de location.hash para re-executar quando o hash muda
-
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
@@ -85,7 +36,6 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
             className="mx-auto h-32 w-auto mb-4"
           />
           <Auth
-            // Removido: key={location.hash}
             supabaseClient={supabase}
             providers={[]} // Não usaremos provedores de terceiros por enquanto
             appearance={{
@@ -100,7 +50,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
               },
             }}
             theme="light"
-            view={initialView as 'sign_in' | 'sign_up' | 'forgotten_password' | 'magic_link' | 'update_password' | 'verify_otp'} // Usar initialView
+            view="sign_in" // Adicionado para exibir apenas a tela de login
             localization={{
               // Mensagens de nível superior
               email_otp_text: '', // Removido o texto para desabilitar o link mágico
@@ -134,7 +84,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar instruções de redefinição',
                   link_text: 'Esqueceu sua senha?', // Mantido o link para redefinição de senha
-                  check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
+                  check_email: 'Verifique seu e-mail para o link de redefinição de senha.',
                 },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',

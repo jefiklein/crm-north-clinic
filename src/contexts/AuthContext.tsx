@@ -23,7 +23,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// REMOVED: isPasswordUpdateFlow from props
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [clinicData, setClinicDataState] = useState<ClinicData | null>(null); // A clínica atualmente selecionada
@@ -69,12 +68,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("[AuthContext] handleAuthSession: Processando sessão:", currentSession);
       setSession(currentSession);
 
-      try { // Adicionado bloco try para capturar erros e garantir finally
-        if (currentSession?.user) {
-          // REMOVED: isPasswordUpdateFlow check here. AuthContext will always try to load clinic data.
-          console.log("[AuthContext] handleAuthSession: Usuário presente. Buscando todas as clínicas vinculadas...");
-          const userId = currentSession.user.id;
+      if (currentSession?.user) {
+        console.log("[AuthContext] handleAuthSession: Usuário presente. Buscando todas as clínicas vinculadas...");
+        const userId = currentSession.user.id;
 
+        try {
           const { data: userRoles, error: rolesError } = await supabase
             .from('user_clinic_roles')
             .select('clinic_id, permission_level_id, is_active')
@@ -86,7 +84,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             showError(`Erro ao buscar permissões: ${rolesError.message}`);
             setAvailableClinics(null);
             setAndPersistClinicData(null);
-            return; // Retorna para que o finally seja executado
+            // DO NOT navigate here. Let App.tsx handle it.
+            return;
           }
 
           if (userRoles && userRoles.length > 0) {
@@ -104,7 +103,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               showError(`Erro ao buscar dados das clínicas: ${clinicError.message}`);
               setAvailableClinics(null);
               setAndPersistClinicData(null);
-              return; // Retorna para que o finally seja executado
+              // DO NOT navigate here. Let App.tsx handle it.
+              return;
             }
 
             const fetchedClinics: ClinicData[] = (clinicConfigs || []).map(config => {
@@ -151,25 +151,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             console.warn("[AuthContext] handleAuthSession: Nenhuma role ativa encontrada para o usuário.");
             showError("Seu usuário não possui permissões ativas para nenhuma clínica.");
-            setAvailableClinics([]); // Define como array vazio para indicar que não há clínicas
+            setAvailableClinics([]);
             setAndPersistClinicData(null);
             // DO NOT navigate here. Let App.tsx handle it.
           }
-        } else {
-          console.log("[AuthContext] handleAuthSession: Nenhuma sessão de usuário. Limpando dados da clínica e disponíveis.");
+        } catch (e: any) {
+          console.error("[AuthContext] handleAuthSession: Erro inesperado durante o processamento da sessão:", e);
+          showError(`Erro inesperado: ${e.message}`);
           setAvailableClinics(null);
           setAndPersistClinicData(null);
           // DO NOT navigate here. Let App.tsx handle it.
         }
-      } catch (e: any) {
-        console.error("[AuthContext] handleAuthSession: Erro inesperado durante o processamento da sessão:", e);
-        showError(`Erro inesperado: ${e.message}`);
+      } else {
+        console.log("[AuthContext] handleAuthSession: Nenhuma sessão de usuário. Limpando dados da clínica e disponíveis.");
         setAvailableClinics(null);
         setAndPersistClinicData(null);
-      } finally {
-        console.log("[AuthContext] handleAuthSession: Finalizando carregamento de autenticação (setIsLoadingAuth(false)).");
-        setIsLoadingAuth(false); // Garante que o estado de carregamento seja sempre desativado
+        // DO NOT navigate here. Let App.tsx handle it.
       }
+      setIsLoadingAuth(false);
     };
 
     // Initial session check
@@ -177,9 +176,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       handleAuthSession(initialSession);
     }).catch(error => {
       console.error("[AuthContext] useEffect: Erro ao obter sessão inicial:", error);
-      setIsLoadingAuth(false); // Garante que o estado de carregamento seja desativado mesmo em erro inicial
+      setIsLoadingAuth(false);
       setAvailableClinics(null);
       setAndPersistClinicData(null);
+      // DO NOT navigate here. Let App.tsx handle it.
     });
 
     // Auth state change listener
@@ -191,7 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAndPersistClinicData(null);
         navigate('/'); // This is the only navigate that should remain here
         showSuccess("Você foi desconectado.");
-        setIsLoadingAuth(false); // Garante que o estado de carregamento seja desativado ao deslogar
+        setIsLoadingAuth(false);
       } else {
         handleAuthSession(currentSession);
       }
@@ -200,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, setAndPersistClinicData]); // REMOVED: isPasswordUpdateFlow from dependencies
+  }, [navigate, setAndPersistClinicData]);
 
   // Diagnostic useEffect to log clinicData changes
   useEffect(() => {

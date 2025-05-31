@@ -49,38 +49,22 @@ const App = () => {
     logout();
   };
 
-  // NEW: Simplificando a condição de carregamento inicial
-  const isAppLoading = isLoadingAuth;
-
-  // Check if the current URL indicates a password update flow
-  // Supabase often puts these parameters in the hash (#)
-  // REMOVED: isPasswordUpdateFlow calculation here, it will be handled in Login.tsx directly
-  // const isPasswordUpdateFlow = location.hash.includes('type=invite') || location.hash.includes('type=recovery') ||
-  //                              new URLSearchParams(location.search).get('type') === 'invite' ||
-  //                              new URLSearchParams(location.search).get('type') === 'recovery';
-
-  // Adicionando logs para depuração
-  useEffect(() => {
-    console.log("[App.tsx Debug] Estado de carregamento e autenticação:", {
-      isLoadingAuth,
-      session: !!session, // Convert to boolean for simpler logging
-      clinicData: !!clinicData,
-      availableClinics: availableClinics === null ? 'null' : availableClinics.length, // Log count or 'null'
-      isAppLoading,
-      currentPath: location.pathname,
-      // isPasswordUpdateFlow // REMOVED: Log the password update flow status
-    });
-  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname]);
-
+  // NEW: Combined loading state for the entire app
+  // This ensures we wait for both initial auth loading AND clinic data loading
+  const isAppLoading = isLoadingAuth || (session && !clinicData && availableClinics === null);
 
   if (isAppLoading) {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
-  // If not logged in, always go to Login.
-  // The Login component itself will handle the 'update_password' view based on URL hash.
+  // If not logged in, always redirect to login page
   if (!session) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
   // If logged in:
