@@ -39,8 +39,11 @@ const RequestResetCodePage: React.FC = () => {
         throw new Error(resetError.message);
       }
 
-      setMessage("Um e-mail com as instruções de redefinição de senha (ou um código) foi enviado para o seu endereço. Por favor, verifique sua caixa de entrada e spam.");
-      showSuccess("E-mail enviado!");
+      // Em vez de apenas mostrar uma mensagem, redirecionamos para a página de verificação
+      showSuccess("Um e-mail com o código foi enviado. Redirecionando para a tela de verificação...");
+      setTimeout(() => {
+        navigate(`/verify-reset-code?email=${encodeURIComponent(email.trim())}`);
+      }, 1500); // Pequeno atraso para o toast aparecer
 
     } catch (err: any) {
       console.error("Erro na solicitação de código:", err);
