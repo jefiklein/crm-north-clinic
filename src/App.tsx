@@ -69,14 +69,9 @@ const App = () => {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
-  // If not logged in, always redirect to login page
+  // If not logged in, always render Login component directly
   if (!session) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} /> {/* Redireciona tudo para /login */}
-      </Routes>
-    );
+    return <Login />;
   }
 
   // If logged in:

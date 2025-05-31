@@ -32,10 +32,11 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
     initialView = 'update_password';
   }
 
-  // Adicionando log para depuração
+  // Adicionando logs para depuração
+  console.log("[Login.tsx] window.location.href:", window.location.href); // NOVO LOG
   console.log("[Login.tsx] location.hash:", location.hash);
-  console.log("[Login.tsx] location.search:", location.search); // NOVO LOG
-  console.log("[Login.tsx] queryParams.get('type'):", queryParams.get('type')); // NOVO LOG
+  console.log("[Login.tsx] location.search:", location.search); 
+  console.log("[Login.tsx] queryParams.get('type'):", queryParams.get('type')); 
   console.log("[Login.tsx] initialView determined:", initialView);
 
 
