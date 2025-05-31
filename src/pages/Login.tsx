@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button'; // Import Button
 
 interface ClinicData {
   code: string;
@@ -105,13 +106,7 @@ const Login: React.FC<IndexProps> = () => {
                   social_provider_text: 'Cadastrar com {{provider}}',
                   link_text: '',
                 },
-                forgotten_password: {
-                  email_label: 'Seu email',
-                  email_input_placeholder: 'email@exemplo.com',
-                  button_label: 'Enviar instruções de redefinição',
-                  link_text: 'Esqueceu sua senha?',
-                  check_email: 'Verifique seu e-mail para o link de redefinição de senha.',
-                },
+                // Removido o forgotten_password padrão para usar nosso próprio fluxo
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar link mágico',
@@ -137,6 +132,9 @@ const Login: React.FC<IndexProps> = () => {
               },
             }}
           />
+          <Button variant="link" onClick={() => navigate('/request-reset-code')} className="mt-2">
+            Esqueceu sua senha?
+          </Button>
         </CardContent>
       </Card>
     </div>

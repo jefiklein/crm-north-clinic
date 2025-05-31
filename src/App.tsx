@@ -24,7 +24,8 @@ import FunnelConfigPage from "./pages/FunnelConfigPage";
 import SelectClinicPage from "./pages/SelectClinicPage";
 import UserRegistrationPage from "./pages/UserRegistrationPage";
 import UserListPage from "./pages/UserListPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
+import RequestResetCodePage from "./pages/RequestResetCodePage"; // Import new page
+import VerifyResetCodePage from "./pages/VerifyResetCodePage"; // Import renamed page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -40,27 +41,10 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { clinicData, logout, isLoadingAuth, availableClinics, session } = useAuth();
-  // const location = useLocation(); // No longer needed for hash interception
-  // const navigate = useNavigate(); // No longer needed for hash interception
 
   useEffect(() => {
     console.log("[App.tsx] clinicData state updated:", clinicData);
   }, [clinicData]);
-
-  // REMOVED: Effect to intercept password recovery links.
-  // This is now handled by configuring Supabase to redirect directly to /reset-password.
-  /*
-  useEffect(() => {
-    const hash = window.location.hash;
-    const hashParams = new URLSearchParams(hash.substring(1));
-    const type = hashParams.get('type');
-
-    if (type === 'recovery') {
-      console.log("[App.tsx] Detected password recovery link. Redirecting to /reset-password.");
-      navigate('/reset-password' + hash, { replace: true });
-    }
-  }, [location.hash, navigate]);
-  */
 
   const handleLogout = () => {
     logout();
@@ -81,11 +65,12 @@ const App = () => {
           {/* The Login page is now the entry point and handles its own redirects */}
           <Route path="/" element={<Login />} />
 
+          {/* New routes for password reset by code */}
+          <Route path="/request-reset-code" element={<RequestResetCodePage />} />
+          <Route path="/verify-reset-code" element={<VerifyResetCodePage />} />
+
           {/* SelectClinicPage is a direct route */}
           <Route path="/select-clinic" element={<SelectClinicPage />} />
-
-          {/* Route for password reset - Supabase will redirect directly here */}
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected routes: only accessible if clinicData is available */}
           {session && clinicData && clinicData.id ? (
