@@ -54,9 +54,10 @@ const App = () => {
 
   // Check if the current URL indicates a password update flow
   // Supabase often puts these parameters in the hash (#)
-  const isPasswordUpdateFlow = location.hash.includes('type=invite') || location.hash.includes('type=recovery') ||
-                               new URLSearchParams(location.search).get('type') === 'invite' ||
-                               new URLSearchParams(location.search).get('type') === 'recovery';
+  // REMOVED: isPasswordUpdateFlow calculation here, it will be handled in Login.tsx directly
+  // const isPasswordUpdateFlow = location.hash.includes('type=invite') || location.hash.includes('type=recovery') ||
+  //                              new URLSearchParams(location.search).get('type') === 'invite' ||
+  //                              new URLSearchParams(location.search).get('type') === 'recovery';
 
   // Adicionando logs para depuração
   useEffect(() => {
@@ -67,21 +68,22 @@ const App = () => {
       availableClinics: availableClinics === null ? 'null' : availableClinics.length, // Log count or 'null'
       isAppLoading,
       currentPath: location.pathname,
-      isPasswordUpdateFlow // NEW: Log the password update flow status
+      // isPasswordUpdateFlow // REMOVED: Log the password update flow status
     });
-  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname, isPasswordUpdateFlow]);
+  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname]);
 
 
   if (isAppLoading) {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
-  // If not logged in, or if it's a password update flow (even if session exists temporarily)
-  if (!session || isPasswordUpdateFlow) {
+  // If not logged in, always go to Login.
+  // The Login component itself will handle the 'update_password' view based on URL hash.
+  if (!session) {
     return <Login />;
   }
 
-  // If logged in and NOT a password update flow:
+  // If logged in:
   // Determine if clinic selection is needed
   const needsClinicSelection = !clinicData || !clinicData.id || (availableClinics && availableClinics.length === 0);
   const isOnSelectClinicPage = location.pathname === '/select-clinic';

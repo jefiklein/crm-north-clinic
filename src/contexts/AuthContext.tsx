@@ -23,7 +23,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children, isPasswordUpdateFlow }: { children: ReactNode; isPasswordUpdateFlow: boolean }) => {
+// REMOVED: isPasswordUpdateFlow from props
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [clinicData, setClinicDataState] = useState<ClinicData | null>(null); // A clínica atualmente selecionada
   const [availableClinics, setAvailableClinics] = useState<ClinicData[] | null>(null); // Lista de clínicas disponíveis
@@ -70,14 +71,7 @@ export const AuthProvider = ({ children, isPasswordUpdateFlow }: { children: Rea
 
       try { // Adicionado bloco try para capturar erros e garantir finally
         if (currentSession?.user) {
-          // NEW: Se estiver no fluxo de atualização de senha, não carregue dados da clínica
-          if (isPasswordUpdateFlow) {
-            console.log("[AuthContext] handleAuthSession: Em fluxo de atualização de senha. Pulando carregamento de dados da clínica.");
-            setAvailableClinics(null); // Garante que não há clínicas disponíveis
-            setAndPersistClinicData(null); // Garante que nenhuma clínica está selecionada
-            return; // Sai da função, mas permite que isLoadingAuth seja false no finally
-          }
-
+          // REMOVED: isPasswordUpdateFlow check here. AuthContext will always try to load clinic data.
           console.log("[AuthContext] handleAuthSession: Usuário presente. Buscando todas as clínicas vinculadas...");
           const userId = currentSession.user.id;
 
@@ -206,7 +200,7 @@ export const AuthProvider = ({ children, isPasswordUpdateFlow }: { children: Rea
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, setAndPersistClinicData, isPasswordUpdateFlow]); // Adicionado isPasswordUpdateFlow como dependência
+  }, [navigate, setAndPersistClinicData]); // REMOVED: isPasswordUpdateFlow from dependencies
 
   // Diagnostic useEffect to log clinicData changes
   useEffect(() => {

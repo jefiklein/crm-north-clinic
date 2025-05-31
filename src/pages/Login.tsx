@@ -55,6 +55,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
             className="mx-auto h-32 w-auto mb-4"
           />
           <Auth
+            key={location.hash} // ADICIONADO: Força a re-renderização do componente Auth quando o hash da URL muda
             supabaseClient={supabase}
             providers={[]} // Não usaremos provedores de terceiros por enquanto
             appearance={{
