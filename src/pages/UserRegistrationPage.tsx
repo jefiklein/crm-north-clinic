@@ -99,7 +99,7 @@ const UserRegistrationPage: React.FC = () => {
                     firstName: firstName.trim() || null,
                     lastName: lastName.trim() || null,
                     // Redirecionar para a página de login (sem o parâmetro 'view' explícito)
-                    redirectTo: `${window.location.origin}/login`,
+                    redirectTo: `${window.location.origin}/login?type=invite`, // ALTERADO AQUI: Adicionado ?type=invite
                 },
             });
 

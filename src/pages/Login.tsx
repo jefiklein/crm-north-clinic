@@ -27,12 +27,14 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
   let initialView = queryParams.get('view') || 'sign_in'; // Obter 'view' da URL, padrão para 'sign_in'
 
   // NOVO: Verifica se a hash da URL contém 'type=invite' para forçar a view de atualização de senha
-  if (location.hash.includes('type=invite')) {
+  // ALTERADO: Agora verifica location.search (query parameters) para 'type=invite'
+  if (location.hash.includes('type=invite') || queryParams.get('type') === 'invite') {
     initialView = 'update_password';
   }
 
   // Adicionando log para depuração
   console.log("[Login.tsx] location.hash:", location.hash);
+  console.log("[Login.tsx] location.search:", location.search); // NOVO LOG
   console.log("[Login.tsx] initialView determined:", initialView);
 
 
