@@ -18,42 +18,47 @@ const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // --- LOGS DETALHADOS DA URL ---
-    console.log("[ResetPasswordPage] URL Completa:", window.location.href);
-    console.log("[ResetPasswordPage] Hash da URL:", window.location.hash);
-    console.log("[ResetPasswordPage] Query String da URL:", window.location.search);
-    // --- FIM DOS LOGS DETALHADOS ---
-
     const checkSession = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Tenta obter a sessão. Supabase DEVERIA processar o hash da URL aqui.
-        const { data: { session } } = await supabase.auth.getSession();
+        let { data: { session } } = await supabase.auth.getSession();
         
-        if (session) {
-          // Se uma sessão foi encontrada, verifica se é do tipo recuperação
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const type = hashParams.get('type');
-          
-          if (type === 'recovery') {
-            setIsSessionReady(true);
-            console.log("[ResetPasswordPage] Sessão encontrada e é do tipo recuperação.");
-          } else {
-            // Se houver sessão mas não for de recuperação, pode ser um acesso indevido
-            setError("Esta página é apenas para redefinição de senha. Redirecionando para o login.");
-            showError("Acesso inválido à página de redefinição.");
-            setTimeout(() => navigate('/', { replace: true }), 3000);
+        // Se nenhuma sessão foi encontrada pelo hash, tenta buscar na query string
+        if (!session) {
+          const queryParams = new URLSearchParams(window.location.search);
+          const accessToken = queryParams.get('access_token');
+          const refreshToken = queryParams.get('refresh_token');
+          const type = queryParams.get('type'); // Verifica o tipo também na query string
+
+          if (accessToken && refreshToken && type === 'recovery') {
+            console.log("[ResetPasswordPage] Tokens encontrados na query string. Tentando definir sessão.");
+            const { data: newSessionData, error: setSessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (setSessionError) {
+              console.error("[ResetPasswordPage] Erro ao definir sessão a partir da query string:", setSessionError);
+              throw new Error(setSessionError.message);
+            }
+            session = newSessionData.session; // Usa a sessão recém-definida
+            // Limpa os parâmetros da query string da URL para evitar reprocessamento em refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
           }
+        }
+
+        if (session) {
+          setIsSessionReady(true);
+          console.log("[ResetPasswordPage] Sessão encontrada e pronta para redefinição.");
         } else {
-          // Se nenhuma sessão foi encontrada, pode ser que o token não esteja no hash
           setError("Sessão de redefinição de senha não encontrada. Por favor, use o link do e-mail novamente.");
           showError("Sessão de redefinição ausente.");
         }
       } catch (err: any) {
-        console.error("[ResetPasswordPage] Erro ao verificar sessão:", err);
-        setError("Erro ao verificar sessão: " + err.message);
-        showError("Erro ao verificar sessão.");
+        console.error("[ResetPasswordPage] Erro ao verificar/definir sessão:", err);
+        setError("Erro ao verificar/definir sessão: " + err.message);
+        showError("Erro ao verificar/definir sessão.");
       } finally {
         setIsLoading(false);
       }
@@ -95,6 +100,7 @@ const ResetPasswordPage: React.FC = () => {
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
+      // Limpa o hash da URL após a redefinição bem-sucedida
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
 
       setTimeout(() => {
