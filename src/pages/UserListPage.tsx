@@ -52,7 +52,7 @@ interface UserListPageProps {
 }
 
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
-const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin (CORRIGIDO PARA 5)
+const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
@@ -86,9 +86,9 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
 
     // Fetch users with their roles for the current clinic
     const { data: usersData, isLoading: isLoadingUsers, error: usersError } = useQuery<{ users: SupabaseUser[], totalCount: number } | null>({
-        queryKey: ['clinicUsers', currentClinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, filterPermissionLevel],
+        queryKey: ['clinicUsers', currentClinicId, searchTerm, sortValue, filterPermissionLevel], // Removed currentPage and ITEMS_PER_PAGE from key
         queryFn: async ({ queryKey }) => {
-            const [, clinicId, page, itemsPerPage, search, sort, permissionFilter] = queryKey;
+            const [, clinicId, search, sort, permissionFilter] = queryKey;
 
             if (!clinicId) {
                 console.warn("UserListPage: Skipping users fetch due to missing clinicId.");
@@ -112,22 +112,16 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                         is_active,
                         permission_levels(name, description)
                     )
-                `, { count: 'exact' })
-                .filter('user_clinic_roles.clinic_id', 'eq', clinicId) // Filter by roles in this clinic
-                .filter('user_clinic_roles.permission_level_id', 'neq', SUPER_ADMIN_PERMISSION_ID); // EXCLUIR Super Admin (CORRIGIDO ID)
+                `, { count: 'exact' }) // Keep count: 'exact' for initial fetch, but we'll use client-side count
+                .filter('user_clinic_roles.clinic_id', 'eq', clinicId); // Filter by roles in this clinic
 
-            // Apply search filter
+            // Apply search filter (mantido no Supabase para eficiência)
             if (search) {
                 const searchTermLower = search.toLowerCase();
                 query = query.or(`first_name.ilike.%${searchTermLower}%,last_name.ilike.%${searchTermLower}%,email.ilike.%${searchTermLower}%`);
             }
 
-            // Apply permission level filter
-            if (permissionFilter !== 'all') {
-                query = query.filter('user_clinic_roles.permission_level_id', 'eq', parseInt(permissionFilter, 10));
-            }
-
-            // Apply sorting
+            // Apply sorting (mantido no Supabase para eficiência)
             let orderByColumn = 'created_at';
             let ascending = false;
             switch (sort) {
@@ -141,35 +135,43 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
             }
             query = query.order(orderByColumn, { ascending: ascending });
 
-            // Apply pagination
-            const startIndex = (page - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage - 1;
-            query = query.range(startIndex, endIndex);
+            // NÃO APLICAR PAGINAÇÃO AQUI. Buscamos todos os dados relevantes primeiro.
+            const { data, error } = await query;
 
-            const { data, error, count } = await query;
-
-            console.log('UserListPage: Supabase users fetch result:', { data, error, count });
+            console.log('UserListPage: Supabase users raw fetch result:', { data, error });
 
             if (error) {
                 console.error("UserListPage: Supabase users fetch error:", error);
                 throw new Error(`Erro ao buscar usuários: ${error.message}`);
             }
 
-            // Filter out users who don't have an active role in the current clinic
-            const filteredData = (data || []).filter(user =>
+            const allUsersFromSupabase = data || [];
+
+            // Filtragem completa no lado do cliente para garantir consistência com a contagem
+            const finalFilteredUsers = allUsersFromSupabase.filter(user =>
                 user.user_clinic_roles.some(role =>
-                    String(role.clinic_id) === String(clinicId) && role.is_active
+                    String(role.clinic_id) === String(clinicId) && // Deve ser da clínica atual
+                    role.is_active && // Deve ser um papel ativo
+                    role.permission_level_id !== SUPER_ADMIN_PERMISSION_ID && // NÃO deve ser Super Admin
+                    (permissionFilter === 'all' || role.permission_level_id === parseInt(permissionFilter, 10)) // Aplica o filtro de permissão selecionado
                 )
             );
 
-            return { users: filteredData, totalCount: count ?? 0 };
+            // A contagem total agora é o tamanho da lista filtrada
+            return { users: finalFilteredUsers, totalCount: finalFilteredUsers.length };
         },
         enabled: hasPermission && !!currentClinicId && !isLoadingPermissionLevels, // Only fetch if user has permission and clinicId is available
         staleTime: 60 * 1000, // Cache data for 1 minute
         refetchOnWindowFocus: false,
     });
 
-    const usersToDisplay = usersData?.users || [];
+    // Aplicar paginação aos dados já filtrados
+    const paginatedUsersToDisplay = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return (usersData?.users || []).slice(startIndex, endIndex);
+    }, [usersData?.users, currentPage, ITEMS_PER_PAGE]);
+
     const totalItems = usersData?.totalCount ?? 0;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -309,7 +311,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {usersToDisplay.map(user => {
+                                {paginatedUsersToDisplay.map(user => { // Usar paginatedUsersToDisplay
                                     // Find the role for the current clinic
                                     const clinicRole = user.user_clinic_roles.find(role => String(role.clinic_id) === String(currentClinicId));
                                     const permissionName = clinicRole?.permission_levels?.name || 'N/D';
