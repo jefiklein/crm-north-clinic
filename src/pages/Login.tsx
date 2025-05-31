@@ -26,12 +26,9 @@ const Login: React.FC<IndexProps> = () => {
   useEffect(() => {
     console.log("[Login.tsx] useEffect: Auth state changed. isLoadingAuth:", isLoadingAuth, "session:", !!session, "clinicData:", !!clinicData, "availableClinics:", availableClinics ? availableClinics.length : 'null');
 
-    // Verifica se o tipo de fluxo na URL é de recuperação de senha
-    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove '#'
-    const isPasswordRecovery = hashParams.get('type') === 'recovery';
-
-    // Só tenta redirecionar se o carregamento da autenticação estiver completo E NÃO for um fluxo de recuperação de senha
-    if (!isLoadingAuth && !isPasswordRecovery) {
+    // Só tenta redirecionar se o carregamento da autenticação estiver completo
+    // A verificação de 'isPasswordRecovery' foi movida para App.tsx
+    if (!isLoadingAuth) {
       if (session) {
         // Usuário autenticado
         if (clinicData && clinicData.id) {
@@ -51,9 +48,6 @@ const Login: React.FC<IndexProps> = () => {
         // Usuário não autenticado. Permanece na página de login para exibir o formulário.
         console.log("[Login.tsx] Usuário não autenticado. Permanecendo na página de login.");
       }
-    } else if (isPasswordRecovery) {
-      // Fluxo de recuperação de senha detectado. Permanece na página de login para permitir a atualização da senha.
-      console.log("[Login.tsx] Fluxo de recuperação de senha detectado. Permanecendo na página de login para permitir atualização da senha.");
     }
   }, [session, clinicData, availableClinics, isLoadingAuth, navigate]);
 

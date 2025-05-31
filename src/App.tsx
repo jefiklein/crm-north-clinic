@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom"; // Import useNavigate
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
@@ -24,6 +24,7 @@ import FunnelConfigPage from "./pages/FunnelConfigPage";
 import SelectClinicPage from "./pages/SelectClinicPage";
 import UserRegistrationPage from "./pages/UserRegistrationPage";
 import UserListPage from "./pages/UserListPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage"; // Import the new page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -39,26 +40,36 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { clinicData, logout, isLoadingAuth, availableClinics, session } = useAuth();
-  // const location = useLocation(); // No longer directly used for top-level redirects here
+  const location = useLocation();
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     console.log("[App.tsx] clinicData state updated:", clinicData);
   }, [clinicData]);
 
+  // NEW: Effect to intercept password recovery links
+  useEffect(() => {
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.substring(1)); // Remove '#'
+    const type = hashParams.get('type');
+
+    if (type === 'recovery') {
+      console.log("[App.tsx] Detected password recovery link. Redirecting to /reset-password.");
+      // Redirect to the new reset password page, preserving the hash
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, [location.hash, navigate]); // Depend on location.hash to react to changes
+
   const handleLogout = () => {
     logout();
   };
 
-  // NEW: Combined loading state for the entire app
-  // This ensures we wait for both initial auth loading AND clinic data loading
-  // Keep this for initial app load, before any routing decisions are made.
-  const isAppLoading = isLoadingAuth; // Simplified: only wait for initial auth loading here
+  const isAppLoading = isLoadingAuth;
 
   if (isAppLoading) {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
-  // Main routing logic
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -71,8 +82,10 @@ const App = () => {
           {/* SelectClinicPage is a direct route */}
           <Route path="/select-clinic" element={<SelectClinicPage />} />
 
+          {/* NEW: Route for password reset */}
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
           {/* Protected routes: only accessible if clinicData is available */}
-          {/* This is where we ensure the user is authenticated AND has a clinic selected */}
           {session && clinicData && clinicData.id ? (
             <Route
               path="/dashboard"
