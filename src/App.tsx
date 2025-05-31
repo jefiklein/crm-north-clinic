@@ -52,6 +52,12 @@ const App = () => {
   // NEW: Simplificando a condição de carregamento inicial
   const isAppLoading = isLoadingAuth;
 
+  // Check if the current URL indicates a password update flow
+  // Supabase often puts these parameters in the hash (#)
+  const isPasswordUpdateFlow = location.hash.includes('type=invite') || location.hash.includes('type=recovery') ||
+                               new URLSearchParams(location.search).get('type') === 'invite' ||
+                               new URLSearchParams(location.search).get('type') === 'recovery';
+
   // Adicionando logs para depuração
   useEffect(() => {
     console.log("[App.tsx Debug] Estado de carregamento e autenticação:", {
@@ -60,21 +66,22 @@ const App = () => {
       clinicData: !!clinicData,
       availableClinics: availableClinics === null ? 'null' : availableClinics.length, // Log count or 'null'
       isAppLoading,
-      currentPath: location.pathname
+      currentPath: location.pathname,
+      isPasswordUpdateFlow // NEW: Log the password update flow status
     });
-  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname]);
+  }, [isLoadingAuth, session, clinicData, availableClinics, isAppLoading, location.pathname, isPasswordUpdateFlow]);
 
 
   if (isAppLoading) {
     return <div className="flex items-center justify-center min-h-screen text-lg font-semibold text-gray-700">Carregando aplicação...</div>;
   }
 
-  // If not logged in, always render Login component directly
-  if (!session) {
+  // If not logged in, or if it's a password update flow (even if session exists temporarily)
+  if (!session || isPasswordUpdateFlow) {
     return <Login />;
   }
 
-  // If logged in:
+  // If logged in and NOT a password update flow:
   // Determine if clinic selection is needed
   const needsClinicSelection = !clinicData || !clinicData.id || (availableClinics && availableClinics.length === 0);
   const isOnSelectClinicPage = location.pathname === '/select-clinic';
