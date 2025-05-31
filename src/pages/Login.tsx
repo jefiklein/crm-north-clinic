@@ -103,7 +103,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar instruções de redefinição',
                   link_text: 'Esqueceu sua senha?', // Mantido o link para redefinição de senha
-                  check_email: 'Verifique seu e-mail para o link de redefinição de senha.',
+                  check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
                 },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',

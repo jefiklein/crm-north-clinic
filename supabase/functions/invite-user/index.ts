@@ -31,7 +31,7 @@ serve(async (req) => {
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
       {
-        redirectTo: redirectTo, // URL para onde o usuário será redirecionado após clicar no link
+        redirectTo: `${redirectTo}/login`, // ALTERADO AQUI: Redireciona para a rota /login
         data: {
           first_name: firstName,
           last_name: lastName,
