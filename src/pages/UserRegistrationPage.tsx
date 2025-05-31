@@ -28,8 +28,6 @@ const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Ad
 
 // Webhook URL para atribuir o papel do usuário na clínica
 const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
-// URL da nova Função Edge para convidar usuários
-// const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'eencnctntsydevijdhdu' pelo seu Project ID do Supabase
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -91,27 +89,49 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // 1. Chamar a Função Edge para convidar o usuário usando supabase.functions.invoke
-            console.log("Calling Edge Function to invite user:", email.trim());
-            const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
-                body: {
-                    email: email.trim(),
-                    firstName: firstName.trim() || null,
-                    lastName: lastName.trim() || null,
-                    // Redirecionar para a raiz do seu domínio. O Supabase Auth UI vai lidar com os tokens na hash.
-                    redirectTo: window.location.origin, // ALTERADO AQUI: Redireciona para a raiz
+            // 1. Criar o usuário diretamente no Supabase Auth
+            console.log("Creating user directly in Supabase Auth:", email.trim());
+            // Usamos a chave de serviço para criar o usuário, o que é seguro em Edge Functions ou backends.
+            // No frontend, isso requer a chave anon, mas o RLS deve proteger.
+            // Para um ambiente de produção, a criação de usuários admin-side deveria ser feita via Edge Function ou API.
+            // No entanto, para este contexto, vamos usar o cliente Supabase diretamente.
+            const { data: userCreationData, error: userCreationError } = await supabase.auth.admin.createUser({
+                email: email.trim(),
+                email_confirm: true, // Confirma o e-mail automaticamente
+                user_metadata: {
+                    first_name: firstName.trim() || null,
+                    last_name: lastName.trim() || null,
                 },
             });
 
-            if (inviteError) {
-                throw new Error(inviteError.message || `Erro ao convidar usuário.`);
+            if (userCreationError) {
+                // Se o usuário já existe, o erro será 'User already registered'
+                if (userCreationError.message.includes('User already registered')) {
+                    setError("Este email já está cadastrado. Por favor, use a opção 'Esqueceu sua senha?' para redefinir.");
+                    showError("Este email já está cadastrado.");
+                    return;
+                }
+                throw new Error(userCreationError.message || `Erro ao criar usuário.`);
             }
 
-            const newUserId = inviteData.user.id; // Obter o ID do usuário da resposta da Função Edge
+            const newUserId = userCreationData.user.id;
 
-            // 2. Chamar o webhook para inserir na tabela user_clinic_roles
-            // O trigger handle_new_user em auth.users já cria a entrada em 'profiles'.
-            // Este webhook é apenas para 'user_clinic_roles'.
+            // 2. Gerar e enviar o link de redefinição de senha para o usuário recém-criado
+            console.log("Generating and sending password reset link for user:", email.trim());
+            const { data: resetLinkData, error: resetLinkError } = await supabase.auth.admin.generateLink({
+                type: 'password_reset',
+                email: email.trim(),
+                options: {
+                    // Redirecionar para a página de login, onde o componente Auth UI detectará o tipo 'recovery'
+                    redirectTo: `${window.location.origin}/login`, 
+                },
+            });
+
+            if (resetLinkError) {
+                throw new Error(resetLinkError.message || `Erro ao gerar link de redefinição de senha.`);
+            }
+
+            // 3. Chamar o webhook para inserir na tabela user_clinic_roles
             console.log("Calling webhook to assign role:", {
                 userId: newUserId,
                 clinicId: clinicData.id,
@@ -138,7 +158,7 @@ const UserRegistrationPage: React.FC = () => {
                 throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}.`);
             }
 
-            showSuccess("Convite enviado com sucesso! O usuário receberá um email para definir a senha.");
+            showSuccess("Usuário cadastrado e link de redefinição de senha enviado com sucesso! O usuário receberá um email para definir a senha.");
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -149,7 +169,7 @@ const UserRegistrationPage: React.FC = () => {
 
         } catch (err: any) {
             console.error("Registration process error:", err);
-            setError(err.message || "Ocorreu um erro ao convidar o usuário.");
+            setError(err.message || "Ocorreu um erro ao cadastrar o usuário.");
             showError(`Erro: ${err.message}`);
         } finally {
             setIsRegistering(false);

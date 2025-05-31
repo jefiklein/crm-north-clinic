@@ -29,7 +29,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
 
   // NOVO: Verifica se a hash da URL contém 'type=invite' para forçar a view de atualização de senha
   // ALTERADO: Agora verifica location.search (query parameters) para 'type=invite'
-  if (location.hash.includes('type=invite') || queryParams.get('type') === 'invite') {
+  if (location.hash.includes('type=invite') || queryParams.get('type') === 'invite' || queryParams.get('type') === 'recovery') { // Adicionado 'recovery'
     initialView = 'update_password';
   }
 
@@ -85,7 +85,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
             className="mx-auto h-32 w-auto mb-4"
           />
           <Auth
-            key={location.hash} // ADICIONADO: Força a re-renderização do componente Auth quando o hash da URL muda
+            // Removido: key={location.hash}
             supabaseClient={supabase}
             providers={[]} // Não usaremos provedores de terceiros por enquanto
             appearance={{
@@ -141,6 +141,13 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   button_label: 'Enviar link mágico',
                   link_text: 'Entrar com link mágico', // Restaurado o link para link mágico
                   check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
+                },
+                verify_otp: {
+                  email_input_placeholder: 'Seu email',
+                  phone_input_placeholder: 'Seu telefone',
+                  token_input_placeholder: 'Código OTP',
+                  button_label: 'Verificar código OTP',
+                  link_text: 'Já tem um código OTP?',
                 },
                 update_password: { // Adicionado para a view de atualização de senha
                   password_label: 'Sua nova senha',
