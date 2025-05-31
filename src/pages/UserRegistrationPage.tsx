@@ -26,8 +26,11 @@ interface PermissionLevel {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
-// URL do webhook N8N para criação de usuário e atribuição de papel
-const N8N_USER_REGISTRATION_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
+// URL do webhook N8N para atribuição de papel (agora espera user_id)
+const N8N_USER_ROLE_ASSIGNMENT_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
+
+// URL da nova Edge Function para convidar o usuário
+const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'YOUR_SUPABASE_PROJECT_ID' pelo seu ID de projeto
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -89,33 +92,64 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // Preparar o payload para o webhook do N8N
-            const payload = {
-                email: email.trim(),
+            // PASSO 1: Convidar o usuário via Edge Function
+            console.log("[UserRegistrationPage] Chamando Edge Function para convidar usuário...");
+            const inviteResponse = await fetch(INVITE_USER_EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    first_name: firstName.trim(),
+                    last_name: lastName.trim(),
+                }),
+            });
+
+            const inviteData = await inviteResponse.json();
+            console.log("[UserRegistrationPage] Resposta da Edge Function de convite:", inviteData);
+
+            if (!inviteResponse.ok || inviteData.error) {
+                const errorMessage = inviteData.error || `Erro desconhecido ao convidar usuário (Status: ${inviteResponse.status})`;
+                setError(errorMessage);
+                showError(`Erro ao convidar usuário: ${errorMessage}`);
+                return;
+            }
+
+            const userId = inviteData.userId;
+            if (!userId) {
+                setError("ID do usuário não retornado após o convite.");
+                showError("Erro: ID do usuário não retornado.");
+                return;
+            }
+
+            // PASSO 2: Chamar o webhook do N8N para atribuir o papel, passando o userId
+            console.log("[UserRegistrationPage] Chamando webhook N8N para atribuir papel com userId:", userId);
+            const roleAssignmentPayload = {
+                user_id: userId, // O ID do usuário obtido da Edge Function
+                email: email.trim(), // Opcional, mas pode ser útil para o N8N
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 clinic_id: clinicData.id,
                 permission_level_id: parseInt(selectedPermissionLevel, 10),
             };
 
-            console.log("[UserRegistrationPage] Enviando dados para o webhook N8N:", payload);
-
-            const response = await fetch(N8N_USER_REGISTRATION_WEBHOOK_URL, {
+            const roleAssignmentResponse = await fetch(N8N_USER_ROLE_ASSIGNMENT_WEBHOOK_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(roleAssignmentPayload),
             });
 
-            const responseData = await response.json(); // Assumindo que o webhook sempre retorna JSON
+            const roleAssignmentData = await roleAssignmentResponse.json();
+            console.log("[UserRegistrationPage] Resposta do webhook N8N de atribuição de papel:", roleAssignmentData);
 
-            console.log("[UserRegistrationPage] Resposta do webhook N8N:", responseData);
-
-            if (!response.ok || responseData.error) {
-                const errorMessage = responseData.message || responseData.error || `Erro desconhecido (Status: ${response.status})`;
+            if (!roleAssignmentResponse.ok || roleAssignmentData.error) {
+                const errorMessage = roleAssignmentData.message || roleAssignmentData.error || `Erro desconhecido ao atribuir papel (Status: ${roleAssignmentResponse.status})`;
                 setError(errorMessage);
-                showError(`Erro: ${errorMessage}`);
+                showError(`Erro ao atribuir papel: ${errorMessage}`);
+                // Considere aqui um rollback ou log de erro mais robusto se a atribuição de papel falhar após o convite
                 return;
             }
 
@@ -201,7 +235,7 @@ const UserRegistrationPage: React.FC = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label htmlFor="lastName">Sobrenome</Label>
+                        <Label htmlFor="lastName">Sobrenome</LabeL>
                         <Input
                             id="lastName"
                             type="text"
