@@ -26,8 +26,6 @@ interface PermissionLevel {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
-// REMOVED: ASSIGN_ROLE_WEBHOOK_URL from here, it's now called by the Edge Function
-
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
     const navigate = useNavigate(); // Initialize useNavigate
@@ -88,46 +86,64 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // Chamar a nova Edge Function para criar o usuário e atribuir o papel
-            console.log("Calling Edge Function to create user and assign role:", email.trim());
-            const { data, error: edgeFunctionError } = await supabase.functions.invoke('create-user-and-assign-role', {
-                body: {
-                    email: email.trim(),
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
-                    clinicId: clinicData.id,
-                    permissionLevelId: parseInt(selectedPermissionLevel, 10),
+            // 1. Tentar cadastrar o usuário no Supabase Auth
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                email: email.trim(),
+                password: Math.random().toString(36).substring(2, 15), // Gerar uma senha temporária aleatória
+                options: {
+                    data: {
+                        first_name: firstName.trim(),
+                        last_name: lastName.trim(),
+                    },
                 },
             });
 
-            if (edgeFunctionError) {
-                console.error("Edge Function invocation error:", edgeFunctionError);
-                // Check for specific error messages from the Edge Function
-                if (edgeFunctionError.message.includes('User already registered')) {
+            if (signUpError) {
+                if (signUpError.message.includes('already registered')) {
                     setError("Este email já está cadastrado. Por favor, use a opção 'Esqueceu sua senha?' para redefinir.");
                     showError("Este email já está cadastrado.");
                 } else {
-                    setError(edgeFunctionError.message || "Erro desconhecido ao cadastrar usuário.");
-                    showError(`Erro: ${edgeFunctionError.message}`);
+                    setError(signUpError.message || "Erro desconhecido ao cadastrar usuário.");
+                    showError(`Erro: ${signUpError.message}`);
                 }
                 return;
             }
 
-            if (data && data.success) {
-                showSuccess("Usuário cadastrado e link de redefinição de senha enviado com sucesso! O usuário receberá um email para definir a senha.");
-                setEmail('');
-                setFirstName('');
-                setLastName('');
-                setSelectedPermissionLevel('');
-                
-                // Navegar para a página de lista de usuários após o registro bem-sucedido
-                navigate('/dashboard/15');
-            } else {
-                // Handle cases where the Edge Function returns success: false or a custom error message in data
-                const errorMessage = data?.error || "Erro desconhecido retornado pela função Edge.";
-                setError(errorMessage);
-                showError(`Erro: ${errorMessage}`);
+            const userId = signUpData.user?.id;
+
+            if (!userId) {
+                setError("Erro ao obter ID do usuário após o cadastro.");
+                showError("Erro ao cadastrar usuário.");
+                return;
             }
+
+            // 2. Atribuir o papel na tabela user_clinic_roles
+            const { error: roleError } = await supabase
+                .from('user_clinic_roles')
+                .insert({
+                    user_id: userId,
+                    clinic_id: clinicData.id,
+                    permission_level_id: parseInt(selectedPermissionLevel, 10),
+                    is_active: true,
+                });
+
+            if (roleError) {
+                console.error("Erro ao atribuir papel:", roleError);
+                setError(roleError.message || "Erro ao atribuir papel ao usuário.");
+                showError(`Erro ao atribuir papel: ${roleError.message}`);
+                // Opcional: Se a atribuição de papel falhar, você pode querer deletar o usuário recém-criado no auth.
+                // Isso exigiria uma Edge Function ou Service Role Key, então por enquanto, apenas reportamos o erro.
+                return;
+            }
+
+            showSuccess("Usuário cadastrado com sucesso! Um e-mail de confirmação foi enviado. O usuário precisará confirmar o e-mail e, em seguida, usar a opção 'Esqueceu sua senha?' para definir a senha.");
+            setEmail('');
+            setFirstName('');
+            setLastName('');
+            setSelectedPermissionLevel('');
+            
+            // Navegar para a página de lista de usuários após o registro bem-sucedido
+            navigate('/dashboard/15');
 
         } catch (err: any) {
             console.error("Registration process error:", err);
@@ -252,7 +268,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email com um link para definir sua senha.
+                    Após o cadastro, o usuário receberá um email de confirmação. Ele precisará confirmar o e-mail e, em seguida, usar a opção "Esqueceu sua senha?" na tela de login para definir a senha.
                 </p>
             </CardContent>
         </div>
