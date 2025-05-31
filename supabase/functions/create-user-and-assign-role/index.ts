@@ -152,7 +152,7 @@ serve(async (req) => {
     const redirectToUrl = `${req.headers.get('origin')}/login`;
     console.log(`Edge Function: Attempting to generate password reset link for ${email} with redirectTo: ${redirectToUrl}`);
     const { data: resetLinkData, error: resetLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'password_reset',
+      type: 'passwordReset', // <-- ALTERADO AQUI
       email: email.trim(),
       options: {
         redirectTo: redirectToUrl,
