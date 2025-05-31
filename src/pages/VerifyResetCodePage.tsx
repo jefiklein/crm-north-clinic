@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,92 +8,82 @@ import { Button } from "@/components/ui/button";
 import { Loader2, TriangleAlert, CheckCircle2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
-const ResetPasswordPage: React.FC = () => {
+const VerifyResetCodePage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Start as loading to check session
+
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isSessionReady, setIsSessionReady] = useState(false);
-  const [manualLinkInput, setManualLinkInput] = useState(''); // State for manual link input
-  const navigate = useNavigate();
+  const [isOtpVerified, setIsOtpVerified] = useState(false); // New state to control flow
 
-  // Function to attempt session retrieval and setting
-  const attemptSessionRetrieval = async (retries = 3, delay = 500) => {
-    setError(null); // Clear previous errors
+  useEffect(() => {
+    // Extract email from URL on component mount
+    const params = new URLSearchParams(location.search);
+    const emailFromUrl = params.get('email');
+    if (emailFromUrl) {
+      setEmail(decodeURIComponent(emailFromUrl));
+    } else {
+      // If no email in URL, prompt user to go back or enter manually
+      setError("E-mail não encontrado na URL. Por favor, retorne à página anterior ou insira o e-mail manualmente.");
+    }
+  }, [location.search]);
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!email.trim() || !otpCode.trim()) {
+      setError("Por favor, insira o e-mail e o código OTP.");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      let { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        console.log("[ResetPasswordPage] Session found via getSession().");
-        setIsSessionReady(true);
-        return;
+      // Verify the OTP code
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: otpCode.trim(),
+        type: 'recovery', // Important: specify 'recovery' type
+      });
+
+      if (verifyError) {
+        console.error("Erro ao verificar código OTP:", verifyError);
+        throw new Error(verifyError.message);
       }
 
-      // If no session, try to extract from URL (hash or query string)
-      const url = window.location.href;
-      const urlParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-
-      const accessToken = urlParams.get('access_token') || hashParams.get('access_token');
-      const refreshToken = urlParams.get('refresh_token') || hashParams.get('refresh_token');
-      const type = urlParams.get('type') || hashParams.get('type');
-
-      if (accessToken && refreshToken && type === 'recovery') {
-        console.log("[ResetPasswordPage] Tokens found in URL. Attempting to set session.");
-        const { data: newSessionData, error: setSessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (setSessionError) {
-          console.error("[ResetPasswordPage] Error setting session from URL tokens:", setSessionError);
-          throw new Error(setSessionError.message);
-        }
-        
-        if (newSessionData.session) {
-          setIsSessionReady(true);
-          console.log("[ResetPasswordPage] Session successfully set from URL tokens.");
-          // Clear URL parameters to prevent re-use on refresh
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return;
-        }
-      }
-
-      // If still no session and retries left, try again
-      if (retries > 0) {
-        console.log(`[ResetPasswordPage] No session found. Retrying in ${delay}ms... (Retries left: ${retries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        await attemptSessionRetrieval(retries - 1, delay * 2); // Exponential backoff
+      if (data.user) {
+        setIsOtpVerified(true);
+        setSuccess("Código verificado com sucesso! Agora você pode definir sua nova senha.");
+        showSuccess("Código verificado!");
       } else {
-        console.warn("[ResetPasswordPage] Max retries reached. No session found.");
-        setError("Sessão de redefinição de senha não encontrada. Por favor, use o link do e-mail novamente ou cole-o abaixo.");
-        showError("Sessão de redefinição ausente.");
+        throw new Error("Verificação de código falhou. Usuário não encontrado.");
       }
 
     } catch (err: any) {
-      console.error("[ResetPasswordPage] General error during session retrieval:", err);
-      setError("Erro ao verificar/definir sessão: " + err.message);
-      showError("Erro ao verificar/definir sessão.");
+      console.error("Erro na verificação do OTP:", err);
+      setError(err.message || "Ocorreu um erro ao verificar o código.");
+      showError(err.message || "Erro ao verificar código.");
     } finally {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    attemptSessionRetrieval();
-  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!isSessionReady) {
-      setError("Sessão de redefinição não está pronta. Por favor, aguarde ou recarregue a página.");
+    if (!isOtpVerified) {
+      setError("Por favor, verifique o código OTP primeiro.");
       return;
     }
-
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres.");
       return;
@@ -105,19 +95,20 @@ const ResetPasswordPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // Update the user's password (session should be active after verifyOtp)
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (updateError) {
-        console.error("Error updating password:", updateError);
+        console.error("Erro ao atualizar senha:", updateError);
         throw new Error(updateError.message);
       }
 
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
-      // Clear URL parameters after successful reset
+      // Clear URL parameters to prevent re-use on refresh
       window.history.replaceState({}, document.title, window.location.pathname);
 
       setTimeout(() => {
@@ -125,55 +116,9 @@ const ResetPasswordPage: React.FC = () => {
       }, 3000);
 
     } catch (err: any) {
-      console.error("Error in reset process:", err);
+      console.error("Erro no processo de redefinição:", err);
       setError(err.message || "Ocorreu um erro ao redefinir sua senha.");
       showError(err.message || "Erro ao redefinir senha.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleProcessManualLink = async () => {
-    setError(null);
-    setSuccess(null);
-    setIsLoading(true);
-
-    try {
-      const url = new URL(manualLinkInput);
-      const urlParams = new URLSearchParams(url.search);
-      const hashParams = new URLSearchParams(url.hash.substring(1));
-
-      const accessToken = urlParams.get('access_token') || hashParams.get('access_token');
-      const refreshToken = urlParams.get('refresh_token') || hashParams.get('refresh_token');
-      const type = urlParams.get('type') || hashParams.get('type');
-
-      if (!accessToken || !refreshToken || type !== 'recovery') {
-        throw new Error("Link inválido. Certifique-se de colar o link completo de redefinição de senha.");
-      }
-
-      console.log("[ResetPasswordPage] Manual link: Tokens extracted. Attempting to set session.");
-      const { data: newSessionData, error: setSessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (setSessionError) {
-        console.error("[ResetPasswordPage] Error setting session from manual link:", setSessionError);
-        throw new Error(setSessionError.message);
-      }
-
-      if (newSessionData.session) {
-        setIsSessionReady(true);
-        setManualLinkInput(''); // Clear input on success
-        showSuccess("Sessão de redefinição ativada. Agora você pode definir sua nova senha.");
-      } else {
-        throw new Error("Não foi possível ativar a sessão com o link fornecido.");
-      }
-
-    } catch (err: any) {
-      console.error("[ResetPasswordPage] Error processing manual link:", err);
-      setError(err.message || "Erro ao processar o link manual. Verifique se o link está correto e completo.");
-      showError(err.message || "Erro ao processar link.");
     } finally {
       setIsLoading(false);
     }
@@ -192,13 +137,6 @@ const ResetPasswordPage: React.FC = () => {
             className="mx-auto h-32 w-auto mb-4"
           />
 
-          {isLoading && !error && !success && (
-            <div className="flex items-center justify-center gap-2 text-primary">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Verificando sessão...
-            </div>
-          )}
-
           {error && (
             <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
               <TriangleAlert className="h-4 w-4" />
@@ -213,38 +151,51 @@ const ResetPasswordPage: React.FC = () => {
             </div>
           )}
 
-          {!success && !isSessionReady && !isLoading && (
-            <div className="flex flex-col gap-4">
+          {!isOtpVerified ? (
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
               <p className="text-sm text-gray-600 text-center">
-                Não foi possível detectar a sessão de redefinição automaticamente.
-                Por favor, cole o link completo de redefinição de senha que você recebeu por e-mail:
+                Insira o código que você recebeu por e-mail para redefinir sua senha.
               </p>
               <div className="form-group">
-                <Label htmlFor="manualLink">Link de Redefinição</Label>
+                <Label htmlFor="email">Seu Email</Label>
                 <Input
-                  id="manualLink"
+                  id="email"
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading || !!email} {/* Disable if email is already pre-filled */}
+                />
+              </div>
+              <div className="form-group">
+                <Label htmlFor="otpCode">Código de Redefinição</Label>
+                <Input
+                  id="otpCode"
                   type="text"
-                  placeholder="Cole o link completo aqui..."
-                  value={manualLinkInput}
-                  onChange={(e) => setManualLinkInput(e.target.value)}
+                  placeholder="Digite o código de 6 dígitos"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  required
                   disabled={isLoading}
                 />
               </div>
-              <Button onClick={handleProcessManualLink} disabled={isLoading || !manualLinkInput.trim()}>
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processando...
+                    Verificando Código...
                   </>
                 ) : (
-                  "Processar Link Manualmente"
+                  "Verificar Código"
                 )}
               </Button>
-            </div>
-          )}
-
-          {!success && isSessionReady && (
+            </form>
+          ) : (
             <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+              <p className="text-sm text-gray-600 text-center">
+                Defina sua nova senha.
+              </p>
               <div className="form-group">
                 <Label htmlFor="password">Nova Senha</Label>
                 <Input
@@ -281,10 +232,13 @@ const ResetPasswordPage: React.FC = () => {
               </Button>
             </form>
           )}
+          <Button variant="link" onClick={() => navigate('/')} disabled={isLoading}>
+            Voltar para o Login
+          </Button>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default ResetPasswordPage;
+export default VerifyResetCodePage;
