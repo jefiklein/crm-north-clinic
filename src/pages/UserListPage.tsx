@@ -96,7 +96,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                 return { users: [], totalCount: 0 };
             }
 
-            console.log(`UserListPage: Fetching users for clinic ${clinicId} (no filters applied in query).`);
+            console.log(`[UserListPage Debug] Fetching users for clinic ID: ${clinicId}`);
 
             let query = supabase
                 .from('profiles')
@@ -115,13 +115,9 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                     )
                 `, { count: 'exact' }); // Keep count: 'exact' for initial fetch, but we'll use client-side count
 
-            // Removidos os filtros de busca e ordenação da query do Supabase
-            // if (search) { ... }
-            // query = query.order(orderByColumn, { ascending: ascending });
-
             const { data, error } = await query;
 
-            console.log('UserListPage: Supabase users raw fetch result:', { data, error });
+            console.log('[UserListPage Debug] Supabase raw fetch result (all profiles with roles):', { data, error });
 
             if (error) {
                 console.error("UserListPage: Supabase users fetch error:", error);
@@ -131,15 +127,24 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
             const allUsersFromSupabase = data || [];
 
             // Filtragem completa no lado do cliente para garantir consistência com a contagem
-            const finalFilteredUsers = allUsersFromSupabase.filter(user =>
-                user.user_clinic_roles.some(role =>
-                    String(role.clinic_id) === String(clinicId) && // Deve ser da clínica atual
-                    role.is_active // Deve ser um papel ativo
-                    // Removidos os filtros de permissão do lado do cliente
-                    // && role.permission_level_id !== SUPER_ADMIN_PERMISSION_ID
-                    // && (permissionFilter === 'all' || role.permission_level_id === parseInt(permissionFilter, 10))
-                )
-            );
+            const finalFilteredUsers = allUsersFromSupabase.filter(user => {
+                const hasActiveRoleForCurrentClinic = user.user_clinic_roles.some(role => {
+                    const isForCurrentClinic = String(role.clinic_id) === String(clinicId);
+                    const isActiveRole = role.is_active;
+                    
+                    // Log each role check for debugging
+                    console.log(`[UserListPage Debug] User ${user.email} - Role ID ${role.id}: clinic_id=${role.clinic_id} (matches current: ${isForCurrentClinic}), is_active=${isActiveRole}`);
+                    
+                    return isForCurrentClinic && isActiveRole;
+                });
+                
+                if (!hasActiveRoleForCurrentClinic) {
+                    console.log(`[UserListPage Debug] User ${user.email} filtered OUT (no active role for clinic ${clinicId}).`);
+                }
+                return hasActiveRoleForCurrentClinic;
+            });
+
+            console.log('[UserListPage Debug] Final filtered users for display:', finalFilteredUsers);
 
             // A contagem total agora é o tamanho da lista filtrada
             return { users: finalFilteredUsers, totalCount: finalFilteredUsers.length };
