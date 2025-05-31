@@ -25,6 +25,9 @@ interface PermissionLevel {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
+// Webhook URL para atribuir o papel do usuário na clínica
+const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
+
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
     const [email, setEmail] = useState('');
@@ -118,23 +121,44 @@ const UserRegistrationPage: React.FC = () => {
 
             const newUserId = authData.user.id;
 
-            // 2. Insert into user_clinic_roles table
-            const { error: roleError } = await supabase
-                .from('user_clinic_roles')
-                .insert({
-                    user_id: newUserId,
-                    clinic_id: clinicData.id,
-                    permission_level_id: parseInt(selectedPermissionLevel, 10),
-                    is_active: true,
-                });
+            // 2. Call webhook to insert into user_clinic_roles table
+            console.log("Calling webhook to assign role:", {
+                userId: newUserId,
+                clinicId: clinicData.id,
+                permissionLevelId: parseInt(selectedPermissionLevel, 10),
+                email: email.trim(),
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+            });
 
-            if (roleError) {
-                console.error("Supabase Role Insert Error:", roleError);
-                // If role insertion fails, consider deleting the auth user to prevent orphaned accounts
-                // Note: supabase.auth.admin.deleteUser requires a service role key, which is not available client-side.
-                // For production, this cleanup should ideally be handled by a Supabase Edge Function or a database trigger/function.
-                throw new Error(`Erro ao vincular usuário à clínica: ${roleError.message}. Por favor, remova o usuário criado manualmente no Supabase Auth se necessário.`);
+            const webhookResponse = await fetch(ASSIGN_ROLE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: newUserId,
+                    clinicId: clinicData.id,
+                    permissionLevelId: parseInt(selectedPermissionLevel, 10),
+                    email: email.trim(),
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
+                }),
+            });
+
+            if (!webhookResponse.ok) {
+                const errorText = await webhookResponse.text();
+                console.error("Webhook Error Response:", errorText);
+                let parsedError = errorText;
+                try {
+                    const jsonError = JSON.parse(errorText);
+                    parsedError = jsonError.message || jsonError.error || errorText;
+                } catch (parseErr) {
+                    // Not a JSON error, use raw text
+                }
+                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}. Por favor, remova o usuário criado manualmente no Supabase Auth se necessário.`);
             }
+
+            const webhookData = await webhookResponse.json();
+            console.log("Webhook Success Response:", webhookData);
 
             showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado.");
             setEmail('');
