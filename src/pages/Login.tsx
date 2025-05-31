@@ -2,7 +2,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Importa CardDescription
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importa CardDescription
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
 // pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
@@ -50,7 +50,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
               },
             }}
             theme="light"
-            view="sign_in" // Adicionado para exibir apenas a tela de login
+            // view="sign_in" // REMOVIDO: Permite que o componente Auth gerencie a view dinamicamente
             localization={{
               // Mensagens de nível superior
               email_otp_text: '', // Removido o texto para desabilitar o link mágico
