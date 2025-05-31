@@ -22,16 +22,14 @@ const VerifyResetCodePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isOtpVerified, setIsOtpVerified] = useState(false); // New state to control flow
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   useEffect(() => {
-    // Extract email from URL on component mount
     const params = new URLSearchParams(location.search);
     const emailFromUrl = params.get('email');
     if (emailFromUrl) {
       setEmail(decodeURIComponent(emailFromUrl));
     } else {
-      // If no email in URL, prompt user to go back or enter manually
       setError("E-mail não encontrado na URL. Por favor, retorne à página anterior ou insira o e-mail manualmente.");
     }
   }, [location.search]);
@@ -48,11 +46,10 @@ const VerifyResetCodePage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Verify the OTP code
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: otpCode.trim(),
-        type: 'recovery', // Important: specify 'recovery' type
+        type: 'recovery',
       });
 
       if (verifyError) {
@@ -97,7 +94,6 @@ const VerifyResetCodePage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Update the user's password (session should be active after verifyOtp)
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -110,7 +106,6 @@ const VerifyResetCodePage: React.FC = () => {
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
-      // Clear URL parameters to prevent re-use on refresh
       window.history.replaceState({}, document.title, window.location.pathname);
 
       setTimeout(() => {
@@ -167,7 +162,7 @@ const VerifyResetCodePage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isLoading || !!email} {/* Disable if email is already pre-filled */}
+                  disabled={isLoading || !!email}
                 />
               </div>
               <div className="form-group">
