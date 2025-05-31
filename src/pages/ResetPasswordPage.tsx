@@ -14,23 +14,28 @@ const ResetPasswordPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isSessionReady, setIsSessionReady] = useState(false); // Novo estado para controlar a prontidão da sessão
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const navigate = useNavigate();
 
-  // --- NOVO LOG TEMPORÁRIO AQUI ---
-  console.log("[ResetPasswordPage] URL Hash ao carregar:", window.location.hash);
-  // --- FIM DO NOVO LOG TEMPORÁRIO ---
-
   useEffect(() => {
+    // --- LOGS DETALHADOS DA URL ---
+    console.log("[ResetPasswordPage] URL Completa:", window.location.href);
+    console.log("[ResetPasswordPage] Hash da URL:", window.location.hash);
+    console.log("[ResetPasswordPage] Query String da URL:", window.location.search);
+    // --- FIM DOS LOGS DETALHADOS ---
+
     const checkSession = async () => {
-      setIsLoading(true); // Mostra loading enquanto verifica a sessão
+      setIsLoading(true);
       setError(null);
       try {
+        // Tenta obter a sessão. Supabase DEVERIA processar o hash da URL aqui.
         const { data: { session } } = await supabase.auth.getSession();
+        
         if (session) {
-          // Verifica se é uma sessão de recuperação (pelo hash da URL)
+          // Se uma sessão foi encontrada, verifica se é do tipo recuperação
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const type = hashParams.get('type');
+          
           if (type === 'recovery') {
             setIsSessionReady(true);
             console.log("[ResetPasswordPage] Sessão encontrada e é do tipo recuperação.");
@@ -41,6 +46,7 @@ const ResetPasswordPage: React.FC = () => {
             setTimeout(() => navigate('/', { replace: true }), 3000);
           }
         } else {
+          // Se nenhuma sessão foi encontrada, pode ser que o token não esteja no hash
           setError("Sessão de redefinição de senha não encontrada. Por favor, use o link do e-mail novamente.");
           showError("Sessão de redefinição ausente.");
         }
@@ -54,14 +60,14 @@ const ResetPasswordPage: React.FC = () => {
     };
 
     checkSession();
-  }, []); // Executa apenas uma vez ao montar o componente
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!isSessionReady) { // Impede a submissão se a sessão não estiver pronta
+    if (!isSessionReady) {
       setError("Sessão de redefinição não está pronta. Por favor, aguarde ou recarregue a página.");
       return;
     }
@@ -77,8 +83,6 @@ const ResetPasswordPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Supabase automaticamente pega o access_token do hash da URL
-      // quando você chama updateUser.
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -91,11 +95,10 @@ const ResetPasswordPage: React.FC = () => {
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
-      // Limpa o hash da URL após a redefinição bem-sucedida
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
 
       setTimeout(() => {
-        navigate('/', { replace: true }); // Redireciona para a página de login
+        navigate('/', { replace: true });
       }, 3000);
 
     } catch (err: any) {
@@ -120,7 +123,7 @@ const ResetPasswordPage: React.FC = () => {
             className="mx-auto h-32 w-auto mb-4"
           />
 
-          {isLoading && !error && ( // Mostra loading apenas se não houver erro ainda
+          {isLoading && !error && (
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="h-5 w-5 animate-spin" />
               Verificando sessão...
@@ -141,7 +144,7 @@ const ResetPasswordPage: React.FC = () => {
             </div>
           )}
 
-          {!success && isSessionReady && ( // Só mostra o formulário se a sessão estiver pronta e não houver mensagem de sucesso
+          {!success && isSessionReady && (
             <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
               <div className="form-group">
                 <Label htmlFor="password">Nova Senha</Label>
