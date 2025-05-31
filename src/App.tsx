@@ -73,9 +73,8 @@ const App = () => {
   if (!session) {
     return (
       <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} /> {/* Adicionada esta linha para reconhecer /login */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} /> {/* Redireciona tudo para /login */}
       </Routes>
     );
   }

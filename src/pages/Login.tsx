@@ -35,6 +35,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
   // Adicionando log para depuração
   console.log("[Login.tsx] location.hash:", location.hash);
   console.log("[Login.tsx] location.search:", location.search); // NOVO LOG
+  console.log("[Login.tsx] queryParams.get('type'):", queryParams.get('type')); // NOVO LOG
   console.log("[Login.tsx] initialView determined:", initialView);
 
 
