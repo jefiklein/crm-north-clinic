@@ -14,21 +14,53 @@ const ResetPasswordPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isSessionReady, setIsSessionReady] = useState(false); // Novo estado para controlar a prontidão da sessão
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Clear any existing hash parameters after component mounts
-    // This is important because Supabase's auth-ui-react might try to read them
-    // if we navigate back to login, and we want this page to handle it.
-    // However, for this specific flow, we need the hash to be present initially.
-    // We'll rely on App.tsx to redirect here with the hash.
-    // After successful update, we'll clear it.
-  }, []);
+    const checkSession = async () => {
+      setIsLoading(true); // Mostra loading enquanto verifica a sessão
+      setError(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Verifica se é uma sessão de recuperação (pelo hash da URL)
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const type = hashParams.get('type');
+          if (type === 'recovery') {
+            setIsSessionReady(true);
+            console.log("[ResetPasswordPage] Sessão encontrada e é do tipo recuperação.");
+          } else {
+            // Se houver sessão mas não for de recuperação, pode ser um acesso indevido
+            setError("Esta página é apenas para redefinição de senha. Redirecionando para o login.");
+            showError("Acesso inválido à página de redefinição.");
+            setTimeout(() => navigate('/', { replace: true }), 3000);
+          }
+        } else {
+          setError("Sessão de redefinição de senha não encontrada. Por favor, use o link do e-mail novamente.");
+          showError("Sessão de redefinição ausente.");
+        }
+      } catch (err: any) {
+        console.error("[ResetPasswordPage] Erro ao verificar sessão:", err);
+        setError("Erro ao verificar sessão: " + err.message);
+        showError("Erro ao verificar sessão.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+  }, []); // Executa apenas uma vez ao montar o componente
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (!isSessionReady) { // Impede a submissão se a sessão não estiver pronta
+      setError("Sessão de redefinição não está pronta. Por favor, aguarde ou recarregue a página.");
+      return;
+    }
 
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres.");
@@ -41,8 +73,8 @@ const ResetPasswordPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Supabase automatically picks up the access_token from the URL hash
-      // when you call updateUser.
+      // Supabase automaticamente pega o access_token do hash da URL
+      // quando você chama updateUser.
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -55,11 +87,11 @@ const ResetPasswordPage: React.FC = () => {
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
-      // Clear the hash from the URL after successful reset
+      // Limpa o hash da URL após a redefinição bem-sucedida
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
 
       setTimeout(() => {
-        navigate('/', { replace: true }); // Redirect to login page
+        navigate('/', { replace: true }); // Redireciona para a página de login
       }, 3000);
 
     } catch (err: any) {
@@ -84,6 +116,13 @@ const ResetPasswordPage: React.FC = () => {
             className="mx-auto h-32 w-auto mb-4"
           />
 
+          {isLoading && !error && ( // Mostra loading apenas se não houver erro ainda
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Verificando sessão...
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
               <TriangleAlert className="h-4 w-4" />
@@ -98,7 +137,7 @@ const ResetPasswordPage: React.FC = () => {
             </div>
           )}
 
-          {!success && (
+          {!success && isSessionReady && ( // Só mostra o formulário se a sessão estiver pronta e não houver mensagem de sucesso
             <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
               <div className="form-group">
                 <Label htmlFor="password">Nova Senha</Label>
