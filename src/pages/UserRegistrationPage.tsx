@@ -29,7 +29,7 @@ const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Ad
 // Webhook URL para atribuir o papel do usuário na clínica
 const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
 // URL da nova Função Edge para convidar usuários
-const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'eencnctntsydevijdhdu' pelo seu Project ID do Supabase
+// const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'eencnctntsydevijdhdu' pelo seu Project ID do Supabase
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -91,26 +91,22 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // 1. Chamar a Função Edge para convidar o usuário
+            // 1. Chamar a Função Edge para convidar o usuário usando supabase.functions.invoke
             console.log("Calling Edge Function to invite user:", email.trim());
-            const inviteResponse = await fetch(INVITE_USER_EDGE_FUNCTION_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-user', {
+                body: {
                     email: email.trim(),
                     firstName: firstName.trim() || null,
                     lastName: lastName.trim() || null,
                     // Redirecionar para a página de login com a view de atualização de senha
                     redirectTo: `${window.location.origin}/login?view=update_password`,
-                }),
+                },
             });
 
-            if (!inviteResponse.ok) {
-                const errorData = await inviteResponse.json();
-                throw new Error(errorData.error || `Erro ${inviteResponse.status} ao convidar usuário.`);
+            if (inviteError) {
+                throw new Error(inviteError.message || `Erro ao convidar usuário.`);
             }
 
-            const inviteData = await inviteResponse.json();
             const newUserId = inviteData.user.id; // Obter o ID do usuário da resposta da Função Edge
 
             // 2. Chamar o webhook para inserir na tabela user_clinic_roles
