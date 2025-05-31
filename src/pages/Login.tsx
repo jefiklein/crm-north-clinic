@@ -53,7 +53,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
             view="sign_in" // Adicionado para exibir apenas a tela de login
             localization={{
               // Mensagens de nível superior
-              email_otp_text: 'Entrar com link mágico',
+              email_otp_text: '', // Removido o texto para desabilitar o link mágico
               email_password_text: 'Entrar com email e senha',
               loading_text: 'Carregando...',
               no_session_text: 'Nenhuma sessão encontrada.',
@@ -68,7 +68,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   password_input_placeholder: '••••••••',
                   button_label: 'Entrar',
                   social_provider_text: 'Entrar com {{provider}}',
-                  link_text: 'Não tem uma conta? Cadastre-se', // Traduzido e ajustado
+                  link_text: '', // Removido o link para cadastro
                 },
                 sign_up: {
                   email_label: 'Seu email',
@@ -77,19 +77,19 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   password_input_placeholder: '••••••••',
                   button_label: 'Cadastrar',
                   social_provider_text: 'Cadastrar com {{provider}}',
-                  link_text: 'Já tem uma conta? Entrar', // Traduzido e ajustado
+                  link_text: '', // Removido o link para login na tela de cadastro (que não será acessada)
                 },
                 forgotten_password: {
                   email_label: 'Seu email',
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar instruções de redefinição',
-                  link_text: 'Esqueceu sua senha?',
+                  link_text: 'Esqueceu sua senha?', // Mantido o link para redefinição de senha
                   check_email: 'Verifique seu e-mail para o link de redefinição de senha.',
                 },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar link mágico',
-                  link_text: 'Enviar um link mágico por email',
+                  link_text: '', // Removido o link para link mágico
                   check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
                 },
                 verify_otp: {
