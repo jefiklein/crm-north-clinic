@@ -2,7 +2,7 @@ import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Importa CardDescription
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Importa CardDescription
 import { useLocation } from 'react-router-dom'; // Adiciona esta importação
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
@@ -24,7 +24,12 @@ interface IndexProps {
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const initialView = queryParams.get('view') || 'sign_in'; // Obter 'view' da URL, padrão para 'sign_in'
+  let initialView = queryParams.get('view') || 'sign_in'; // Obter 'view' da URL, padrão para 'sign_in'
+
+  // NOVO: Verifica se a hash da URL contém 'type=invite' para forçar a view de atualização de senha
+  if (location.hash.includes('type=invite')) {
+    initialView = 'update_password';
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
