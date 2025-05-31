@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.5'; // Alterado para a versão 2.38.5
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.5'; // Mantendo a versão 2.38.5 por enquanto
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,11 +27,12 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    console.log(`Edge Function: SUPABASE_URL present: ${!!SUPABASE_URL}, SUPABASE_SERVICE_ROLE_KEY present: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
+    
+    console.log(`Edge Function: SUPABASE_URL: ${SUPABASE_URL ? 'Present' : 'Missing'}`);
+    console.log(`Edge Function: SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY ? 'Present (masked: ' + SUPABASE_SERVICE_ROLE_KEY.substring(0, 5) + '...)' : 'Missing'}`);
 
-    // Adicionando uma verificação explícita para as variáveis de ambiente
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error("Edge Function: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+      console.error("Edge Function: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables. Cannot initialize admin client.");
       return new Response(JSON.stringify({ error: 'Server configuration error: Missing Supabase credentials.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -48,6 +49,15 @@ serve(async (req) => {
         },
       }
     );
+
+    // NOVO LOG: Inspecionar o objeto auth e admin
+    console.log(`Edge Function: Keys on supabaseAdmin.auth: ${Object.keys(supabaseAdmin.auth).join(', ')}`);
+    if (supabaseAdmin.auth.admin) {
+      console.log(`Edge Function: Keys on supabaseAdmin.auth.admin: ${Object.keys(supabaseAdmin.auth.admin).join(', ')}`);
+      console.log(`Edge Function: typeof supabaseAdmin.auth.admin.getUserByEmail: ${typeof supabaseAdmin.auth.admin.getUserByEmail}`);
+    } else {
+      console.log("Edge Function: supabaseAdmin.auth.admin is undefined or null. Service role key might be invalid or not picked up.");
+    }
 
     let targetUserId: string;
     let userAlreadyExistsInAuth = false;
