@@ -23,6 +23,7 @@ interface PermissionLevel {
 }
 
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
+const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -48,9 +49,13 @@ const UserRegistrationPage: React.FC = () => {
                     .order('id', { ascending: true });
 
                 if (error) throw error;
-                setPermissionLevels(data || []);
-                if (data && data.length > 0) {
-                    setSelectedPermissionLevel(String(data[0].id)); // Select first by default
+                
+                // Filtrar o nível de permissão Super Admin (ID 5)
+                const filteredLevels = (data || []).filter(level => level.id !== SUPER_ADMIN_PERMISSION_ID);
+
+                setPermissionLevels(filteredLevels);
+                if (filteredLevels.length > 0) {
+                    setSelectedPermissionLevel(String(filteredLevels[0].id)); // Select first available by default
                 }
             } catch (err: any) {
                 console.error("Error fetching permission levels:", err);
