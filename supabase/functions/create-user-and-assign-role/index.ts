@@ -52,11 +52,11 @@ serve(async (req) => {
 
     // NOVO LOG: Inspecionar o objeto auth e admin de forma mais detalhada
     console.log(`Edge Function: supabaseAdmin.auth.admin object keys: ${JSON.stringify(Object.keys(supabaseAdmin.auth.admin || {}))}`);
-    console.log(`Edge Function: typeof supabaseAdmin.auth.admin.getUserByEmail: ${typeof supabaseAdmin.auth.admin.getUserByEmail}`);
+    console.log(`Edge Function: typeof supabaseAdmin.auth.admin.createUser: ${typeof supabaseAdmin.auth.admin.createUser}`);
 
-    // VERIFICAÇÃO DEFENSIVA ANTES DE CHAMAR getUserByEmail
-    if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.getUserByEmail !== 'function') {
-      console.error("Edge Function: supabaseAdmin.auth.admin is not fully initialized or getUserByEmail is not a function. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
+    // VERIFICAÇÃO DEFENSIVA ANTES DE CHAMAR createUser
+    if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.createUser !== 'function') {
+      console.error("Edge Function: supabaseAdmin.auth.admin is not fully initialized or createUser is not a function. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
       return new Response(JSON.stringify({ error: 'Server configuration error: Supabase admin client methods not available. Please verify your SUPABASE_SERVICE_ROLE_KEY in Supabase dashboard.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -64,45 +64,27 @@ serve(async (req) => {
     }
 
     let targetUserId: string;
-    let userAlreadyExistsInAuth = false;
 
-    // 1. Check if user already exists in Supabase Auth
-    console.log(`Edge Function: Checking if user ${email} already exists in auth.`);
-    const { data: existingUserData, error: existingUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email.trim());
+    // 1. Directly attempt to create the user in Supabase Auth
+    console.log(`Edge Function: Attempting to create new user ${email}.`);
+    const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
+      email: email.trim(),
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName?.trim() || null,
+        last_name: lastName?.trim() || null,
+      },
+    });
 
-    if (existingUserData?.user) {
-      console.log(`Edge Function: User ${email} found in auth. ID: ${existingUserData.user.id}`);
-      targetUserId = existingUserData.user.id;
-      userAlreadyExistsInAuth = true;
-    } else if (existingUserError && existingUserError.message === 'User not found') {
-      // User does not exist, proceed to create
-      console.log(`Edge Function: User ${email} not found in auth. Creating new user.`);
-      const { data: userCreationData, error: userCreationError } = await supabaseAdmin.auth.admin.createUser({
-        email: email.trim(),
-        email_confirm: true,
-        user_metadata: {
-          first_name: firstName?.trim() || null,
-          last_name: lastName?.trim() || null,
-        },
-      });
-
-      if (userCreationError) {
-        console.error(`Edge Function: Error creating new user: ${userCreationError.message || JSON.stringify(userCreationError)}`);
-        return new Response(JSON.stringify({ error: userCreationError.message }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        });
-      }
-      console.log("Edge Function: New user created successfully. ID:", userCreationData.user.id);
-      targetUserId = userCreationData.user.id;
-    } else {
-      // Other error when fetching user by email
-      console.error(`Edge Function: Unexpected error fetching user by email: ${existingUserError?.message || JSON.stringify(existingUserError)}`);
-      return new Response(JSON.stringify({ error: existingUserError?.message || 'Failed to check existing user.' }), {
+    if (userCreationError) {
+      console.error(`Edge Function: Error creating new user: ${userCreationError.message || JSON.stringify(userCreationError)}`);
+      return new Response(JSON.stringify({ error: userCreationError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 400,
       });
     }
+    console.log("Edge Function: New user created successfully. ID:", userCreationData.user.id);
+    targetUserId = userCreationData.user.id;
 
     // 2. Check and assign/update role in public.user_clinic_roles
     console.log(`Edge Function: Checking existing role for user ${targetUserId} in clinic ${clinicId}.`);
