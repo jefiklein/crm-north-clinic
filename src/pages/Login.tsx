@@ -3,6 +3,7 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Importa CardDescription
+import { useLocation } from 'react-router-dom'; // Adiciona esta importação
 
 // A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
 // pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
@@ -21,6 +22,10 @@ interface IndexProps {
 }
 
 const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, pois não será usado diretamente
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialView = queryParams.get('view') || 'sign_in'; // Obter 'view' da URL, padrão para 'sign_in'
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4"> {/* Fundo com a cor do menu */}
       <Card className="w-[400px]">
@@ -50,7 +55,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
               },
             }}
             theme="light"
-            view="sign_in" // Adicionado para exibir apenas a tela de login
+            view={initialView as 'sign_in' | 'sign_up' | 'forgotten_password' | 'magic_link' | 'update_password' | 'verify_otp'} // Usar initialView
             localization={{
               // Mensagens de nível superior
               email_otp_text: '', // Removido o texto para desabilitar o link mágico

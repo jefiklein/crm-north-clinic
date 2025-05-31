@@ -28,6 +28,8 @@ const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Ad
 
 // Webhook URL para atribuir o papel do usuário na clínica
 const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
+// URL da nova Função Edge para convidar usuários
+const INVITE_USER_EDGE_FUNCTION_URL = 'https://eencnctntsydevijdhdu.supabase.co/functions/v1/invite-user'; // Substitua 'eencnctntsydevijdhdu' pelo seu Project ID do Supabase
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -75,15 +77,6 @@ const UserRegistrationPage: React.FC = () => {
         }
     }, [hasPermission]);
 
-    const generateRandomPassword = (length = 12) => {
-        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
-        let password = "";
-        for (let i = 0; i < length; i++) {
-            password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
-    };
-
     const handleRegister = async () => {
         setError(null);
         if (!clinicData?.id) {
@@ -96,84 +89,71 @@ const UserRegistrationPage: React.FC = () => {
         }
 
         setIsRegistering(true);
-        const tempPassword = generateRandomPassword(); // Generate a temporary password
 
         try {
-            // 1. Register user in Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: email.trim(),
-                password: tempPassword, // Use a temporary password
-                options: {
-                    data: {
-                        first_name: firstName.trim() || null,
-                        last_name: lastName.trim() || null,
-                    },
-                    // emailRedirectTo: 'http://localhost:8080/login' // Optional: redirect after email confirmation
-                },
+            // 1. Chamar a Função Edge para convidar o usuário
+            console.log("Calling Edge Function to invite user:", email.trim());
+            const inviteResponse = await fetch(INVITE_USER_EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    firstName: firstName.trim() || null,
+                    lastName: lastName.trim() || null,
+                    // Redirecionar para a página de login com a view de atualização de senha
+                    redirectTo: `${window.location.origin}/login?view=update_password`,
+                }),
             });
 
-            if (authError) {
-                console.error("Supabase Auth SignUp Error:", authError);
-                throw new Error(authError.message);
+            if (!inviteResponse.ok) {
+                const errorData = await inviteResponse.json();
+                throw new Error(errorData.error || `Erro ${inviteResponse.status} ao convidar usuário.`);
             }
 
-            if (!authData.user) {
-                throw new Error("Usuário não retornado após o cadastro. Verifique o email e tente novamente.");
-            }
+            const inviteData = await inviteResponse.json();
+            const newUserId = inviteData.user.id; // Obter o ID do usuário da resposta da Função Edge
 
-            const newUserId = authData.user.id;
-
-            // 2. Call webhook to insert into user_clinic_roles table
+            // 2. Chamar o webhook para inserir na tabela user_clinic_roles
+            // O trigger handle_new_user em auth.users já cria a entrada em 'profiles'.
+            // Este webhook é apenas para 'user_clinic_roles'.
             console.log("Calling webhook to assign role:", {
                 userId: newUserId,
                 clinicId: clinicData.id,
                 permissionLevelId: parseInt(selectedPermissionLevel, 10),
-                email: email.trim(),
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
             });
 
-            const webhookResponse = await fetch(ASSIGN_ROLE_WEBHOOK_URL, {
+            const assignRoleResponse = await fetch(ASSIGN_ROLE_WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: newUserId,
                     clinicId: clinicData.id,
                     permissionLevelId: parseInt(selectedPermissionLevel, 10),
-                    email: email.trim(),
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
                 }),
             });
 
-            if (!webhookResponse.ok) {
-                const errorText = await webhookResponse.text();
-                console.error("Webhook Error Response:", errorText);
+            if (!assignRoleResponse.ok) {
+                const errorText = await assignRoleResponse.text();
                 let parsedError = errorText;
                 try {
                     const jsonError = JSON.parse(errorText);
                     parsedError = jsonError.message || jsonError.error || errorText;
-                } catch (parseErr) {
-                    // Not a JSON error, use raw text
-                }
-                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}. Por favor, remova o usuário criado manualmente no Supabase Auth se necessário.`);
+                } catch (parseErr) { /* not JSON */ }
+                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}.`);
             }
 
-            const webhookData = await webhookResponse.json();
-            console.log("Webhook Success Response:", webhookData);
-
-            showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado.");
+            showSuccess("Convite enviado com sucesso! O usuário receberá um email para definir a senha.");
             setEmail('');
             setFirstName('');
             setLastName('');
             setSelectedPermissionLevel('');
             
-            // Navigate to the user list page after successful registration
+            // Navegar para a página de lista de usuários após o registro bem-sucedido
             navigate('/dashboard/15');
 
         } catch (err: any) {
             console.error("Registration process error:", err);
-            setError(err.message || "Ocorreu um erro ao cadastrar o usuário.");
+            setError(err.message || "Ocorreu um erro ao convidar o usuário.");
             showError(`Erro: ${err.message}`);
         } finally {
             setIsRegistering(false);
@@ -294,7 +274,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email de confirmação. Ele poderá então fazer login com o email e uma senha temporária gerada automaticamente. Caso não saiba a senha, poderá usar a opção "Esqueceu a senha?" na tela de login para definir uma nova.
+                    Após o cadastro, o usuário receberá um email com um link para definir sua senha.
                 </p>
             </CardContent>
         </div>
