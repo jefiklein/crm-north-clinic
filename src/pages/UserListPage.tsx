@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Search, Plus, User, Info, TriangleAlert, Loader2, UserPlus } from "lucide-react";
@@ -128,18 +128,22 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
 
             // Filtragem completa no lado do cliente para garantir consistência com a contagem
             const finalFilteredUsers = allUsersFromSupabase.filter(user => {
+                console.log(`[UserListPage Debug] Processing user: ${user.email} (ID: ${user.id})`);
+                console.log(`[UserListPage Debug]   User roles array for ${user.email}:`, user.user_clinic_roles);
+
                 const hasActiveRoleForCurrentClinic = user.user_clinic_roles.some(role => {
                     const isForCurrentClinic = String(role.clinic_id) === String(clinicId);
                     const isActiveRole = role.is_active;
-                    
-                    // Log each role check for debugging
-                    console.log(`[UserListPage Debug] User ${user.email} - Role ID ${role.id}: clinic_id=${role.clinic_id} (matches current: ${isForCurrentClinic}), is_active=${isActiveRole}`);
-                    
+
+                    console.log(`[UserListPage Debug]     Checking role ID ${role.id} for ${user.email}: clinic_id=${role.clinic_id} (matches current: ${isForCurrentClinic}), is_active=${isActiveRole}`);
+
                     return isForCurrentClinic && isActiveRole;
                 });
-                
+
                 if (!hasActiveRoleForCurrentClinic) {
                     console.log(`[UserListPage Debug] User ${user.email} filtered OUT (no active role for clinic ${clinicId}).`);
+                } else {
+                    console.log(`[UserListPage Debug] User ${user.email} included (has active role for clinic ${clinicId}).`);
                 }
                 return hasActiveRoleForCurrentClinic;
             });
