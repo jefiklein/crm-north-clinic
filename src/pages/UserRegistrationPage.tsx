@@ -26,8 +26,7 @@ interface PermissionLevel {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
-// Webhook URL para atribuir o papel do usuário na clínica
-const ASSIGN_ROLE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/25f39e3a-d410-4327-98e8-cf23dc324902';
+// REMOVED: ASSIGN_ROLE_WEBHOOK_URL from here, it's now called by the Edge Function
 
 const UserRegistrationPage: React.FC = () => {
     const { clinicData, isLoadingAuth } = useAuth();
@@ -89,83 +88,46 @@ const UserRegistrationPage: React.FC = () => {
         setIsRegistering(true);
 
         try {
-            // 1. Criar o usuário diretamente no Supabase Auth
-            console.log("Creating user directly in Supabase Auth:", email.trim());
-            // Usamos a chave de serviço para criar o usuário, o que é seguro em Edge Functions ou backends.
-            // No frontend, isso requer a chave anon, mas o RLS deve proteger.
-            // Para um ambiente de produção, a criação de usuários admin-side deveria ser feita via Edge Function ou API.
-            // No entanto, para este contexto, vamos usar o cliente Supabase diretamente.
-            const { data: userCreationData, error: userCreationError } = await supabase.auth.admin.createUser({
-                email: email.trim(),
-                email_confirm: true, // Confirma o e-mail automaticamente
-                user_metadata: {
-                    first_name: firstName.trim() || null,
-                    last_name: lastName.trim() || null,
-                },
-            });
-
-            if (userCreationError) {
-                // Se o usuário já existe, o erro será 'User already registered'
-                if (userCreationError.message.includes('User already registered')) {
-                    setError("Este email já está cadastrado. Por favor, use a opção 'Esqueceu sua senha?' para redefinir.");
-                    showError("Este email já está cadastrado.");
-                    return;
-                }
-                throw new Error(userCreationError.message || `Erro ao criar usuário.`);
-            }
-
-            const newUserId = userCreationData.user.id;
-
-            // 2. Gerar e enviar o link de redefinição de senha para o usuário recém-criado
-            console.log("Generating and sending password reset link for user:", email.trim());
-            const { data: resetLinkData, error: resetLinkError } = await supabase.auth.admin.generateLink({
-                type: 'password_reset',
-                email: email.trim(),
-                options: {
-                    // Redirecionar para a página de login, onde o componente Auth UI detectará o tipo 'recovery'
-                    redirectTo: `${window.location.origin}/login`, 
-                },
-            });
-
-            if (resetLinkError) {
-                throw new Error(resetLinkError.message || `Erro ao gerar link de redefinição de senha.`);
-            }
-
-            // 3. Chamar o webhook para inserir na tabela user_clinic_roles
-            console.log("Calling webhook to assign role:", {
-                userId: newUserId,
-                clinicId: clinicData.id,
-                permissionLevelId: parseInt(selectedPermissionLevel, 10),
-            });
-
-            const assignRoleResponse = await fetch(ASSIGN_ROLE_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: newUserId,
+            // Chamar a nova Edge Function para criar o usuário e atribuir o papel
+            console.log("Calling Edge Function to create user and assign role:", email.trim());
+            const { data, error: edgeFunctionError } = await supabase.functions.invoke('create-user-and-assign-role', {
+                body: {
+                    email: email.trim(),
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
                     clinicId: clinicData.id,
                     permissionLevelId: parseInt(selectedPermissionLevel, 10),
-                }),
+                },
             });
 
-            if (!assignRoleResponse.ok) {
-                const errorText = await assignRoleResponse.text();
-                let parsedError = errorText;
-                try {
-                    const jsonError = JSON.parse(errorText);
-                    parsedError = jsonError.message || jsonError.error || errorText;
-                } catch (parseErr) { /* not JSON */ }
-                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}.`);
+            if (edgeFunctionError) {
+                console.error("Edge Function invocation error:", edgeFunctionError);
+                // Check for specific error messages from the Edge Function
+                if (edgeFunctionError.message.includes('User already registered')) {
+                    setError("Este email já está cadastrado. Por favor, use a opção 'Esqueceu sua senha?' para redefinir.");
+                    showError("Este email já está cadastrado.");
+                } else {
+                    setError(edgeFunctionError.message || "Erro desconhecido ao cadastrar usuário.");
+                    showError(`Erro: ${edgeFunctionError.message}`);
+                }
+                return;
             }
 
-            showSuccess("Usuário cadastrado e link de redefinição de senha enviado com sucesso! O usuário receberá um email para definir a senha.");
-            setEmail('');
-            setFirstName('');
-            setLastName('');
-            setSelectedPermissionLevel('');
-            
-            // Navegar para a página de lista de usuários após o registro bem-sucedido
-            navigate('/dashboard/15');
+            if (data && data.success) {
+                showSuccess("Usuário cadastrado e link de redefinição de senha enviado com sucesso! O usuário receberá um email para definir a senha.");
+                setEmail('');
+                setFirstName('');
+                setLastName('');
+                setSelectedPermissionLevel('');
+                
+                // Navegar para a página de lista de usuários após o registro bem-sucedido
+                navigate('/dashboard/15');
+            } else {
+                // Handle cases where the Edge Function returns success: false or a custom error message in data
+                const errorMessage = data?.error || "Erro desconhecido retornado pela função Edge.";
+                setError(errorMessage);
+                showError(`Erro: ${errorMessage}`);
+            }
 
         } catch (err: any) {
             console.error("Registration process error:", err);
