@@ -131,7 +131,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const [sortValue, setSortValue] = useState('created_at_desc'); 
     const [currentPage, setCurrentPage] = useState(1);
     const [dragOverStageId, setDragOverStageId] = useState<number | null>(null); 
-    const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false); 
+    const [isNewLeadModalOpen, setIsNewLeadModal] = useState(false); 
 
     const ITEMS_PER_PAGE = 15;
     const clinicId = clinicData?.id;
@@ -264,8 +264,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             if (currentSearchTerm) {
                 const searchTermLower = currentSearchTerm.toLowerCase();
-                query = query.or(`nome_lead.ilike.%${searchTermLower}%,telefone::text.ilike.%${currentSearchTerm}%,origem.ilike.%${searchTermLower}%`);
-                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR telefone::text ILIKE '%${currentSearchTerm}%' OR origem ILIKE '%${searchTermLower}%'`);
+                // CORREÇÃO: Removido 'telefone::text.ilike.%${currentSearchTerm}%' para evitar erro de parsing
+                query = query.or(`nome_lead.ilike.%${searchTermLower}%,origem.ilike.%${searchTermLower}%`);
+                 console.log(`FunnelPage: Applying search filter: nome_lead ILIKE '%${searchTermLower}%' OR origem ILIKE '%${searchTermLower}%'`);
             }
 
             let orderByColumn = 'created_at';
@@ -503,7 +504,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         return 'N/D';
     };
 
-    const openNewLeadModal = () => setIsNewLeadModalOpen(true);
+    const openNewLeadModal = () => setIsNewLeadModal(true);
     const closeNewLeadModal = () => setIsNewLeadModal(false);
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
