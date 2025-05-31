@@ -50,11 +50,9 @@ serve(async (req) => {
       }
     );
 
-    // NOVO LOG: Inspecionar o objeto auth e admin de forma mais detalhada
     console.log(`Edge Function: supabaseAdmin.auth.admin object keys: ${JSON.stringify(Object.keys(supabaseAdmin.auth.admin || {}))}`);
     console.log(`Edge Function: typeof supabaseAdmin.auth.admin.createUser: ${typeof supabaseAdmin.auth.admin.createUser}`);
 
-    // VERIFICAÇÃO DEFENSIVA ANTES DE CHAMAR createUser
     if (!supabaseAdmin.auth.admin || typeof supabaseAdmin.auth.admin.createUser !== 'function') {
       console.error("Edge Function: supabaseAdmin.auth.admin is not fully initialized or createUser is not a function. This indicates a problem with the Supabase client initialization or an incorrect service role key.");
       return new Response(JSON.stringify({ error: 'Server configuration error: Supabase admin client methods not available. Please verify your SUPABASE_SERVICE_ROLE_KEY in Supabase dashboard.' }), {
@@ -64,6 +62,8 @@ serve(async (req) => {
     }
 
     let targetUserId: string;
+    let successMessage = 'Usuário cadastrado e papel atribuído/atualizado com sucesso.';
+    let resetLink = null;
 
     // 1. Directly attempt to create the user in Supabase Auth
     console.log(`Edge Function: Attempting to create new user ${email}.`);
@@ -104,7 +104,6 @@ serve(async (req) => {
     }
 
     if (existingRole) {
-      // Role exists, update it if necessary
       console.log(`Edge Function: Existing role found for user ${targetUserId} in clinic ${clinicId}.`);
       if (existingRole.permission_level_id !== permissionLevelId || !existingRole.is_active) {
         console.log(`Edge Function: Updating existing role ID ${existingRole.id}.`);
@@ -129,7 +128,6 @@ serve(async (req) => {
         console.log("Edge Function: Existing role is already active and has the correct permission level. No update needed.");
       }
     } else {
-      // No existing role, insert a new one
       console.log(`Edge Function: No existing role found. Inserting new role for user ${targetUserId} in clinic ${clinicId}.`);
       const { error: insertError } = await supabaseAdmin
         .from('user_clinic_roles')
@@ -163,16 +161,16 @@ serve(async (req) => {
 
     if (resetLinkError) {
       console.error(`Edge Function: Error generating reset link: ${resetLinkError.message || JSON.stringify(resetLinkError)}`);
-      return new Response(JSON.stringify({ error: resetLinkError.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
+      successMessage += ` No entanto, houve um erro ao enviar o email de redefinição de senha: ${resetLinkError.message}. O usuário pode usar a opção 'Esqueceu sua senha?' para redefinir.`;
+      // Do NOT return a non-2xx status here, as the user was successfully created/updated in the DB.
+    } else {
+      console.log("Edge Function: Password reset link generated successfully.");
+      resetLink = resetLinkData.properties.action_link;
     }
-    console.log("Edge Function: Password reset link generated successfully.");
 
-    return new Response(JSON.stringify({ success: true, message: 'User processed and role assigned/updated successfully.', resetLink: resetLinkData.properties.action_link }), {
+    return new Response(JSON.stringify({ success: true, message: successMessage, resetLink: resetLink }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
+      status: 200, // Always return 200 OK if user and role operations succeeded
     });
 
   } catch (error: any) {
