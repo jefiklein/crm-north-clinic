@@ -1,14 +1,11 @@
-import React, { useEffect } from 'react'; // Import useEffect
+import React, { useEffect } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// A interface ClinicData e IndexProps não serão mais usadas diretamente aqui,
-// pois o AuthContext se encarregará de buscar os dados da clínica após o login do usuário.
-// Mantemos as interfaces para evitar erros de tipo em outros lugares por enquanto.
 interface ClinicData {
   code: string;
   nome: string;
@@ -19,47 +16,47 @@ interface ClinicData {
 }
 
 interface IndexProps {
-  onLogin: (data: ClinicData) => void; // Este prop será removido do uso direto aqui
+  onLogin: (data: ClinicData) => void;
 }
 
-const Login: React.FC<IndexProps> = () => { // Removed IndexProps from here, as it's not used
-  const { session, clinicData, availableClinics, isLoadingAuth } = useAuth(); // Get auth state from context
+const Login: React.FC<IndexProps> = () => {
+  const { session, clinicData, availableClinics, isLoadingAuth } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     console.log("[Login.tsx] useEffect: Auth state changed. isLoadingAuth:", isLoadingAuth, "session:", !!session, "clinicData:", !!clinicData, "availableClinics:", availableClinics ? availableClinics.length : 'null');
 
-    // Only attempt redirect if auth loading is complete
-    if (!isLoadingAuth) {
+    // Verifica se o tipo de fluxo na URL é de recuperação de senha
+    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove '#'
+    const isPasswordRecovery = hashParams.get('type') === 'recovery';
+
+    // Só tenta redirecionar se o carregamento da autenticação estiver completo E NÃO for um fluxo de recuperação de senha
+    if (!isLoadingAuth && !isPasswordRecovery) {
       if (session) {
-        // User is authenticated
+        // Usuário autenticado
         if (clinicData && clinicData.id) {
-          // User is authenticated AND a clinic is selected
-          console.log("[Login.tsx] Redirecting to /dashboard (authenticated, clinic selected).");
+          // Usuário autenticado E clínica selecionada
+          console.log("[Login.tsx] Redirecionando para /dashboard (autenticado, clínica selecionada).");
           navigate('/dashboard', { replace: true });
         } else if (availableClinics && availableClinics.length > 0) {
-          // User is authenticated but no clinic selected, and there are available clinics
-          console.log("[Login.tsx] Redirecting to /select-clinic (authenticated, clinic selection needed).");
+          // Usuário autenticado, mas precisa selecionar clínica
+          console.log("[Login.tsx] Redirecionando para /select-clinic (autenticado, seleção de clínica necessária).");
           navigate('/select-clinic', { replace: true });
         } else if (availableClinics && availableClinics.length === 0) {
-          // User is authenticated but no available clinics (or none active)
-          console.log("[Login.tsx] User authenticated but no available clinics. Staying on login to show message.");
-          // Stay on this page, the SelectClinicPage will show the "no clinics" message.
-          // Or, if they are on the login page, they will see the Auth UI.
-          // If they try to go to /dashboard, App.tsx will redirect them back to /.
-          // The SelectClinicPage handles the "no clinics" message better.
-          navigate('/select-clinic', { replace: true }); // Force redirect to select clinic page to show the message
+          // Usuário autenticado, mas sem clínicas disponíveis
+          console.log("[Login.tsx] Usuário autenticado, mas sem clínicas disponíveis. Redirecionando para /select-clinic para exibir mensagem.");
+          navigate('/select-clinic', { replace: true });
         }
-        // If session exists but availableClinics is null, it means clinics are still loading in AuthContext.
-        // We wait for availableClinics to be set (either to [] or actual clinics).
       } else {
-        // User is not authenticated. Stay on this page to show login form.
-        console.log("[Login.tsx] User not authenticated. Staying on login page.");
+        // Usuário não autenticado. Permanece na página de login para exibir o formulário.
+        console.log("[Login.tsx] Usuário não autenticado. Permanecendo na página de login.");
       }
+    } else if (isPasswordRecovery) {
+      // Fluxo de recuperação de senha detectado. Permanece na página de login para permitir a atualização da senha.
+      console.log("[Login.tsx] Fluxo de recuperação de senha detectado. Permanecendo na página de login para permitir atualização da senha.");
     }
   }, [session, clinicData, availableClinics, isLoadingAuth, navigate]);
 
-  // Render the Auth UI. The useEffect above will handle redirects.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <Card className="w-[400px]">
