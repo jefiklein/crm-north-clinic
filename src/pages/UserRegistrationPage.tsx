@@ -98,8 +98,8 @@ const UserRegistrationPage: React.FC = () => {
                     email: email.trim(),
                     firstName: firstName.trim() || null,
                     lastName: lastName.trim() || null,
-                    // Redirecionar para a página de login (sem o parâmetro 'view' explícito)
-                    redirectTo: `${window.location.origin}/login?type=invite`, // ALTERADO AQUI: Adicionado ?type=invite
+                    // Redirecionar para a raiz do seu domínio. O Supabase Auth UI vai lidar com os tokens na hash.
+                    redirectTo: window.location.origin, // ALTERADO AQUI: Redireciona para a raiz
                 },
             });
 
