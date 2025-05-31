@@ -199,95 +199,97 @@ const UserRegistrationPage: React.FC = () => {
 
     return (
         <div className="user-registration-container max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-            <CardHeader>
-                <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
-                    <UserPlus className="h-6 w-6" /> Cadastrar Novo Usuário
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                {error && (
-                    <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-                        <TriangleAlert className="h-4 w-4" />
-                        <p className="text-sm">{error}</p>
-                    </div>
-                )}
-                <div className="form-group">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        placeholder="email@exemplo.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isRegistering}
-                    />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="form-group">
-                        <Label htmlFor="firstName">Primeiro Nome</Label>
-                        <Input
-                            id="firstName"
-                            type="text"
-                            placeholder="João"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                            disabled={isRegistering}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <Label htmlFor="lastName">Sobrenome</LabeL>
-                        <Input
-                            id="lastName"
-                            type="text"
-                            placeholder="Silva"
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                            disabled={isRegistering}
-                        />
-                    </div>
-                </div>
-                <div className="form-group">
-                    <Label htmlFor="permissionLevel">Nível de Permissão *</Label>
-                    {isLoadingPermissions ? (
-                        <div className="flex items-center gap-2 text-gray-500">
-                            <Loader2 className="h-4 w-4 animate-spin" /> Carregando níveis...
+            <Card> {/* Adicionado o componente Card aqui */}
+                <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+                        <UserPlus className="h-6 w-6" /> Cadastrar Novo Usuário
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                    {error && (
+                        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+                            <TriangleAlert className="h-4 w-4" />
+                            <p className="text-sm">{error}</p>
                         </div>
-                    ) : (
-                        <Select
-                            value={selectedPermissionLevel}
-                            onValueChange={setSelectedPermissionLevel}
-                            disabled={isRegistering || permissionLevels.length === 0}
-                        >
-                            <SelectTrigger id="permissionLevel">
-                                <SelectValue placeholder="Selecione o nível de permissão" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {permissionLevels.map(level => (
-                                    <SelectItem key={level.id} value={String(level.id)}>
-                                        {level.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                     )}
-                    <p className="text-sm text-gray-500 mt-1">
-                        {permissionLevels.find(p => String(p.id) === selectedPermissionLevel)?.description || "Selecione um nível para ver a descrição."}
+                    <div className="form-group">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="email@exemplo.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={isRegistering}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="form-group">
+                            <Label htmlFor="firstName">Primeiro Nome</Label>
+                            <Input
+                                id="firstName"
+                                type="text"
+                                placeholder="João"
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                                disabled={isRegistering}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <Label htmlFor="lastName">Sobrenome</LabeL>
+                            <Input
+                                id="lastName"
+                                type="text"
+                                placeholder="Silva"
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                                disabled={isRegistering}
+                            />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <Label htmlFor="permissionLevel">Nível de Permissão *</Label>
+                        {isLoadingPermissions ? (
+                            <div className="flex items-center gap-2 text-gray-500">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Carregando níveis...
+                            </div>
+                        ) : (
+                            <Select
+                                value={selectedPermissionLevel}
+                                onValueChange={setSelectedPermissionLevel}
+                                disabled={isRegistering || permissionLevels.length === 0}
+                            >
+                                <SelectTrigger id="permissionLevel">
+                                    <SelectValue placeholder="Selecione o nível de permissão" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {permissionLevels.map(level => (
+                                        <SelectItem key={level.id} value={String(level.id)}>
+                                            {level.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <p className="text-sm text-gray-500 mt-1">
+                            {permissionLevels.find(p => String(p.id) === selectedPermissionLevel)?.description || "Selecione um nível para ver a descrição."}
+                        </p>
+                    </div>
+                    <Button onClick={handleRegister} disabled={isRegistering}>
+                        {isRegistering ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Cadastrando...
+                            </>
+                        ) : (
+                            "Cadastrar Usuário"
+                        )}
+                    </Button>
+                    <p className="text-sm text-gray-600 mt-4">
+                        Após o cadastro, o usuário receberá um email de convite para definir a senha.
                     </p>
-                </div>
-                <Button onClick={handleRegister} disabled={isRegistering}>
-                    {isRegistering ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Cadastrando...
-                        </>
-                    ) : (
-                        "Cadastrar Usuário"
-                    )}
-                </Button>
-                <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email de convite para definir a senha.
-                </p>
-            </CardContent>
+                </CardContent>
+            </Card> {/* Fechado o componente Card aqui */}
         </div>
     );
 };
