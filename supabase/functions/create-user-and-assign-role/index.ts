@@ -64,7 +64,7 @@ serve(async (req) => {
     let userExists = false;
 
     // 1. Check if user already exists by email
-    console(`Edge Function: Checking if user ${email} already exists.`);
+    console.log(`Edge Function: Checking if user ${email} already exists.`);
     const { data: existingUserData, error: existingUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email.trim());
 
     if (existingUserData?.user) {
@@ -175,7 +175,8 @@ serve(async (req) => {
     }
 
     // 3. Generate and send the appropriate link (invite or recovery)
-    const redirectToUrl = `${req.headers.get('origin')}/login`;
+    // Use the primary domain provided by the user
+    const redirectToUrl = `https://app.northcrm.com.br/login`; 
     console.log(`Edge Function: Attempting to generate ${linkType} link for ${email} with redirectTo: ${redirectToUrl}`);
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: linkType,
