@@ -98,8 +98,8 @@ const UserRegistrationPage: React.FC = () => {
                     email: email.trim(),
                     firstName: firstName.trim() || null,
                     lastName: lastName.trim() || null,
-                    // Redirecionar para a página de login com a view de atualização de senha
-                    redirectTo: `${window.location.origin}/login?view=update_password`,
+                    // Redirecionar para a página de login (sem o parâmetro 'view' explícito)
+                    redirectTo: `${window.location.origin}/login`,
                 },
             });
 
