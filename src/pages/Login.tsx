@@ -52,6 +52,14 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
             theme="light"
             view="sign_in" // Adicionado para exibir apenas a tela de login
             localization={{
+              // Mensagens de nível superior
+              email_otp_text: 'Entrar com link mágico',
+              email_password_text: 'Entrar com email e senha',
+              loading_text: 'Carregando...',
+              no_session_text: 'Nenhuma sessão encontrada.',
+              validation_text: 'A senha deve ter pelo menos 6 caracteres.',
+              confirmation_text: 'Verifique seu e-mail para o link de confirmação.', // Para confirmação de cadastro
+
               variables: {
                 sign_in: {
                   email_label: 'Seu email',
@@ -60,7 +68,7 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   password_input_placeholder: '••••••••',
                   button_label: 'Entrar',
                   social_provider_text: 'Entrar com {{provider}}',
-                  link_text: 'Já tem uma conta? Entrar',
+                  link_text: 'Não tem uma conta? Cadastre-se', // Traduzido e ajustado
                 },
                 sign_up: {
                   email_label: 'Seu email',
@@ -69,20 +77,20 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   password_input_placeholder: '••••••••',
                   button_label: 'Cadastrar',
                   social_provider_text: 'Cadastrar com {{provider}}',
-                  link_text: '', // Removido o texto do link de cadastro
+                  link_text: 'Já tem uma conta? Entrar', // Traduzido e ajustado
                 },
                 forgotten_password: {
                   email_label: 'Seu email',
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar instruções de redefinição',
                   link_text: 'Esqueceu sua senha?',
-                  // Adicionando a tradução para a mensagem de sucesso de redefinição de senha
                   check_email: 'Verifique seu e-mail para o link de redefinição de senha.',
                 },
                 magic_link: {
                   email_input_placeholder: 'email@exemplo.com',
                   button_label: 'Enviar link mágico',
                   link_text: 'Enviar um link mágico por email',
+                  check_email: 'Verifique seu e-mail para o link mágico.', // Adicionado para consistência
                 },
                 verify_otp: {
                   email_input_placeholder: 'Seu email',
@@ -90,6 +98,15 @@ const Login: React.FC<IndexProps> = () => { // Remove onLogin do destructuring, 
                   token_input_placeholder: 'Código OTP',
                   button_label: 'Verificar código OTP',
                   link_text: 'Já tem um código OTP?',
+                },
+                update_password: { // Adicionado para a view de atualização de senha
+                  password_label: 'Sua nova senha',
+                  password_input_placeholder: 'Sua nova senha',
+                  button_label: 'Atualizar senha',
+                  link_text: 'Atualizar senha',
+                  confirmation_text: 'Sua senha foi atualizada.',
+                  no_session_text: 'Nenhuma sessão encontrada.',
+                  validation_text: 'A senha deve ter pelo menos 6 caracteres.',
                 },
               },
             }}
