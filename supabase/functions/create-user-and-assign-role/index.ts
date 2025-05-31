@@ -150,22 +150,22 @@ serve(async (req) => {
 
     // 3. Generate and send the password reset link (or invite link for new users)
     const redirectToUrl = `${req.headers.get('origin')}/login`;
-    console.log(`Edge Function: Attempting to generate password reset link for ${email} with redirectTo: ${redirectToUrl}`);
-    const { data: resetLinkData, error: resetLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'passwordReset', // <-- ALTERADO AQUI
+    console.log(`Edge Function: Attempting to generate invite link for ${email} with redirectTo: ${redirectToUrl}`);
+    const { data: inviteLinkData, error: inviteLinkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite', // <-- ALTERADO AQUI para 'invite'
       email: email.trim(),
       options: {
         redirectTo: redirectToUrl,
       },
     });
 
-    if (resetLinkError) {
-      console.error(`Edge Function: Error generating reset link: ${resetLinkError.message || JSON.stringify(resetLinkError)}`);
-      successMessage += ` No entanto, houve um erro ao enviar o email de redefinição de senha: ${resetLinkError.message}. O usuário pode usar a opção 'Esqueceu sua senha?' para redefinir.`;
+    if (inviteLinkError) {
+      console.error(`Edge Function: Error generating invite link: ${inviteLinkError.message || JSON.stringify(inviteLinkError)}`);
+      successMessage += ` No entanto, houve um erro ao enviar o email de convite: ${inviteLinkError.message}. O usuário pode usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha.`;
       // Do NOT return a non-2xx status here, as the user was successfully created/updated in the DB.
     } else {
-      console.log("Edge Function: Password reset link generated successfully.");
-      resetLink = resetLinkData.properties.action_link;
+      console.log("Edge Function: Invite link generated successfully.");
+      resetLink = inviteLinkData.properties.action_link;
     }
 
     return new Response(JSON.stringify({ success: true, message: successMessage, resetLink: resetLink }), {
