@@ -52,6 +52,7 @@ interface UserListPageProps {
 }
 
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
+const SUPER_ADMIN_PERMISSION_ID = 4; // ID do nível de permissão para Super Admin
 
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
@@ -112,7 +113,8 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                         permission_levels(name, description)
                     )
                 `, { count: 'exact' })
-                .filter('user_clinic_roles.clinic_id', 'eq', clinicId); // Filter by roles in this clinic
+                .filter('user_clinic_roles.clinic_id', 'eq', clinicId) // Filter by roles in this clinic
+                .filter('user_clinic_roles.permission_level_id', 'neq', SUPER_ADMIN_PERMISSION_ID); // EXCLUIR Super Admin
 
             // Apply search filter
             if (search) {
@@ -246,7 +248,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                         <SelectContent>
                             <SelectItem value="all">Todas as Permissões</SelectItem>
                             {permissionLevels?.map(level => (
-                                <SelectItem key={level.id} value={String(level.id)}>
+                                <SelectItem key={level.id} value={String(level.id)} disabled={level.id === SUPER_ADMIN_PERMISSION_ID}>
                                     {level.name}
                                 </SelectItem>
                             ))}
