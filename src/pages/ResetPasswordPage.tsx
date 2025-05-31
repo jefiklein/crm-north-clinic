@@ -17,6 +17,10 @@ const ResetPasswordPage: React.FC = () => {
   const [isSessionReady, setIsSessionReady] = useState(false); // Novo estado para controlar a prontidão da sessão
   const navigate = useNavigate();
 
+  // --- NOVO LOG TEMPORÁRIO AQUI ---
+  console.log("[ResetPasswordPage] URL Hash ao carregar:", window.location.hash);
+  // --- FIM DO NOVO LOG TEMPORÁRIO ---
+
   useEffect(() => {
     const checkSession = async () => {
       setIsLoading(true); // Mostra loading enquanto verifica a sessão
