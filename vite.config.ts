@@ -100,6 +100,6 @@ export default defineConfig(() => ({
   },
   // Add preview configuration to allow the server hostname
   preview: {
-    allowedHosts: ['crm-crm-north.sbw0pc.easypanel.host', 'northcrm.com.br', 'www.northcrm.com.br'],
+    allowedHosts: ['crm-crm-north.sbw0pc.easypanel.host', 'northcrm.com.br', 'www.northcrm.com.br', 'app.northcrm.com.br'],
   },
 }));
