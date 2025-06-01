@@ -428,7 +428,6 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       const messagePayloadForN8N = {
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created",
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined,
-        // REMOVED: clinicCode: currentClinicCode, // This was the problematic line
         clinicDbId: currentClinicId, // This is the numeric ID, use this for DB operations
         sequenceName: messageName,
         contexto: 'leads', // Hardcoded context for lead sequences
@@ -475,6 +474,14 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         }
         console.error("[MensagensSequenciaConfigPage] handleSave: Webhook N8N response NOT OK. DetailedError:", detailedError);
         throw new Error(detailedError);
+      }
+
+      const responseData: WebhookResponse = await webhookResponse.json(); 
+
+      if (responseData.error || (responseData.success === false)) {
+          const errorMessage = responseData.error || responseData.message || `Erro desconhecido na resposta do webhook.`;
+          console.error("[MensagensSequenciaConfigPage] Webhook save error (from responseData):", responseData); 
+          throw new Error(errorMessage);
       }
 
       console.log("[MensagensSequenciaConfigPage] handleSave: Webhook N8N OK. Exibindo toast de sucesso.");
