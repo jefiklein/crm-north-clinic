@@ -27,21 +27,13 @@ const RequestResetCodePage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Usar signInWithOtp com type: 'recovery' para enviar um código OTP por e-mail
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          channel: 'email',
-          shouldCreateUser: false, // Não criar usuário se não existir
-          data: {
-            type: 'recovery', // Indica que é para recuperação de senha
-          },
-        },
-      });
+      // CORREÇÃO: Usar resetPasswordForEmail para enviar um código de redefinição de senha.
+      // O Supabase enviará um código OTP porque o template de e-mail está configurado para isso.
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
 
-      if (otpError) {
-        console.error("Erro ao solicitar código de redefinição (OTP):", otpError);
-        throw new Error(otpError.message);
+      if (resetError) {
+        console.error("Erro ao solicitar código de redefinição de senha:", resetError);
+        throw new Error(resetError.message);
       }
 
       showSuccess("Um e-mail com o código de redefinição foi enviado. Por favor, verifique sua caixa de entrada.");
@@ -51,7 +43,7 @@ const RequestResetCodePage: React.FC = () => {
       navigate(`/set-new-password?email=${encodeURIComponent(email.trim())}`);
 
     } catch (err: any) {
-      console.error("Erro na solicitação de código (OTP):", err);
+      console.error("Erro na solicitação de código de redefinição:", err);
       setError(err.message || "Ocorreu um erro ao solicitar o código de redefinição.");
       showError(err.message || "Erro ao enviar e-mail.");
     } finally {
