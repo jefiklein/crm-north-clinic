@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, TriangleAlert, CheckCircle2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 const SetNewPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { session } = useAuth(); // Get the current session from AuthContext
 
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -22,7 +24,7 @@ const SetNewPasswordPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isOtpVerified, setIsOtpVerified] = useState(false); // New state to track OTP verification
+  const [isOtpVerified, setIsOtpVerified] = useState(false); 
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -34,7 +36,18 @@ const SetNewPasswordPage: React.FC = () => {
     if (location.hash) {
       window.history.replaceState({}, document.title, window.location.pathname + location.search);
     }
-  }, [location.search, location.hash]);
+
+    // NEW: If a session already exists, assume OTP is verified (user clicked magic link)
+    if (session) {
+      console.log("[SetNewPasswordPage] Session exists, assuming OTP verified.");
+      setIsOtpVerified(true);
+      setSuccess("Você já está logado. Por favor, defina sua nova senha.");
+    } else {
+      console.log("[SetNewPasswordPage] No session found, OTP verification required.");
+      setIsOtpVerified(false);
+    }
+
+  }, [location.search, location.hash, session]); // Add session to dependencies
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +111,7 @@ const SetNewPasswordPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Atualizar a senha do usuário (requer uma sessão ativa, que é estabelecida após verifyOtp)
+      // Atualizar a senha do usuário (requer uma sessão ativa, que é estabelecida após verifyOtp ou se já estava logado)
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
