@@ -97,11 +97,11 @@ const UserRegistrationPage: React.FC = () => {
         const tempPassword = generateRandomPassword(); // Generate a temporary password
 
         try {
+            console.log("[UserRegistrationPage] Step 1: Attempting to register user in Supabase Auth...");
             // 1. Register user in Supabase Auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: email.trim(),
                 password: tempPassword, // Use a temporary password
-                // REMOVIDO: emailRedirectTo para evitar problemas com tokens na URL
                 options: {
                     data: {
                         first_name: firstName.trim() || null,
@@ -111,18 +111,25 @@ const UserRegistrationPage: React.FC = () => {
             });
 
             if (authError) {
-                console.error("Supabase Auth SignUp Error:", authError);
+                console.error("[UserRegistrationPage] Supabase Auth SignUp Error:", authError);
                 throw new Error(authError.message);
             }
 
             if (!authData.user) {
+                console.error("[UserRegistrationPage] User not returned after signup, authData:", authData);
                 throw new Error("Usuário não retornado após o cadastro. Verifique o email e tente novamente.");
             }
 
             const newUserId = authData.user.id;
+            console.log("[UserRegistrationPage] Step 1 Success: User registered in Auth. New User ID:", newUserId);
+
+            // Introduce a small delay to ensure user is fully committed in auth.users
+            console.log("[UserRegistrationPage] Introducing 500ms delay to ensure user record propagation...");
+            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+            console.log("[UserRegistrationPage] Delay finished. Proceeding to Step 2.");
 
             // 2. Call webhook to insert into user_clinic_roles table
-            console.log("Calling webhook to assign role:", {
+            console.log("[UserRegistrationPage] Step 2: Calling webhook to assign role to user in clinic...", {
                 userId: newUserId,
                 clinicId: clinicData.id,
                 permissionLevelId: parseInt(selectedPermissionLevel, 10),
@@ -146,7 +153,7 @@ const UserRegistrationPage: React.FC = () => {
 
             if (!webhookResponse.ok) {
                 const errorText = await webhookResponse.text();
-                console.error("Webhook Error Response:", errorText);
+                console.error("[UserRegistrationPage] Webhook Error Response:", errorText);
                 let parsedError = errorText;
                 try {
                     const jsonError = JSON.parse(errorText);
@@ -158,17 +165,19 @@ const UserRegistrationPage: React.FC = () => {
             }
 
             const webhookData = await webhookResponse.json();
-            console.log("Webhook Success Response:", webhookData);
+            console.log("[UserRegistrationPage] Step 2 Success: Webhook returned:", webhookData);
 
             // 3. Trigger password reset email for the newly created user
+            console.log("[UserRegistrationPage] Step 3: Triggering password reset email for new user...");
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
                 redirectTo: `${window.location.origin}/verify-reset-code?email=${encodeURIComponent(email.trim())}`,
             });
 
             if (resetError) {
-                console.error("Erro ao enviar e-mail de redefinição de senha para o novo usuário:", resetError);
+                console.error("[UserRegistrationPage] Error sending password reset email for new user:", resetError);
                 throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
             }
+            console.log("[UserRegistrationPage] Step 3 Success: Password reset email sent.");
 
             showSuccess("Usuário cadastrado com sucesso! Um email de redefinição de senha foi enviado para o usuário definir a senha inicial.");
             setEmail('');
@@ -176,11 +185,12 @@ const UserRegistrationPage: React.FC = () => {
             setLastName('');
             setSelectedPermissionLevel('');
         } catch (err: any) {
-            console.error("Registration process error:", err);
+            console.error("[UserRegistrationPage] Registration process error:", err);
             setError(err.message || "Ocorreu um erro ao cadastrar o usuário.");
             showError(`Erro: ${err.message}`);
         } finally {
             setIsRegistering(false);
+            console.log("[UserRegistrationPage] Registration process finished.");
         }
     };
 
