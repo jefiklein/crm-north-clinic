@@ -748,6 +748,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                     <SelectValue placeholder="Selecione a unidade" />
                                                 </SelectTrigger>
                                                 <SelectContent>
+                                                    <SelectItem value="segundos">Segundos</SelectItem>
                                                     <SelectItem value="minutes">Minutos</SelectItem>
                                                     <SelectItem value="hours">Horas</SelectItem>
                                                     <SelectItem value="days">Dias</SelectItem>
