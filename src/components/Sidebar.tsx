@@ -4,6 +4,8 @@ import {
   Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useQuery } from '@tanstack/react-query'; // Import useQuery
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -24,6 +26,14 @@ interface MenuItem {
   permissao_necessaria: number; // Required permission level
   ordem?: number; // Order for sorting
   ativo: boolean; // Assuming there's an 'ativo' column
+}
+
+// Define the structure for user profile data
+interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 }
 
 // Mapping from simple keys (stored in icon_key) to Lucide React component
@@ -338,12 +348,33 @@ export const Sidebar: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation(); // Hook to get current location
+  const { session } = useAuth(); // Get session from AuthContext
 
   // Retrieve clinicData from localStorage directly within the component for now
   // A better approach would be using React Context or a state management library
   const clinicData: ClinicData | null = JSON.parse(localStorage.getItem('selectedClinicData') || 'null'); // Use selectedClinicData
 
   console.log("Sidebar: clinicData from localStorage:", clinicData);
+
+  // Fetch user profile data
+  const { data: userProfile, isLoading: isLoadingProfile, error: profileError } = useQuery<UserProfile | null>({
+    queryKey: ['userProfile', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .eq('id', session.user.id)
+        .single();
+      if (error && error.code !== 'PGRST116') { // PGRST116 means "No rows found"
+        throw new Error(error.message);
+      }
+      return data || null;
+    },
+    enabled: !!session?.user?.id, // Only fetch if user ID is available
+    staleTime: 5 * 60 * 1000, // Cache profile data for 5 minutes
+    refetchOnWindowFocus: false,
+  });
 
 
   useEffect(() => {
@@ -445,8 +476,6 @@ export const Sidebar: React.FC = () => {
       let itemPath: string;
       if (item.icon_key === 'user-plus') {
           itemPath = '/dashboard/register-user';
-      } else if (item.icon_key === 'key') { // NEW: Handle 'key' icon for change-password
-          itemPath = '/dashboard/change-password';
       } else if (String(item.id) === '1') {
           itemPath = '/dashboard';
       } else {
@@ -474,6 +503,44 @@ export const Sidebar: React.FC = () => {
          {/* Replace with your logo component or img tag */}
          <img src="/north-crm.jpeg" alt="North Clinic Logo" className="h-12 w-12 object-contain group-hover:w-20 group-hover:h-20 transition-all duration-300" />
       </div>
+
+      {/* User Profile Header */}
+      {session?.user && (
+        <div className="user-profile-header px-4 py-3 border-b border-gray-700 flex flex-col items-start flex-shrink-0">
+          {isLoadingProfile ? (
+            <div className="flex items-center text-gray-400">
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Carregando perfil...</span>
+            </div>
+          ) : profileError ? (
+            <div className="flex items-center text-red-400">
+              <TriangleAlert className="h-4 w-4 mr-2" />
+              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Erro ao carregar perfil.</span>
+            </div>
+          ) : userProfile ? (
+            <>
+              <span className="user-name font-semibold text-sm text-white truncate w-full transition-opacity duration-300 group-hover:opacity-100 opacity-0">
+                {userProfile.first_name || userProfile.email?.split('@')[0] || 'Usuário'}
+              </span>
+              <span className="user-email text-xs text-gray-400 truncate w-full transition-opacity duration-300 group-hover:opacity-100 opacity-0">
+                {userProfile.email}
+              </span>
+              <Link
+                to="/dashboard/change-password"
+                className="flex items-center mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 group-hover:opacity-100 opacity-0"
+              >
+                <Key className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="menu-text">Alterar Senha</span>
+              </Link>
+            </>
+          ) : (
+            <div className="flex items-center text-gray-400">
+              <User className="h-4 w-4 mr-2" />
+              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Perfil não encontrado.</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto">
@@ -503,12 +570,10 @@ export const Sidebar: React.FC = () => {
             const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
 
             // Determine the target path for react-router-dom Link
-            // Special handling for 'register-user' and 'change-password'
+            // Special handling for 'register-user'
             let finalTo: string;
             if (item.icon_key === 'user-plus') {
                 finalTo = '/dashboard/register-user';
-            } else if (item.icon_key === 'key') { // NEW: Handle 'key' icon for change-password
-                finalTo = '/dashboard/change-password';
             } else if (String(item.id) === '1') {
                 finalTo = '/dashboard';
             } else {
