@@ -201,18 +201,16 @@ const UserRegistrationPage: React.FC = () => {
             const webhookData = await webhookResponse.json();
             console.log("[UserRegistrationPage] Step 3 Success: Webhook returned:", webhookData);
 
-            // 4. Trigger password reset email for the newly created user
-            console.log("[UserRegistrationPage] Step 4: Triggering password reset email for new user (OTP flow)...");
-            // REMOVED redirectTo to trigger OTP email
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+            // 4. REMOVED: Trigger password reset email for the newly created user
+            // console.log("[UserRegistrationPage] Step 4: Triggering password reset email for new user (OTP flow)...");
+            // const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+            // if (resetError) {
+            //     console.error("[UserRegistrationPage] Error sending password reset email for new user:", resetError);
+            //     throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
+            // }
+            // console.log("[UserRegistrationPage] Step 4 Success: Password reset email (OTP) sent.");
 
-            if (resetError) {
-                console.error("[UserRegistrationPage] Error sending password reset email for new user:", resetError);
-                throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
-            }
-            console.log("[UserRegistrationPage] Step 4 Success: Password reset email (OTP) sent.");
-
-            showSuccess("Usuário cadastrado com sucesso! Um email com um código de redefinição de senha foi enviado para o usuário definir a senha inicial.");
+            showSuccess("Usuário cadastrado com sucesso! O usuário precisará usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha inicial.");
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -341,7 +339,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, um email de redefinição de senha será enviado para o usuário definir sua senha inicial.
+                    Após o cadastro, o usuário precisará usar a opção "Esqueceu sua senha?" na tela de login para definir a senha inicial.
                 </p>
             </CardContent>
         </div>
