@@ -30,9 +30,44 @@ const VerifyResetCodePage: React.FC = () => {
     if (emailFromUrl) {
       setEmail(decodeURIComponent(emailFromUrl));
     } else {
-      setError("E-mail não encontrado na URL. Por favor, retorne à página anterior ou insira o e-mail manualmente.");
+      // If email is not in query params, check for it in the hash (from password reset link)
+      const hashParams = new URLSearchParams(location.hash.substring(1)); // Remove '#'
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      if (accessToken && refreshToken && type === 'recovery') {
+        console.log("[VerifyResetCodePage] Detected access_token in URL hash. Attempting to set session.");
+        setIsLoading(true);
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ data, error: sessionError }) => {
+            if (sessionError) {
+              console.error("[VerifyResetCodePage] Error setting session from hash:", sessionError);
+              setError(sessionError.message || "Erro ao autenticar via link de redefinição.");
+              showError(sessionError.message || "Erro de autenticação.");
+            } else if (data.session) {
+              console.log("[VerifyResetCodePage] Session set successfully from hash. User:", data.session.user?.email);
+              setIsOtpVerified(true); // Mark as verified, proceed to password change
+              setSuccess("Autenticado via link! Agora você pode definir sua nova senha.");
+              // Try to get email from session if not already set
+              if (!emailFromUrl && data.session.user?.email) {
+                setEmail(data.session.user.email);
+              }
+              // Clear hash from URL to prevent re-processing on refresh
+              window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            } else {
+              setError("Sessão não estabelecida via link de redefinição.");
+            }
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
+      } else {
+        // If no email in query params and no valid access_token in hash, show error
+        setError("E-mail não encontrado na URL. Por favor, retorne à página anterior ou insira o e-mail manualmente.");
+      }
     }
-  }, [location.search]);
+  }, [location.search, location.hash, email]); // Depend on location.search and location.hash
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +129,7 @@ const VerifyResetCodePage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // updateUser requires an active session, which should be set by verifyOtp or setSession from hash
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -106,6 +142,7 @@ const VerifyResetCodePage: React.FC = () => {
       setSuccess("Sua senha foi redefinida com sucesso! Você será redirecionado para a página de login.");
       showSuccess("Senha redefinida com sucesso!");
 
+      // Clear query params and hash from URL after successful reset
       window.history.replaceState({}, document.title, window.location.pathname);
 
       setTimeout(() => {
@@ -162,7 +199,7 @@ const VerifyResetCodePage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isLoading || !!email}
+                  disabled={isLoading || (!!email && !error)} {/* Disable if email is pre-filled and no error */}
                 />
               </div>
               <div className="form-group">
