@@ -123,48 +123,85 @@ const UserRegistrationPage: React.FC = () => {
         }
 
         setIsRegistering(true);
-        const tempPassword = generateRandomPassword(); // Generate a temporary password
+        let userIdToAssign: string;
+        let isExistingUser = false;
 
         try {
-            console.log("[UserRegistrationPage] Step 1: Attempting to register user in Supabase Auth...");
-            // 1. Register user in Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: email.trim(),
-                password: tempPassword, // Use a temporary password
-                options: {
-                    data: {
-                        first_name: firstName.trim() || null,
-                        last_name: lastName.trim() || null,
+            console.log("[UserRegistrationPage] Step 1: Checking for existing user profile...");
+            // 1. Try to get existing user's profile by email
+            const { data: existingProfileData, error: existingProfileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', email.trim())
+                .single();
+
+            if (existingProfileData) {
+                userIdToAssign = existingProfileData.id;
+                isExistingUser = true;
+                console.log("[UserRegistrationPage] Step 1 Success: Existing user found. ID:", userIdToAssign);
+
+                // Check if user already has a role in this clinic
+                const { data: existingRole, error: roleCheckError } = await supabase
+                    .from('user_clinic_roles')
+                    .select('id')
+                    .eq('user_id', userIdToAssign)
+                    .eq('clinic_id', clinicData.id)
+                    .eq('is_active', true)
+                    .single();
+
+                if (existingRole) {
+                    throw new Error("Usuário já está vinculado a esta clínica com um papel ativo.");
+                }
+                if (roleCheckError && roleCheckError.code !== 'PGRST116') { // PGRST116 means "No rows found"
+                    throw new Error(`Erro ao verificar vínculo existente: ${roleCheckError.message}`);
+                }
+
+            } else if (existingProfileError && existingProfileError.code !== 'PGRST116') {
+                // Some other error occurred while checking for existing profile
+                throw new Error(`Erro ao verificar usuário existente: ${existingProfileError.message}`);
+            } else {
+                // User profile does not exist, proceed with new user signup
+                isExistingUser = false;
+                console.log("[UserRegistrationPage] Step 1: User profile not found. Proceeding to create new user.");
+
+                const tempPassword = generateRandomPassword(); // Generate a temporary password
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email.trim(),
+                    password: tempPassword,
+                    options: {
+                        data: {
+                            first_name: firstName.trim() || null,
+                            last_name: lastName.trim() || null,
+                        },
                     },
-                },
-            });
+                });
 
-            if (authError) {
-                console.error("[UserRegistrationPage] Supabase Auth SignUp Error:", authError);
-                throw new Error(authError.message);
+                if (authError) {
+                    console.error("[UserRegistrationPage] Supabase Auth SignUp Error:", authError);
+                    throw new Error(authError.message);
+                }
+
+                if (!authData.user) {
+                    console.error("[UserRegistrationPage] User not returned after signup, authData:", authData);
+                    throw new Error("Usuário não retornado após o cadastro. Verifique o email e tente novamente.");
+                }
+
+                userIdToAssign = authData.user.id;
+                console.log("[UserRegistrationPage] Step 2 Success: New user registered in Auth. ID:", userIdToAssign);
+
+                // Poll for new user profile existence
+                console.log("[UserRegistrationPage] Step 3: Polling for new user profile to ensure database consistency...");
+                const profileExists = await pollForUserProfile(userIdToAssign);
+
+                if (!profileExists) {
+                    throw new Error("Falha ao confirmar a criação do perfil do novo usuário. Tente novamente ou verifique o Supabase.");
+                }
+                console.log("[UserRegistrationPage] Step 3 Success: New user profile confirmed.");
             }
 
-            if (!authData.user) {
-                console.error("[UserRegistrationPage] User not returned after signup, authData:", authData);
-                throw new Error("Usuário não retornado após o cadastro. Verifique o email e tente novamente.");
-            }
-
-            const newUserId = authData.user.id;
-            console.log("[UserRegistrationPage] Step 1 Success: User registered in Auth. New User ID:", newUserId);
-
-            // 2. Poll for user profile existence before calling webhook
-            console.log("[UserRegistrationPage] Step 2: Polling for user profile to ensure database consistency...");
-            const profileExists = await pollForUserProfile(newUserId);
-
-            if (!profileExists) {
-                throw new Error("Falha ao confirmar a criação do perfil do usuário. Tente novamente ou verifique o Supabase.");
-            }
-            console.log("[UserRegistrationPage] Step 2 Success: User profile confirmed. Proceeding to Step 3.");
-
-
-            // 3. Call webhook to insert into user_clinic_roles table
-            console.log("[UserRegistrationPage] Step 3: Calling webhook to assign role to user in clinic...", {
-                userId: newUserId,
+            // 4. Call webhook to insert into user_clinic_roles table
+            console.log("[UserRegistrationPage] Step 4: Calling webhook to assign role to user in clinic...", {
+                userId: userIdToAssign,
                 clinicId: clinicData.id,
                 permissionLevelId: parseInt(selectedPermissionLevel, 10),
                 email: email.trim(),
@@ -176,7 +213,7 @@ const UserRegistrationPage: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: newUserId,
+                    userId: userIdToAssign,
                     clinicId: clinicData.id,
                     permissionLevelId: parseInt(selectedPermissionLevel, 10),
                     email: email.trim(),
@@ -195,22 +232,18 @@ const UserRegistrationPage: React.FC = () => {
                 } catch (parseErr) {
                     // Not a JSON error, use raw text
                 }
-                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}. Por favor, remova o usuário criado manualmente no Supabase Auth se necessário.`);
+                throw new Error(`Erro ao vincular usuário à clínica via backend: ${parsedError}.`);
             }
 
             const webhookData = await webhookResponse.json();
-            console.log("[UserRegistrationPage] Step 3 Success: Webhook returned:", webhookData);
+            console.log("[UserRegistrationPage] Step 4 Success: Webhook returned:", webhookData);
 
-            // 4. REMOVED: Trigger password reset email for the newly created user
-            // console.log("[UserRegistrationPage] Step 4: Triggering password reset email for new user (OTP flow)...");
-            // const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
-            // if (resetError) {
-            //     console.error("[UserRegistrationPage] Error sending password reset email for new user:", resetError);
-            //     throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
-            // }
-            // console.log("[UserRegistrationPage] Step 4 Success: Password reset email (OTP) sent.");
-
-            showSuccess("Usuário cadastrado com sucesso! O usuário precisará usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha inicial.");
+            if (isExistingUser) {
+                showSuccess("Usuário existente vinculado à clínica com sucesso!");
+            } else {
+                showSuccess("Novo usuário cadastrado e vinculado à clínica com sucesso! O usuário precisará usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha inicial.");
+            }
+            
             setEmail('');
             setFirstName('');
             setLastName('');
