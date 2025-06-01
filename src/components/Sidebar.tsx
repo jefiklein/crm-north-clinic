@@ -6,6 +6,7 @@ import {
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { useQuery } from '@tanstack/react-query'; // Import useQuery
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -164,6 +165,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'gem': Gem,
   'github': Github,
   'gitlab': Gitlab,
+  'globe-icon': GlobeIcon,
   'graduation-cap': GraduationCap,
   'handshake': Handshake,
   'hard-drive': HardDrive,
@@ -343,6 +345,18 @@ const getLucideIcon = (iconKey?: string) => {
   return iconMap[iconKey] || Circle;
 };
 
+// Helper function to get initials for AvatarFallback
+function getInitials(name: string | null): string {
+  if (!name) return '??';
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length > 1) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  } else if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  return '??';
+}
+
 export const Sidebar: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -472,7 +486,7 @@ export const Sidebar: React.FC = () => {
   // Determine active menu item based on current route
   const getActive = (item: MenuItem) => {
       // Determine the expected internal path for this item
-      // Special handling for 'register-user' and 'change-password' based on icon_key
+      // Special handling for 'register-user'
       let itemPath: string;
       if (item.icon_key === 'user-plus') {
           itemPath = '/dashboard/register-user';
@@ -504,45 +518,7 @@ export const Sidebar: React.FC = () => {
          <img src="/north-crm.jpeg" alt="North Clinic Logo" className="h-12 w-12 object-contain group-hover:w-20 group-hover:h-20 transition-all duration-300" />
       </div>
 
-      {/* User Profile Header */}
-      {session?.user && (
-        <div className="user-profile-header px-4 py-3 border-b border-gray-700 flex flex-col items-start flex-shrink-0">
-          {isLoadingProfile ? (
-            <div className="flex items-center text-gray-400">
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Carregando perfil...</span>
-            </div>
-          ) : profileError ? (
-            <div className="flex items-center text-red-400">
-              <TriangleAlert className="h-4 w-4 mr-2" />
-              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Erro ao carregar perfil.</span>
-            </div>
-          ) : userProfile ? (
-            <>
-              <span className="user-name font-semibold text-sm text-white truncate w-full transition-opacity duration-300 group-hover:opacity-100 opacity-0">
-                {userProfile.first_name || userProfile.email?.split('@')[0] || 'Usuário'}
-              </span>
-              <span className="user-email text-xs text-gray-400 truncate w-full transition-opacity duration-300 group-hover:opacity-100 opacity-0">
-                {userProfile.email}
-              </span>
-              <Link
-                to="/dashboard/change-password"
-                className="flex items-center mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 group-hover:opacity-100 opacity-0"
-              >
-                <Key className="h-3 w-3 mr-1 flex-shrink-0" />
-                <span className="menu-text">Alterar Senha</span>
-              </Link>
-            </>
-          ) : (
-            <div className="flex items-center text-gray-400">
-              <User className="h-4 w-4 mr-2" />
-              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Perfil não encontrado.</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Menu Items */}
+      {/* Main Menu Items */}
       <nav className="flex-1 overflow-y-auto">
         {isLoading && (
           <div className="flex items-center px-4 py-3 text-gray-400"> {/* Adjusted text color */}
@@ -595,6 +571,41 @@ export const Sidebar: React.FC = () => {
             );
         })}
       </nav>
+
+      {/* Fixed bottom section for user profile and change password */}
+      {session?.user && (
+        <div className="user-bottom-section flex-shrink-0 p-4 border-t border-gray-700 flex items-center justify-center group-hover:justify-start">
+          {isLoadingProfile ? (
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          ) : profileError ? (
+            <TriangleAlert className="h-6 w-6 text-red-400" />
+          ) : userProfile ? (
+            <Link
+              to="/dashboard/change-password"
+              className={`flex items-center w-full text-gray-400 hover:text-blue-400 transition-colors duration-200 ${location.pathname === '/dashboard/change-password' ? 'text-blue-400' : ''}`}
+            >
+              <div className="flex-shrink-0">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-gray-700 text-gray-100 text-sm font-semibold">
+                    {getInitials(userProfile.first_name || userProfile.email)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="flex-grow ml-3 overflow-hidden whitespace-nowrap transition-opacity duration-300 group-hover:opacity-100 opacity-0">
+                <span className="font-semibold text-sm block truncate">
+                  {userProfile.first_name || userProfile.email?.split('@')[0]}
+                </span>
+                <span className="text-xs block truncate">Alterar Senha</span>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center text-gray-400">
+              <User className="h-6 w-6" />
+              <span className="ml-3 text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">Perfil</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
