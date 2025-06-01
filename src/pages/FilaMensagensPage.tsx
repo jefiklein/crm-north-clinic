@@ -42,19 +42,15 @@ interface QueueItem {
     url_arquivo: string | null;
     nome_grupo?: string | null;
     nome_instancia_enviado?: string | null;
-    // New fields for sequence grouping - RENAMED
-    automation_instance_id: number | null;
+    sequence_instance_id: number | null; // Reverted to old name
     sequence_step_id: number | null;
     sequence_step_order: number | null;
-    lead_automation_instances?: { // RENAMED
+    lead_active_sequences?: { // Reverted to old name
         lead_id: number;
-        sequence_id: number; // This is the definition ID (north_clinic_mensagens_sequencias.id)
+        sequence_id: number;
         status: string;
-        automation_type: string; // NEW: 'message_sequence', 'stage_change_action', etc.
-        automation_definition_id: number | null; // NEW: ID of the definition table (e.g., north_clinic_mensagens_sequencias.id or north_clinic_funil_etapa_sequencias.id)
         north_clinic_leads_API: { nome_lead: string | null } | null;
         north_clinic_mensagens_sequencias: { nome_sequencia: string | null } | null;
-        north_clinic_funil_etapa_sequencias: { action_type: string | null; target_etapa_id: number | null; target_stage_details: { nome_etapa: string | null } | null } | null; // NEW: For stage change actions
     } | null;
 }
 
@@ -112,7 +108,7 @@ function formatFinalMessage(messageText: string | null): string {
 
 const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => {
     const [currentQueueDate, setCurrentQueueDate] = useState<Date>(startOfDay(new Date()));
-    const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set()); 
+    const [expandedMessages, setExpandedMessages] = new useState<Set<string>>(new Set()); 
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null); 
     const [expandedSequences, setExpandedSequences] = useState<Set<number>>(new Set()); // State for expanded sequence groups
 
@@ -133,15 +129,12 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                     *,
                     nome_grupo,
                     nome_instancia_enviado,
-                    lead_automation_instances (
+                    lead_active_sequences (
                         lead_id,
                         sequence_id,
                         status,
-                        automation_type,
-                        automation_definition_id,
                         north_clinic_leads_API ( nome_lead ),
-                        north_clinic_mensagens_sequencias ( nome_sequencia ),
-                        north_clinic_funil_etapa_sequencias ( action_type, target_etapa_id, target_stage_details:north_clinic_crm_etapa!target_etapa_id(nome_etapa) )
+                        north_clinic_mensagens_sequencias ( nome_sequencia )
                     )
                 `)
                 .eq('id_clinica', clinicId)
@@ -203,11 +196,11 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         return map;
     }, [instancesList]);
 
-    // Group queue items by automation_instance_id
+    // Group queue items by sequence_instance_id
     const groupedQueueItems = useMemo(() => {
         const groups = new Map<number | null, QueueItem[]>();
         queueItems?.forEach(item => {
-            const key = item.automation_instance_id; // Use automation_instance_id as the key
+            const key = item.sequence_instance_id; // Use sequence_instance_id as the key
             if (!groups.has(key)) {
                 groups.set(key, []);
             }
@@ -427,49 +420,38 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                         );
                                     });
                                 } else { // Grouped sequence messages
-                                    const automationInstanceId = key!;
-                                    const isAutomationExpanded = expandedSequences.has(automationInstanceId);
-                                    const firstItemInAutomation = items[0]; // Use first item for automation details
+                                    const sequenceInstanceId = key!;
+                                    const isSequenceExpanded = expandedSequences.has(sequenceInstanceId);
+                                    const firstItemInSequence = items[0]; // Use first item for sequence details
                                     
-                                    const automationType = firstItemInAutomation.lead_automation_instances?.automation_type;
-                                    let groupTitle = 'Automação Desconhecida';
-                                    let leadName = firstItemInAutomation.lead_automation_instances?.north_clinic_leads_API?.nome_lead || 'Lead Desconhecido';
-
-                                    if (automationType === 'message_sequence') {
-                                        const sequenceName = firstItemInAutomation.lead_automation_instances?.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sequência de Mensagens Desconhecida';
-                                        groupTitle = `Sequência: "${sequenceName}" para ${leadName}`;
-                                    } else if (automationType === 'stage_change_action') {
-                                        const targetStageName = firstItemInAutomation.lead_automation_instances?.north_clinic_funil_etapa_sequencias?.target_stage_details?.nome_etapa || 'Etapa Desconhecida';
-                                        groupTitle = `Mudança de Etapa para "${targetStageName}" para ${leadName}`;
-                                    } else {
-                                        groupTitle = `Automação: ${automationType || 'Desconhecido'} para ${leadName}`;
-                                    }
-
-                                    const automationStatus = firstItemInAutomation.lead_automation_instances?.status || 'unknown';
-                                    const automationStatusClass = getStatusClass(automationStatus);
+                                    const sequenceName = firstItemInSequence.lead_active_sequences?.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sequência Desconhecida';
+                                    const leadName = firstItemInSequence.lead_active_sequences?.north_clinic_leads_API?.nome_lead || 'Lead Desconhecido';
+                                    const groupTitle = `Sequência: "${sequenceName}" para ${leadName}`;
+                                    const sequenceStatus = firstItemInSequence.lead_active_sequences?.status || 'unknown';
+                                    const sequenceStatusClass = getStatusClass(sequenceStatus);
                                     const totalSteps = items.length; // Number of steps in this instance
 
                                     return (
                                         <Collapsible 
-                                            key={`automation-${automationInstanceId}`} 
-                                            open={isAutomationExpanded} 
-                                            onOpenChange={() => toggleExpandSequence(automationInstanceId)}
+                                            key={`sequence-${sequenceInstanceId}`} 
+                                            open={isSequenceExpanded} 
+                                            onOpenChange={() => toggleExpandSequence(sequenceInstanceId)}
                                             className="queue-sequence-group border border-gray-300 rounded-md my-4 bg-white shadow-sm"
                                         >
                                             <CollapsibleTrigger asChild>
                                                 <div className="flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 cursor-pointer rounded-t-md">
                                                     <div className="flex items-center gap-3">
-                                                        {isAutomationExpanded ? <ChevronUp className="h-5 w-5 text-gray-600" /> : <ChevronDown className="h-5 w-5 text-gray-600" />}
+                                                        {isSequenceExpanded ? <ChevronUp className="h-5 w-5 text-gray-600" /> : <ChevronDown className="h-5 w-5 text-gray-600" />}
                                                         <span className="font-semibold text-lg text-primary">
                                                             {groupTitle}
                                                         </span>
-                                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${automationStatusClass}`}>
-                                                            {automationStatus.charAt(0).toUpperCase() + automationStatus.slice(1)}
+                                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sequenceStatusClass}`}>
+                                                            {sequenceStatus.charAt(0).toUpperCase() + sequenceStatus.slice(1)}
                                                         </span>
                                                         <span className="text-sm text-gray-600">({totalSteps} passos)</span>
                                                     </div>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        {isAutomationExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                        {isSequenceExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                                     </Button>
                                                 </div>
                                             </CollapsibleTrigger>
