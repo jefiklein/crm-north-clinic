@@ -9,18 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, TriangleAlert, CheckCircle2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to get session directly
 
 const SetNewPasswordPage: React.FC = () => {
   const navigate = useNavigate();
+  const { session, isLoadingAuth } = useAuth(); // Get session and loading state from AuthContext
   const location = useLocation();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [isLoading, setIsLoading] = useState(true); // Start loading to check session/token
+  const [isLoadingPage, setIsLoadingPage] = useState(true); // Local loading for this page's checks
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isReadyToSetPassword, setIsReadyToSetPassword] = useState(false);
   const [emailFromUrl, setEmailFromUrl] = useState<string | null>(null); // To display email
 
   useEffect(() => {
@@ -28,66 +29,37 @@ const SetNewPasswordPage: React.FC = () => {
     const emailParam = params.get('email');
     setEmailFromUrl(emailParam ? decodeURIComponent(emailParam) : null);
 
-    // Check for access_token and type=recovery in URL fragment (hash)
-    const fragmentParams = new URLSearchParams(location.hash.substring(1)); // Remove '#'
-    const accessToken = fragmentParams.get('access_token');
-    const tokenType = fragmentParams.get('type'); // Should be 'recovery'
-
-    console.log("[SetNewPasswordPage] useEffect: Checking URL. emailParam:", emailParam, "accessToken:", !!accessToken, "tokenType:", tokenType);
-
-    if (accessToken && tokenType === 'recovery') {
-      // Supabase has already handled the token exchange and set the session
-      // We just need to confirm the session is active.
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          console.log("[SetNewPasswordPage] Session found after recovery link. Ready to set password.");
-          setIsReadyToSetPassword(true);
-          setSuccess("Link verificado com sucesso! Agora você pode definir sua nova senha.");
-        } else {
-          console.error("[SetNewPasswordPage] No session found after recovery link. Token might be expired or invalid.");
-          setError("Link de redefinição inválido ou expirado. Por favor, solicite um novo.");
-        }
-        setIsLoading(false);
-      }).catch(err => {
-        console.error("[SetNewPasswordPage] Error getting session:", err);
-        setError("Erro ao verificar sessão. Por favor, tente novamente.");
-        setIsLoading(false);
-      });
-    } else {
-      // If no access_token/recovery type in hash, check if already logged in (e.g., direct navigation after login)
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          // User is already logged in, but not necessarily from a reset link.
-          // This page is specifically for setting a *new* password via a reset/invite flow.
-          // If they are just logged in normally, they shouldn't be here.
-          console.warn("[SetNewPasswordPage] User is already logged in, but not from a recovery link. Redirecting to dashboard.");
-          navigate('/dashboard', { replace: true }); // Redirect if already logged in normally
-        } else {
-          console.log("[SetNewPasswordPage] No session or recovery token. User needs to request a reset.");
-          setError("Para definir sua senha, por favor, solicite um link de redefinição.");
-        }
-        setIsLoading(false);
-      }).catch(err => {
-        console.error("[SetNewPasswordPage] Error getting session (no token):", err);
-        setError("Erro ao verificar sessão. Por favor, tente novamente.");
-        setIsLoading(false);
-      });
+    // If AuthContext is still loading, wait.
+    if (isLoadingAuth) {
+      setIsLoadingPage(true);
+      return;
     }
 
-    // Clean up URL fragment after processing to prevent re-triggering
+    // If a session exists, the user is ready to set password.
+    if (session) {
+      console.log("[SetNewPasswordPage] Session found. User is ready to set new password.");
+      setError(null); // Clear any previous errors
+      setSuccess("Sua sessão foi verificada. Agora você pode definir sua nova senha.");
+    } else {
+      console.log("[SetNewPasswordPage] No active session found. User needs to request a reset link.");
+      setError("Sua sessão expirou ou o link é inválido. Por favor, solicite um novo link de redefinição de senha.");
+    }
+    setIsLoadingPage(false);
+
+    // Clean up URL fragment if any (though Edge Function should prevent it)
     if (location.hash) {
       window.history.replaceState({}, document.title, window.location.pathname + location.search);
     }
 
-  }, [location.search, location.hash, navigate]);
+  }, [session, isLoadingAuth, location.search, location.hash, navigate]); // Depend on session and isLoadingAuth
 
   const handleSetNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!isReadyToSetPassword) {
-      setError("A página não está pronta para definir a senha. Por favor, recarregue ou solicite um novo link.");
+    if (!session) { // Check if session is still active before attempting update
+      setError("Sua sessão expirou. Por favor, solicite um novo link de redefinição.");
       return;
     }
     if (password.length < 6) {
@@ -99,9 +71,8 @@ const SetNewPasswordPage: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoadingPage(true); // Use local loading state
     try {
-      // This requires an active session, which should be present if isReadyToSetPassword is true
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -123,11 +94,12 @@ const SetNewPasswordPage: React.FC = () => {
       setError(err.message || "Ocorreu um erro ao definir sua senha.");
       showError(err.message || "Erro ao definir senha.");
     } finally {
-      setIsLoading(false);
+      setIsLoadingPage(false);
     }
   };
 
-  if (isLoading) {
+  // Render loading state for the page itself
+  if (isLoadingPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <Card className="w-[400px]">
@@ -136,7 +108,7 @@ const SetNewPasswordPage: React.FC = () => {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-gray-700 text-center">Verificando link de redefinição...</p>
+            <p className="text-gray-700 text-center">Verificando sessão...</p>
           </CardContent>
         </Card>
       </div>
@@ -170,7 +142,7 @@ const SetNewPasswordPage: React.FC = () => {
             </div>
           )}
 
-          {isReadyToSetPassword ? (
+          {session ? ( // Only show password fields if a session is active
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
               <p className="text-sm text-gray-600 text-center">
                 {emailFromUrl && `Para o e-mail: ${emailFromUrl}`}
@@ -186,7 +158,7 @@ const SetNewPasswordPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoading}
+                  disabled={isLoadingPage} // Use local loading state
                 />
               </div>
               <div className="form-group">
@@ -198,11 +170,11 @@ const SetNewPasswordPage: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  disabled={isLoading}
+                  disabled={isLoadingPage} // Use local loading state
                 />
               </div>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
+              <Button type="submit" disabled={isLoadingPage}>
+                {isLoadingPage ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Definindo Senha...
@@ -221,7 +193,7 @@ const SetNewPasswordPage: React.FC = () => {
               </Button>
             </div>
           )}
-          <Button variant="link" onClick={() => navigate('/')} disabled={isLoading}>
+          <Button variant="link" onClick={() => navigate('/')} disabled={isLoadingPage}>
             Voltar para o Login
           </Button>
         </CardContent>

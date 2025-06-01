@@ -27,11 +27,10 @@ const RequestResetCodePage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // O redirectTo é importante para que o Supabase saiba para onde redirecionar
-      // após o usuário clicar no link do e-mail (se for um magic link) ou para onde
-      // a página de verificação de código deve estar.
+      // O redirectTo agora aponta para a Edge Function de callback
+      // A Edge Function irá processar os tokens e redirecionar de volta para /set-new-password
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/set-new-password?email=${encodeURIComponent(email.trim())}`,
+        redirectTo: `https://eencnctntsydevijdhdu.supabase.co/functions/v1/auth-callback?next=/set-new-password`,
       });
 
       if (resetError) {
@@ -39,11 +38,10 @@ const RequestResetCodePage: React.FC = () => {
         throw new Error(resetError.message);
       }
 
-      // Em vez de apenas mostrar uma mensagem, redirecionamos para a página de verificação
-      showSuccess("Um e-mail com o código foi enviado. Redirecionando para a tela de definição de senha...");
-      setTimeout(() => {
-        navigate(`/set-new-password?email=${encodeURIComponent(email.trim())}`);
-      }, 1500); // Pequeno atraso para o toast aparecer
+      showSuccess("Um e-mail com o link de redefinição foi enviado. Por favor, verifique sua caixa de entrada.");
+      // Não redirecionamos automaticamente aqui, pois o usuário precisa clicar no link do e-mail.
+      // A mensagem de sucesso é suficiente.
+      setMessage("Um link para definir sua senha foi enviado para o seu e-mail. Por favor, verifique sua caixa de entrada.");
 
     } catch (err: any) {
       console.error("Erro na solicitação de código:", err);
@@ -68,7 +66,7 @@ const RequestResetCodePage: React.FC = () => {
           />
 
           <p className="text-sm text-gray-600 text-center">
-            Insira seu e-mail para receber um código ou link para definir sua senha.
+            Insira seu e-mail para receber um link para definir sua senha.
           </p>
 
           <form onSubmit={handleRequestCode} className="flex flex-col gap-4">
@@ -106,7 +104,7 @@ const RequestResetCodePage: React.FC = () => {
                   Enviando...
                 </>
               ) : (
-                "Enviar Código/Link"
+                "Enviar Link"
               )}
             </Button>
             <Button variant="link" onClick={() => navigate('/')} disabled={isLoading}>
