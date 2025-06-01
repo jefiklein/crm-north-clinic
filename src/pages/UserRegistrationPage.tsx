@@ -202,18 +202,17 @@ const UserRegistrationPage: React.FC = () => {
             console.log("[UserRegistrationPage] Step 3 Success: Webhook returned:", webhookData);
 
             // 4. Trigger password reset email for the newly created user
-            console.log("[UserRegistrationPage] Step 4: Triggering password reset email for new user...");
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: `${window.location.origin}/verify-reset-code?email=${encodeURIComponent(email.trim())}`,
-            });
+            console.log("[UserRegistrationPage] Step 4: Triggering password reset email for new user (OTP flow)...");
+            // REMOVED redirectTo to trigger OTP email
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
 
             if (resetError) {
                 console.error("[UserRegistrationPage] Error sending password reset email for new user:", resetError);
                 throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
             }
-            console.log("[UserRegistrationPage] Step 4 Success: Password reset email sent.");
+            console.log("[UserRegistrationPage] Step 4 Success: Password reset email (OTP) sent.");
 
-            showSuccess("Usuário cadastrado com sucesso! Um email de redefinição de senha foi enviado para o usuário definir a senha inicial.");
+            showSuccess("Usuário cadastrado com sucesso! Um email com um código de redefinição de senha foi enviado para o usuário definir a senha inicial.");
             setEmail('');
             setFirstName('');
             setLastName('');
