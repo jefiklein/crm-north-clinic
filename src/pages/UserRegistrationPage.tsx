@@ -339,7 +339,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário precisará usar a opção "Esqueceu sua senha?" na tela de login para definir a senha inicial.
+                    Após o cadastro, o usuário receberá um e-mail de confirmação. Ao clicar no link e fazer o primeiro login, ele deverá ir à seção 'Alterar Senha' no menu lateral para definir sua senha pessoal.
                 </p>
             </CardContent>
         </div>
