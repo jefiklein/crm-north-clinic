@@ -4,16 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
-import { Search, Plus, User, Info, TriangleAlert, Loader2, UserPlus, Edit } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
+import { Search, Plus, User, Info, TriangleAlert, Loader2, UserPlus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import EditUserModal from '@/components/EditUserModal'; // Import the new modal
-import { showSuccess, showError } from '@/utils/toast'; // Import toast utilities
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -38,7 +36,7 @@ interface SupabaseUser {
     last_name: string | null;
     created_at: string; // ISO timestamp
     user_clinic_roles: {
-        id: number; // user_clinic_roles ID
+        id: number;
         clinic_id: number;
         permission_level_id: number;
         is_active: boolean;
@@ -56,21 +54,13 @@ interface UserListPageProps {
 const REQUIRED_PERMISSION_LEVEL = 4; // Nível 4: Administrador da Clínica (ou superior)
 const SUPER_ADMIN_PERMISSION_ID = 5; // ID do nível de permissão para Super Admin
 
-// New N8N webhook URL for updating user profile and role
-const UPDATE_USER_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/update-user-profile-and-role';
-
 const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     const navigate = useNavigate();
-    const queryClient = useQueryClient(); // Initialize query client
     const { isLoadingAuth } = useAuth(); // Use useAuth to check overall auth loading
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('created_at_desc');
     const [filterPermissionLevel, setFilterPermissionLevel] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
-
-    // State for the edit modal
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [userToEdit, setUserToEdit] = useState<SupabaseUser | null>(null);
 
     const ITEMS_PER_PAGE = 15;
 
@@ -79,7 +69,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
     // Lógica de permissão corrigida: userPermissionLevel DEVE SER MAIOR OU IGUAL ao REQUIRED_PERMISSION_LEVEL
     const hasPermission = !isLoadingAuth && userPermissionLevel !== undefined && userPermissionLevel >= REQUIRED_PERMISSION_LEVEL;
 
-    // Fetch all permission levels for the filter dropdown and modal
+    // Fetch all permission levels for the filter dropdown
     const { data: permissionLevels, isLoading: isLoadingPermissionLevels, error: permissionLevelsError } = useQuery<PermissionLevel[]>({
         queryKey: ['permissionLevels'],
         queryFn: async () => {
@@ -207,56 +197,6 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
         navigate('/dashboard/register-user');
     };
 
-    // Function to open the edit modal
-    const handleEditUser = (user: SupabaseUser) => {
-        setUserToEdit(user);
-        setIsEditModalOpen(true);
-    };
-
-    // Mutation for updating user details via N8N webhook
-    const updateUserMutation = useMutation({
-        mutationFn: async (updateData: {
-            userId: string;
-            clinicRoleId: number;
-            firstName: string;
-            lastName: string;
-            permissionLevelId: number;
-            isActive: boolean;
-            clinicId: string | number;
-        }) => {
-            console.log("[UserListPage] Calling N8N webhook to update user:", updateData);
-            const response = await fetch(UPDATE_USER_WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error("[UserListPage] Webhook Error Response:", errorText);
-                let parsedError = errorText;
-                try {
-                    const jsonError = JSON.parse(errorText);
-                    parsedError = jsonError.message || jsonError.error || errorText;
-                } catch (parseErr) {
-                    // Not a JSON error, use raw text
-                }
-                throw new Error(`Erro ao atualizar usuário via backend: ${parsedError}.`);
-            }
-            return response.json();
-        },
-        onSuccess: (_, variables) => {
-            showSuccess(`Usuário "${variables.firstName} ${variables.lastName}" atualizado com sucesso!`);
-            queryClient.invalidateQueries({ queryKey: ['clinicUsers', currentClinicId] }); // Invalidate to refetch updated list
-            setIsEditModalOpen(false); // Close modal on success
-            setUserToEdit(null); // Clear user to edit
-        },
-        onError: (error: Error, variables) => {
-            showError(`Erro ao atualizar usuário "${variables.firstName} ${variables.lastName}": ${error.message}`);
-        },
-    });
-
-
     if (isLoadingAuth || isLoadingPermissionLevels) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
@@ -346,7 +286,7 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                         <div className="flex flex-col items-center justify-center h-full text-red-600 p-8 bg-red-50 rounded-md">
                             <TriangleAlert className="h-12 w-12 mb-4" />
                             <span className="text-lg text-center">Erro ao carregar usuários: {usersError.message}</span>
-                            <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['clinicUsers', currentClinicId] })} className="mt-4">Tentar Novamente</Button>
+                            <Button variant="outline" onClick={() => { /* refetch logic */ }} className="mt-4">Tentar Novamente</Button>
                         </div>
                     ) : totalItems === 0 && searchTerm !== '' ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
@@ -397,8 +337,8 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                                             </TableCell>
                                             <TableCell>{format(new Date(user.created_at), 'dd/MM/yyyy')}</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
-                                                    <Edit className="h-4 w-4 mr-2" /> Editar
+                                                <Button variant="outline" size="sm" onClick={() => alert(`Editar usuário ${user.email}`)}>
+                                                    Editar
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -436,18 +376,6 @@ const UserListPage: React.FC<UserListPageProps> = ({ clinicData }) => {
                     </div>
                 )}
             </Card>
-
-            {userToEdit && currentClinicId && (
-                <EditUserModal
-                    isOpen={isEditModalOpen}
-                    onClose={() => setIsEditModalOpen(false)}
-                    userData={userToEdit}
-                    clinicId={currentClinicId}
-                    permissionLevels={permissionLevels || []}
-                    onSave={updateUserMutation.mutate}
-                    isSaving={updateUserMutation.isLoading}
-                />
-            )}
         </div>
     );
 };
