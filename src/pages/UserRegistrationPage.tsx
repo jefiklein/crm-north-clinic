@@ -101,13 +101,12 @@ const UserRegistrationPage: React.FC = () => {
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: email.trim(),
                 password: tempPassword, // Use a temporary password
+                // REMOVIDO: emailRedirectTo para evitar problemas com tokens na URL
                 options: {
                     data: {
                         first_name: firstName.trim() || null,
                         last_name: lastName.trim() || null,
                     },
-                    // IMPORTANT: Redirect to the new page where the user will set their password
-                    emailRedirectTo: `${window.location.origin}/set-new-password`, 
                 },
             });
 
@@ -161,7 +160,17 @@ const UserRegistrationPage: React.FC = () => {
             const webhookData = await webhookResponse.json();
             console.log("Webhook Success Response:", webhookData);
 
-            showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado para o usuário definir a senha.");
+            // 3. Trigger password reset email for the newly created user
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: `${window.location.origin}/verify-reset-code?email=${encodeURIComponent(email.trim())}`,
+            });
+
+            if (resetError) {
+                console.error("Erro ao enviar e-mail de redefinição de senha para o novo usuário:", resetError);
+                throw new Error(`Usuário cadastrado, mas falha ao enviar e-mail de redefinição de senha: ${resetError.message}`);
+            }
+
+            showSuccess("Usuário cadastrado com sucesso! Um email de redefinição de senha foi enviado para o usuário definir a senha inicial.");
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -289,7 +298,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email de confirmação com um link para definir sua senha.
+                    Após o cadastro, um email de redefinição de senha será enviado para o usuário definir sua senha inicial.
                 </p>
             </CardContent>
         </div>
