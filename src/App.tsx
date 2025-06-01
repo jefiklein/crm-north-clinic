@@ -24,8 +24,9 @@ import FunnelConfigPage from "./pages/FunnelConfigPage";
 import SelectClinicPage from "./pages/SelectClinicPage";
 import UserRegistrationPage from "./pages/UserRegistrationPage";
 import UserListPage from "./pages/UserListPage";
-import RequestResetCodePage from "./pages/RequestResetCodePage"; // Import new page
-import VerifyResetCodePage from "./pages/VerifyResetCodePage"; // Import renamed page
+import RequestResetCodePage from "./pages/RequestResetCodePage";
+import VerifyResetCodePage from "./pages/VerifyResetCodePage";
+import SetNewPasswordPage from "./pages/SetNewPasswordPage"; // Import new page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -68,6 +69,9 @@ const App = () => {
           {/* New routes for password reset by code */}
           <Route path="/request-reset-code" element={<RequestResetCodePage />} />
           <Route path="/verify-reset-code" element={<VerifyResetCodePage />} />
+          
+          {/* New route for setting password after initial signup */}
+          <Route path="/set-new-password" element={<SetNewPasswordPage />} />
 
           {/* SelectClinicPage is a direct route */}
           <Route path="/select-clinic" element={<SelectClinicPage />} />

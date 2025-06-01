@@ -106,7 +106,8 @@ const UserRegistrationPage: React.FC = () => {
                         first_name: firstName.trim() || null,
                         last_name: lastName.trim() || null,
                     },
-                    // emailRedirectTo: 'http://localhost:8080/login' // Optional: redirect after email confirmation
+                    // IMPORTANT: Redirect to the new page where the user will set their password
+                    emailRedirectTo: `${window.location.origin}/set-new-password`, 
                 },
             });
 
@@ -160,7 +161,7 @@ const UserRegistrationPage: React.FC = () => {
             const webhookData = await webhookResponse.json();
             console.log("Webhook Success Response:", webhookData);
 
-            showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado.");
+            showSuccess("Usuário cadastrado com sucesso! Um email de confirmação foi enviado para o usuário definir a senha.");
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -288,7 +289,7 @@ const UserRegistrationPage: React.FC = () => {
                     )}
                 </Button>
                 <p className="text-sm text-gray-600 mt-4">
-                    Após o cadastro, o usuário receberá um email de confirmação. Ele poderá então fazer login com o email e uma senha temporária gerada automaticamente. Caso não saiba a senha, poderá usar a opção "Esqueceu a senha?" na tela de login para definir uma nova.
+                    Após o cadastro, o usuário receberá um email de confirmação com um link para definir sua senha.
                 </p>
             </CardContent>
         </div>
