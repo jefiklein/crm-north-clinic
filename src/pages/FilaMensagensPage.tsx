@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, Filter, ChevronDown, ChevronUp } from "lucide-react"; 
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
 import { Label } from "@/components/ui/label"; 
 import { formatPhone } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible
 
 interface ClinicData {
   code: string;
@@ -41,6 +42,17 @@ interface QueueItem {
     url_arquivo: string | null;
     nome_grupo?: string | null;
     nome_instancia_enviado?: string | null;
+    // New fields for sequence grouping
+    sequence_instance_id: number | null;
+    sequence_step_id: number | null;
+    sequence_step_order: number | null;
+    lead_active_sequences?: {
+        lead_id: number;
+        sequence_id: number;
+        status: string;
+        north_clinic_leads_API: { nome_lead: string | null } | null;
+        north_clinic_mensagens_sequencias: { nome_sequencia: string | null } | null;
+    } | null;
 }
 
 interface InstanceDetails {
@@ -99,6 +111,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
     const [currentQueueDate, setCurrentQueueDate] = useState<Date>(startOfDay(new Date()));
     const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set()); 
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null); 
+    const [expandedSequences, setExpandedSequences] = useState<Set<number>>(new Set()); // State for expanded sequence groups
 
     const clinicId = clinicData?.id;
     const dateString = format(currentQueueDate, 'yyyy-MM-dd');
@@ -113,7 +126,18 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
 
             let query = supabase
                 .from('north_clinic_fila_mensagens')
-                .select('*, nome_grupo, nome_instancia_enviado')
+                .select(`
+                    *,
+                    nome_grupo,
+                    nome_instancia_enviado,
+                    lead_active_sequences (
+                        lead_id,
+                        sequence_id,
+                        status,
+                        north_clinic_leads_API ( nome_lead ),
+                        north_clinic_mensagens_sequencias ( nome_sequencia )
+                    )
+                `)
                 .eq('id_clinica', clinicId)
                 .gte('agendado_para', `${dateString}T00:00:00Z`)
                 .lte('agendado_para', `${dateString}T23:59:59Z`);
@@ -173,9 +197,54 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         return map;
     }, [instancesList]);
 
+    // Group queue items by sequence_instance_id
+    const groupedQueueItems = useMemo(() => {
+        const groups = new Map<number | null, QueueItem[]>();
+        queueItems?.forEach(item => {
+            const key = item.sequence_instance_id; // Use sequence_instance_id as the key
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            groups.get(key)?.push(item);
+        });
+
+        // Sort items within each group by sequence_step_order, then by agendado_para
+        groups.forEach((items, key) => {
+            items.sort((a, b) => {
+                if (a.sequence_step_order !== null && b.sequence_step_order !== null) {
+                    return a.sequence_step_order - b.sequence_step_order;
+                }
+                // Fallback to scheduled time if order is not defined
+                const dateA = new Date(a.agendado_para || 0).getTime();
+                const dateB = new Date(b.agendado_para || 0).getTime();
+                return dateA - dateB;
+            });
+        });
+
+        // Convert map to array for rendering, keeping null key (individual messages) first
+        const result: { key: number | null; items: QueueItem[] }[] = [];
+        if (groups.has(null)) {
+            result.push({ key: null, items: groups.get(null)! });
+        }
+        Array.from(groups.keys()).filter(k => k !== null).sort((a, b) => {
+            // Sort sequence groups by the scheduled time of their first message
+            const firstItemA = groups.get(a!)?.[0];
+            const firstItemB = groups.get(b!)?.[0];
+            const timeA = new Date(firstItemA?.agendado_para || 0).getTime();
+            const timeB = new Date(firstItemB?.agendado_para || 0).getTime();
+            return timeB - timeA; // Newest sequences first
+        }).forEach(key => {
+            result.push({ key, items: groups.get(key!)! });
+        });
+
+        return result;
+    }, [queueItems]);
+
+
     const goToPreviousDay = () => {
         setCurrentQueueDate(startOfDay(subDays(currentQueueDate, 1)));
         setExpandedMessages(new Set()); 
+        setExpandedSequences(new Set()); // Reset expanded sequences
     };
 
     const goToNextDay = () => {
@@ -184,6 +253,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         if (!isAfter(nextDay, today)) { 
             setCurrentQueueDate(nextDay);
             setExpandedMessages(new Set()); 
+            setExpandedSequences(new Set()); // Reset expanded sequences
         }
     };
 
@@ -197,6 +267,18 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                 newSet.delete(itemIdString);
             } else {
                 newSet.add(itemIdString);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleExpandSequence = (sequenceInstanceId: number) => {
+        setExpandedSequences(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(sequenceInstanceId)) {
+                newSet.delete(sequenceInstanceId);
+            } else {
+                newSet.add(sequenceInstanceId);
             }
             return newSet;
         });
@@ -264,78 +346,192 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                             Nenhuma mensagem na fila para esta data{selectedStatus ? ` com status "${selectedStatus}"` : ''}.
                         </div>
                     ) : (
-                        queueItems?.map(item => {
-                            const statusClass = getStatusClass(item.status);
-                            const scheduledTime = formatQueueTimestamp(item.agendado_para);
-                            const sentTime = formatQueueTimestamp(item.data_enviado);
-                            const formattedMessage = formatFinalMessage(item.mensagem);
-                            const itemIdString = String(item.id); 
-                            const isExpanded = expandedMessages.has(itemIdString);
+                        <div className="divide-y divide-gray-200">
+                            {groupedQueueItems.map(({ key, items }) => {
+                                if (key === null) { // Individual messages
+                                    return items.map(item => {
+                                        const statusClass = getStatusClass(item.status);
+                                        const scheduledTime = formatQueueTimestamp(item.agendado_para);
+                                        const sentTime = formatQueueTimestamp(item.data_enviado);
+                                        const formattedMessage = formatFinalMessage(item.mensagem);
+                                        const itemIdString = String(item.id); 
+                                        const isExpanded = expandedMessages.has(itemIdString);
 
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = formattedMessage;
-                            const plainText = tempDiv.textContent || tempDiv.innerText || '';
-                            const messagePreviewHTML = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : ''); 
-                            
-                            const needsExpansion = plainText.length > 100 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
+                                        const tempDiv = document.createElement('div');
+                                        tempDiv.innerHTML = formattedMessage;
+                                        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                                        const messagePreviewHTML = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : ''); 
+                                        
+                                        const needsExpansion = plainText.length > 100 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
 
-                            const instanceNameFromQueue = item.nome_instancia_enviado;
-                            const instanceDetailsFromConfig = instanceDetailsMap.get(item.instancia);
-                            const instanceNameFromConfig = instanceDetailsFromConfig?.nome_exibição;
-                            
-                            const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
-                            let displayRecipient = 'N/D';
-                            if (item.nome_grupo) {
-                                displayRecipient = item.nome_grupo;
-                            } else if (item.recipiente) {
-                                // Basic check to see if it might be a phone number before formatting
-                                const isPhoneNumber = /^\d+$/.test(item.recipiente.replace(/\D/g, ''));
-                                displayRecipient = isPhoneNumber ? formatPhone(item.recipiente) : item.recipiente;
-                            }
+                                        const instanceNameFromQueue = item.nome_instancia_enviado;
+                                        const instanceDetailsFromConfig = instanceDetailsMap.get(item.instancia);
+                                        const instanceNameFromConfig = instanceDetailsFromConfig?.nome_exibição;
+                                        
+                                        const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
+                                        let displayRecipient = 'N/D';
+                                        if (item.nome_grupo) {
+                                            displayRecipient = item.nome_grupo;
+                                        } else if (item.recipiente) {
+                                            const isPhoneNumber = /^\d+$/.test(item.recipiente.replace(/\D/g, ''));
+                                            displayRecipient = isPhoneNumber ? formatPhone(item.recipiente) : item.recipiente;
+                                        }
 
-                            return (
-                                <div key={itemIdString} className="queue-item p-4 border-b last:border-b-0 border-gray-200">
-                                    <div className="queue-item-header flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-                                        <span className={`queue-item-status text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
-                                            {item.status || 'Desconhecido'}
-                                        </span>
-                                        <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
-                                            {item.status?.toLowerCase() === 'enviado' && item.data_enviado ? (
-                                                <span><strong>Enviado:</strong> {sentTime}</span>
-                                            ) : (
-                                                <span><strong>Agendado:</strong> {scheduledTime}</span>
-                                            )}
-                                            <span><strong>Instância:</strong> {finalDisplayInstanceName}</span> 
-                                            <span><strong>Recipiente:</strong> {displayRecipient}</span> 
-                                            {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
-                                        </div>
-                                    </div>
-                                    <div className="queue-item-message bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-800">
-                                        <div 
-                                            className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-[60px] opacity-80'}`} 
-                                            dangerouslySetInnerHTML={{ __html: isExpanded ? formattedMessage : messagePreviewHTML }}
-                                        />
-                                        {needsExpansion && ( 
-                                            <Button
-                                                variant="link"
-                                                size="sm"
-                                                onClick={() => toggleExpandMessage(item.id)}
-                                                className="p-0 h-auto text-primary hover:no-underline flex items-center mt-1 text-xs"
-                                            >
-                                                {isExpanded ? (
-                                                    <>Ver menos <ChevronUp className="ml-1 h-3 w-3" /></>
-                                                ) : (
-                                                    <>Ver mais <ChevronDown className="ml-1 h-3 w-3" /></>
-                                                )}
-                                            </Button>
-                                        )}
-                                        {!needsExpansion && !isExpanded && ( 
-                                             <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })
+                                        return (
+                                            <div key={itemIdString} className="queue-item p-4">
+                                                <div className="queue-item-header flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                                                    <span className={`queue-item-status text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
+                                                        {item.status || 'Desconhecido'}
+                                                    </span>
+                                                    <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
+                                                        {item.status?.toLowerCase() === 'enviado' && item.data_enviado ? (
+                                                            <span><strong>Enviado:</strong> {sentTime}</span>
+                                                        ) : (
+                                                            <span><strong>Agendado:</strong> {scheduledTime}</span>
+                                                        )}
+                                                        <span><strong>Instância:</strong> {finalDisplayInstanceName}</span> 
+                                                        <span><strong>Recipiente:</strong> {displayRecipient}</span> 
+                                                        {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="queue-item-message bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-800">
+                                                    <div 
+                                                        className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-[60px] opacity-80'}`} 
+                                                        dangerouslySetInnerHTML={{ __html: isExpanded ? formattedMessage : messagePreviewHTML }}
+                                                    />
+                                                    {needsExpansion && ( 
+                                                        <Button
+                                                            variant="link"
+                                                            size="sm"
+                                                            onClick={() => toggleExpandMessage(item.id)}
+                                                            className="p-0 h-auto text-primary hover:no-underline flex items-center mt-1 text-xs"
+                                                        >
+                                                            {isExpanded ? (
+                                                                <>Ver menos <ChevronUp className="ml-1 h-3 w-3" /></>
+                                                            ) : (
+                                                                <>Ver mais <ChevronDown className="ml-1 h-3 w-3" /></>
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                    {!needsExpansion && !isExpanded && ( 
+                                                         <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                } else { // Grouped sequence messages
+                                    const sequenceInstanceId = key!;
+                                    const isSequenceExpanded = expandedSequences.has(sequenceInstanceId);
+                                    const firstItemInSequence = items[0]; // Use first item for sequence details
+                                    const sequenceName = firstItemInSequence.lead_active_sequences?.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sequência Desconhecida';
+                                    const leadName = firstItemInSequence.lead_active_sequences?.north_clinic_leads_API?.nome_lead || 'Lead Desconhecido';
+                                    const sequenceStatus = firstItemInSequence.lead_active_sequences?.status || 'unknown';
+                                    const sequenceStatusClass = getStatusClass(sequenceStatus);
+                                    const totalSteps = items.length; // Number of steps in this instance
+
+                                    return (
+                                        <Collapsible 
+                                            key={`sequence-${sequenceInstanceId}`} 
+                                            open={isSequenceExpanded} 
+                                            onOpenChange={() => toggleExpandSequence(sequenceInstanceId)}
+                                            className="queue-sequence-group border border-gray-300 rounded-md my-4 bg-white shadow-sm"
+                                        >
+                                            <CollapsibleTrigger asChild>
+                                                <div className="flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 cursor-pointer rounded-t-md">
+                                                    <div className="flex items-center gap-3">
+                                                        {isSequenceExpanded ? <ChevronUp className="h-5 w-5 text-gray-600" /> : <ChevronDown className="h-5 w-5 text-gray-600" />}
+                                                        <span className="font-semibold text-lg text-primary">
+                                                            Sequência: "{sequenceName}" para {leadName}
+                                                        </span>
+                                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sequenceStatusClass}`}>
+                                                            {sequenceStatus.charAt(0).toUpperCase() + sequenceStatus.slice(1)}
+                                                        </span>
+                                                        <span className="text-sm text-gray-600">({totalSteps} passos)</span>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        {isSequenceExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="p-4 pt-0 divide-y divide-gray-100">
+                                                {items.map(item => {
+                                                    const statusClass = getStatusClass(item.status);
+                                                    const scheduledTime = formatQueueTimestamp(item.agendado_para);
+                                                    const sentTime = formatQueueTimestamp(item.data_enviado);
+                                                    const formattedMessage = formatFinalMessage(item.mensagem);
+                                                    const itemIdString = String(item.id); 
+                                                    const isExpanded = expandedMessages.has(itemIdString);
+
+                                                    const tempDiv = document.createElement('div');
+                                                    tempDiv.innerHTML = formattedMessage;
+                                                    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                                                    const messagePreviewHTML = plainText.substring(0, 100) + (plainText.length > 100 ? '...' : ''); 
+                                                    
+                                                    const needsExpansion = plainText.length > 100 || formattedMessage.includes('<br>') || formattedMessage.includes('<em>') || formattedMessage.includes('<strong>');
+
+                                                    const instanceNameFromQueue = item.nome_instancia_enviado;
+                                                    const instanceDetailsFromConfig = instanceDetailsMap.get(item.instancia);
+                                                    const instanceNameFromConfig = instanceDetailsFromConfig?.nome_exibição;
+                                                    
+                                                    const finalDisplayInstanceName = instanceNameFromQueue || instanceNameFromConfig || item.instancia || 'N/A'; 
+                                                    let displayRecipient = 'N/D';
+                                                    if (item.nome_grupo) {
+                                                        displayRecipient = item.nome_grupo;
+                                                    } else if (item.recipiente) {
+                                                        const isPhoneNumber = /^\d+$/.test(item.recipiente.replace(/\D/g, ''));
+                                                        displayRecipient = isPhoneNumber ? formatPhone(item.recipiente) : item.recipiente;
+                                                    }
+
+                                                    return (
+                                                        <div key={itemIdString} className="queue-item p-4">
+                                                            <div className="queue-item-header flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                                                                <span className={`queue-item-status text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
+                                                                    Passo {item.sequence_step_order}: {item.status || 'Desconhecido'}
+                                                                </span>
+                                                                <div className="queue-item-details text-xs text-gray-600 text-left sm:text-right flex flex-col gap-1">
+                                                                    {item.status?.toLowerCase() === 'enviado' && item.data_enviado ? (
+                                                                        <span><strong>Enviado:</strong> {sentTime}</span>
+                                                                    ) : (
+                                                                        <span><strong>Agendado:</strong> {scheduledTime}</span>
+                                                                    )}
+                                                                    <span><strong>Instância:</strong> {finalDisplayInstanceName}</span> 
+                                                                    <span><strong>Recipiente:</strong> {displayRecipient}</span> 
+                                                                    {item.erro && <span className="text-red-500"><strong>Erro:</strong> {item.erro}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="queue-item-message bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-800">
+                                                                <div 
+                                                                    className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-[60px] opacity-80'}`} 
+                                                                    dangerouslySetInnerHTML={{ __html: isExpanded ? formattedMessage : messagePreviewHTML }}
+                                                                />
+                                                                {needsExpansion && ( 
+                                                                    <Button
+                                                                        variant="link"
+                                                                        size="sm"
+                                                                        onClick={() => toggleExpandMessage(item.id)}
+                                                                        className="p-0 h-auto text-primary hover:no-underline flex items-center mt-1 text-xs"
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <>Ver menos <ChevronUp className="ml-1 h-3 w-3" /></>
+                                                                        ) : (
+                                                                            <>Ver mais <ChevronDown className="ml-1 h-3 w-3" /></>
+                                                                        )}
+                                                                    </Button>
+                                                                )}
+                                                                {!needsExpansion && !isExpanded && ( 
+                                                                     <div dangerouslySetInnerHTML={{ __html: formattedMessage }}></div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </CollapsibleContent>
+                                        </Collapsible>
+                                    );
+                                }
+                            })}
+                        </div>
                     )}
                 </CardContent>
             </Card>
