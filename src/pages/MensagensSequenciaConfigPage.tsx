@@ -428,7 +428,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       const messagePayloadForN8N = {
         event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created",
         sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined,
-        clinicCode: currentClinicCode, // This is the authentication string, kept for compatibility if n8n needs it
+        // REMOVED: clinicCode: currentClinicCode, // This was the problematic line
         clinicDbId: currentClinicId, // This is the numeric ID, use this for DB operations
         sequenceName: messageName,
         contexto: 'leads', // Hardcoded context for lead sequences
