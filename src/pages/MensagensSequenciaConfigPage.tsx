@@ -19,9 +19,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TriangleAlert, Plus, Trash2 } from "lucide-react"; 
-import { useLocation, useNavigate } from "react-router-dom"; 
-import { useQueryClient } from "@tanstack/react-query"; 
+import { Loader2, TriangleAlert, Plus, Trash2, Smile } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { Label } from "@/components/ui/label";
+import { cn } from '@/lib/utils';
+import { EmojiPicker } from "emoji-picker-element"; // Keep EmojiPicker for step textareas
 
 interface ClinicData {
   code: string;
@@ -37,13 +40,14 @@ type MessageStepType = 'texto' | 'imagem' | 'video' | 'audio' | 'atraso';
 interface MessageStep {
   id: string; // Client-side unique ID for the step instance
   db_id?: number; // ID from the database, if it's an existing step
-  type: MessageStepType; 
-  text?: string; 
+  type: MessageStepType;
+  text?: string;
   mediaFile?: File | null; // For new file uploads
   mediaKey?: string | null; // Key/path of the file in storage (after upload or when loaded)
-  originalFileName?: string; 
-  delayValue?: number; 
-  delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias'; 
+  originalFileName?: string;
+  delayValue?: number;
+  delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias';
+  sendingOrder?: 'both' | 'text_first' | 'media_first'; // New field for media steps
 }
 
 // Constants for file validation
@@ -55,15 +59,23 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov'];
 const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav'];
 
-const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
+// Interface for webhook response (assuming it might return success/error flags)
+interface WebhookResponse {
+    success?: boolean;
+    error?: string;
+    message?: string;
+    // Add other expected fields from webhook response if any
+}
+
+const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
 }) => {
   const { toast } = useToast();
   const location = useLocation();
-  const navigate = useNavigate(); 
-  const queryClient = useQueryClient(); 
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +85,12 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   // State for media previews, similar to ConversasPage
   const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string | null>>({});
   const [mediaPreviewStatus, setMediaPreviewStatus] = useState<Record<string, { isLoading: boolean, error: string | null }>>({});
+
+  // Refs for emoji pickers (one per textarea, managed dynamically)
+  const emojiPickerRefs = useRef<Map<string, HTMLElement | null>>(new Map());
+  const messageTextareaRefs = useRef<Map<string, HTMLTextAreaElement | null>>(new Map());
+  const [showEmojiPickerForStep, setShowEmojiPickerForStep] = useState<string | null>(null);
+
 
   const urlParams = new URLSearchParams(location.search);
   const messageIdParam = urlParams.get("id");
@@ -84,8 +102,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
-  const N8N_CREATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5"; 
-  const N8N_UPDATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/editar-mensagem-v2"; 
+  const N8N_CREATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5";
+  const N8N_UPDATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/editar-mensagem-v2";
 
   // Function to fetch signed URL (modified to be more flexible with webhook response)
   const fetchSignedUrlForPreview = async (fileKey: string, stepId: string): Promise<void> => {
@@ -112,18 +130,18 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
 
       if (!responseText.trim()) {
-        console.warn(`[MensagensConfigPage] Webhook retornou resposta vazia para ${fileKey} (step ${stepId}).`);
+        console.warn(`[MensagensSequenciaConfigPage] Webhook retornou resposta vazia para ${fileKey} (step ${stepId}).`);
         throw new Error("Webhook de recuperação de arquivo retornou uma resposta vazia.");
       }
-      
+
       let signedUrl: string | null = null;
       try {
         const data = JSON.parse(responseText);
-        signedUrl = data?.signedUrl || data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null); 
-        if (!signedUrl && Array.isArray(data) && data.length > 0) { 
+        signedUrl = data?.signedUrl || data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null);
+        if (!signedUrl && Array.isArray(data) && data.length > 0) {
             if (typeof data[0] === 'string' && data[0].startsWith('http')) {
                 signedUrl = data[0];
-            } else if (data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link) { 
+            } else if (data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link) {
                 signedUrl = data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link;
             }
         }
@@ -132,11 +150,11 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         if (responseText.startsWith('http://') || responseText.startsWith('https://')) {
           signedUrl = responseText;
         } else {
-          console.error(`[MensagensConfigPage] Resposta não é JSON nem URL válida para ${fileKey} (step ${stepId}):`, responseText.substring(0, 200));
+          console.error(`[MensagensSequenciaConfigPage] Resposta não é JSON nem URL válida para ${fileKey} (step ${stepId}):`, responseText.substring(0, 200));
           throw new Error(`Resposta inesperada do webhook: ${responseText.substring(0,100)}`);
         }
       }
-      
+
       if (signedUrl) {
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
@@ -144,20 +162,20 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         throw new Error(`URL assinada não extraída da resposta do webhook. Resposta recebida: ${responseText.substring(0,200)}`);
       }
     } catch (e: any) {
-      console.error(`[MensagensConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
+      console.error(`[MensagensSequenciaConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
       setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
       setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: e.message || 'Erro ao carregar preview.' } }));
     }
   };
-  
+
   useEffect(() => {
     if (!messageSteps || messageSteps.length === 0) {
       return;
     }
-  
+
     messageSteps.forEach(step => {
       const isMediaStep = step.type === 'imagem' || step.type === 'video' || step.type === 'audio';
-      if (isMediaStep && step.mediaKey && !step.mediaFile) { 
+      if (isMediaStep && step.mediaKey && !step.mediaFile) {
         const currentStatus = mediaPreviewStatus[step.id];
         const currentUrl = mediaPreviewUrls[step.id];
 
@@ -177,46 +195,48 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
       setLoading(true);
       setError(null);
-      setMediaPreviewUrls({}); 
-      setMediaPreviewStatus({}); 
+      setMediaPreviewUrls({});
+      setMediaPreviewStatus({});
+      setMessageSteps([]); // Clear steps before loading
 
-      if (isEditing && messageIdToEdit !== null) { 
+      if (isEditing && messageIdToEdit !== null) {
         try {
           const { data: msgData, error: msgError } = await supabase
-              .from('north_clinic_mensagens_sequencias') 
-              .select('id, nome_sequencia') 
+              .from('north_clinic_mensagens_sequencias')
+              .select('id, nome_sequencia')
               .eq('id', messageIdToEdit)
-              .eq('id_clinica', clinicId) 
+              .eq('id_clinica', clinicId)
               .single();
 
           if (msgError) throw msgError;
           if (!msgData) throw new Error("Mensagem não encontrada ou acesso negado.");
 
-          setMessageName(msgData.nome_sequencia); 
+          setMessageName(msgData.nome_sequencia);
           const { data: stepsData, error: stepsError } = await supabase
-            .from('north_clinic_mensagens_sequencia_passos') 
+            .from('north_clinic_mensagens_sequencia_passos')
             .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade')
-            .eq('id_sequencia', msgData.id) 
+            .eq('id_sequencia', msgData.id)
             .order('ordem', { ascending: true });
 
           if (stepsError) throw stepsError;
 
           const loadedSteps: MessageStep[] = (stepsData || [])
-            .filter(stepDb => stepDb.tipo_passo !== 'documento')
+            .filter(stepDb => stepDb.tipo_passo !== 'documento') // Filter out 'documento' type if not supported
             .map((stepDb) => ({
-                id: stepDb.id.toString() + "_loaded_" + Math.random().toString(36).substring(7), 
+                id: stepDb.id.toString() + "_loaded_" + Math.random().toString(36).substring(7),
                 db_id: stepDb.id,
                 type: stepDb.tipo_passo as MessageStepType,
                 text: stepDb.conteudo_texto || undefined,
-                mediaKey: stepDb.url_arquivo || undefined, 
+                mediaKey: stepDb.url_arquivo || undefined,
                 originalFileName: stepDb.nome_arquivo_original || undefined,
                 delayValue: stepDb.atraso_valor || undefined,
                 delayUnit: stepDb.atraso_unidade as MessageStep['delayUnit'] || undefined,
+                sendingOrder: 'both', // Default for loaded steps, adjust if DB stores this
             }));
           setMessageSteps(loadedSteps);
 
         } catch (e: any) {
-          console.error("[MensagensConfigPage] Error loading message for editing:", e);
+          console.error("[MensagensSequenciaConfigPage] Error loading message for editing:", e);
           setError(e.message || "Erro ao carregar dados da mensagem.");
           toast({ title: "Erro ao Carregar", description: e.message, variant: "destructive" });
         } finally {
@@ -229,18 +249,19 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       }
     }
     loadMessageForEditing();
-  }, [clinicId, isEditing, messageIdToEdit, toast]); 
+  }, [clinicId, isEditing, messageIdToEdit, toast]);
 
   const handleAddStep = (type: MessageStepType = 'texto') => {
       const newStepId = Date.now().toString() + Math.random().toString().slice(2, 8);
       setMessageSteps(prev => [
           ...prev,
-          { 
-            id: newStepId, 
-            type, 
-            text: type === 'texto' ? '' : undefined, 
-            delayValue: type === 'atraso' ? 60 : undefined, 
+          {
+            id: newStepId,
+            type,
+            text: type === 'texto' ? '' : undefined,
+            delayValue: type === 'atraso' ? 60 : undefined,
             delayUnit: type === 'atraso' ? 'segundos' : undefined,
+            sendingOrder: (type === 'imagem' || type === 'video' || type === 'audio') ? 'both' : undefined,
           }
       ]);
   };
@@ -275,7 +296,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     if (oldPreviewUrl && oldPreviewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(oldPreviewUrl);
     }
-    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null })); 
+    setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
     setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
 
 
@@ -290,7 +311,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
         if (file.size > maxSizeMB * 1024 * 1024) {
             toast({ title: "Arquivo Grande", description: `${typeName} excede ${maxSizeMB}MB.`, variant: "destructive" });
-            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); 
+            handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined });
             const inputEl = document.getElementById(`step-media-${stepId}`) as HTMLInputElement; if (inputEl) inputEl.value = "";
             return;
         }
@@ -304,9 +325,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         const newPreviewUrl = URL.createObjectURL(file);
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: newPreviewUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
-        handleUpdateStep(stepId, { mediaFile: file, originalFileName: file.name, mediaKey: null }); 
+        handleUpdateStep(stepId, { mediaFile: file, originalFileName: file.name, mediaKey: null });
     } else {
-        handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined }); 
+        handleUpdateStep(stepId, { mediaFile: null, mediaKey: null, originalFileName: undefined });
     }
   };
 
@@ -321,122 +342,128 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   }, [mediaPreviewUrls]);
 
   const handleSave = async () => {
-    console.log("[MensagensConfigPage] handleSave: Iniciando processo de salvamento...");
+    console.log("[MensagensSequenciaConfigPage] handleSave: Iniciando processo de salvamento...");
     const currentClinicCode = clinicData?.code; // This is the authentication string
     const currentClinicId = clinicData?.id; // This is the numeric ID
 
     if (!currentClinicId || !currentClinicCode) {
-      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" }); 
-      console.error("[MensagensConfigPage] handleSave: Dados da clínica não disponíveis."); 
+      toast({ title: "Erro", description: "Dados da clínica não disponíveis.", variant: "destructive" });
+      console.error("[MensagensSequenciaConfigPage] handleSave: Dados da clínica não disponíveis.");
       return;
     }
     if (!messageName.trim()) {
-      toast({ title: "Erro", description: "Nome da mensagem obrigatório.", variant: "destructive" }); 
-      console.error("[MensagensConfigPage] handleSave: Nome da mensagem obrigatório."); 
+      toast({ title: "Erro", description: "Nome da sequência obrigatório.", variant: "destructive" });
+      console.error("[MensagensSequenciaConfigPage] handleSave: Nome da sequência obrigatório.");
       return;
     }
     if (messageSteps.length === 0) {
-      toast({ title: "Erro", description: "Adicione pelo menos um passo.", variant: "destructive" }); 
-      console.error("[MensagensConfigPage] handleSave: Nenhum passo adicionado."); 
+      toast({ title: "Erro", description: "Adicione pelo menos um passo à sequência.", variant: "destructive" });
+      console.error("[MensagensSequenciaConfigPage] handleSave: Nenhum passo adicionado.");
       return;
     }
 
      for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
-             toast({ title: "Erro", description: "Texto não pode ser vazio.", variant: "destructive" }); 
-             console.error("[MensagensConfigPage] handleSave: Passo de texto vazio.", step); 
+             toast({ title: "Erro", description: "Texto não pode ser vazio em um passo de texto.", variant: "destructive" });
+             console.error("[MensagensSequenciaConfigPage] handleSave: Passo de texto vazio.", step);
              return;
          }
          if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && !step.mediaKey && !step.mediaFile) {
-              toast({ title: "Erro", description: `Anexe um arquivo para ${step.type}.`, variant: "destructive" }); 
-              console.error("[MensagensConfigPage] handleSave: Arquivo de mídia ausente.", step); 
+              toast({ title: "Erro", description: `Anexe um arquivo para o passo de ${step.type}.`, variant: "destructive" });
+              console.error("[MensagensSequenciaConfigPage] handleSave: Arquivo de mídia ausente.", step);
               return;
          }
          if (step.type === 'atraso' && (step.delayValue === undefined || step.delayValue <= 0 || !step.delayUnit)) {
-            toast({ title: "Erro", description: "Atraso inválido.", variant: "destructive" }); 
-            console.error("[MensagensConfigPage] handleSave: Atraso inválido.", step); 
+            toast({ title: "Erro", description: "Atraso inválido para o passo de atraso.", variant: "destructive" });
+            console.error("[MensagensSequenciaConfigPage] handleSave: Atraso inválido.", step);
+            return;
+         }
+         if ((step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && !step.sendingOrder) {
+            toast({ title: "Erro", description: `Selecione a ordem de envio para o passo de ${step.type}.`, variant: "destructive" });
+            console.error("[MensagensSequenciaConfigPage] handleSave: Ordem de envio ausente.", step);
             return;
          }
      }
 
     setSaving(true); setError(null);
-    console.log("[MensagensConfigPage] handleSave: Validações passaram, iniciando try block."); 
+    console.log("[MensagensSequenciaConfigPage] handleSave: Validações passaram, iniciando try block.");
 
     try {
-      console.log("[MensagensConfigPage] handleSave: Processando steps..."); 
+      console.log("[MensagensSequenciaConfigPage] handleSave: Processando steps...");
       const processedSteps = await Promise.all(
         messageSteps.map(async (step, idx) => {
-          console.log(`[MensagensConfigPage] handleSave: Processando step ${idx + 1}`, step);
+          console.log(`[MensagensSequenciaConfigPage] handleSave: Processando step ${idx + 1}`, step);
           let currentMediaKey = step.mediaKey;
           if (step.mediaFile && (step.type === 'imagem' || step.type === 'video' || step.type === 'audio')) {
-              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Fazendo upload de ${step.mediaFile.name}`); 
+              console.log(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - Fazendo upload de ${step.mediaFile.name}`);
               const formData = new FormData();
               formData.append("data", step.mediaFile, step.mediaFile.name);
               formData.append("fileName", step.mediaFile.name);
               formData.append("clinicId", currentClinicId.toString()); // Use currentClinicId (numeric)
-              
+
               const uploadRes = await fetch(ENVIAR_ARQUIVO_WEBHOOK_URL, { method: "POST", body: formData });
-              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Resposta do upload: status ${uploadRes.status}, ok: ${uploadRes.ok}`); 
+              console.log(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - Resposta do upload: status ${uploadRes.status}, ok: ${uploadRes.ok}`);
               if (!uploadRes.ok) {
                 const errorText = await uploadRes.text();
-                console.error(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Falha no upload:`, errorText); 
+                console.error(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - Falha no upload:`, errorText);
                 throw new Error(`Upload falhou (${step.mediaFile.name}): ${errorText.substring(0,150)}`);
               }
               const uploadData = await uploadRes.json();
-              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Dados do upload:`, uploadData); 
+              console.log(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - Dados do upload:`, uploadData);
               currentMediaKey = (Array.isArray(uploadData) && uploadData[0]?.Key) || uploadData.Key || uploadData.key || null;
               if (!currentMediaKey) {
-                console.error(`[MensagensConfigPage] handleSave: Step ${idx + 1} - Chave de mídia inválida após upload. Dados recebidos:`, uploadData); 
+                console.error(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - Chave de mídia inválida após upload. Dados recebidos:`, uploadData);
                 throw new Error(`Chave de mídia inválida para ${step.mediaFile.name}.`);
               }
-              console.log(`[MensagensConfigPage] handleSave: Step ${idx + 1} - MediaKey obtida: ${currentMediaKey}`); 
+              console.log(`[MensagensSequenciaConfigPage] handleSave: Step ${idx + 1} - MediaKey obtida: ${currentMediaKey}`);
           }
-          return { 
-            ...step, 
-            mediaKey: currentMediaKey, 
-            mediaFile: undefined 
+          return {
+            ...step,
+            mediaKey: currentMediaKey,
+            mediaFile: undefined
           };
       }));
-      console.log("[MensagensConfigPage] handleSave: Steps processados:", processedSteps); 
-      
-      const messagePayloadForN8N = { 
-        event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created", 
-        sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined, 
+      console.log("[MensagensSequenciaConfigPage] handleSave: Steps processados:", processedSteps);
+
+      const messagePayloadForN8N = {
+        event: isEditing && messageIdToEdit ? "sequence_updated" : "sequence_created",
+        sequenceId: isEditing && messageIdToEdit ? messageIdToEdit : undefined,
         clinicCode: currentClinicCode, // This is the authentication string, kept for compatibility if n8n needs it
         clinicDbId: currentClinicId, // This is the numeric ID, use this for DB operations
-        sequenceName: messageName, 
-        contexto: 'leads', 
-        ativo: true, 
+        sequenceName: messageName,
+        contexto: 'leads', // Hardcoded context for lead sequences
+        ativo: true, // Sequences are active by default on creation
         steps: processedSteps.map((step, index) => ({
-          db_id: step.db_id, 
+          db_id: step.db_id,
           ordem: index + 1,
           tipo_passo: step.type,
           conteudo_texto: step.text || null,
-          url_arquivo: step.mediaKey || null, 
+          url_arquivo: step.mediaKey || null,
           nome_arquivo_original: step.originalFileName || null,
           atraso_valor: step.type === 'atraso' ? step.delayValue : null,
           atraso_unidade: step.type === 'atraso' ? step.delayUnit : null,
+          sending_order: (step.type === 'imagem' || step.type === 'video' || step.type === 'audio') ? (step.sendingOrder || 'both') : null,
         })),
       };
-      console.log("[MensagensConfigPage] handleSave: Payload para N8N:", JSON.stringify(messagePayloadForN8N, null, 2)); 
+      console.log("[MensagensSequenciaConfigPage] handleSave: Payload para N8N:", JSON.stringify(messagePayloadForN8N, null, 2));
 
-      const targetWebhookUrl = isEditing && messageIdToEdit 
-        ? N8N_UPDATE_SEQUENCE_WEBHOOK_URL 
+      const targetWebhookUrl = isEditing && messageIdToEdit
+        ? N8N_UPDATE_SEQUENCE_WEBHOOK_URL
         : N8N_CREATE_SEQUENCE_WEBHOOK_URL;
-      console.log("[MensagensConfigPage] handleSave: Enviando para webhook:", targetWebhookUrl); 
+      console.log("[MensagensSequenciaConfigPage] handleSave: Enviando para webhook:", targetWebhookUrl);
 
-      const webhookResponse = await fetch(targetWebhookUrl, { 
+      const webhookResponse = await fetch(targetWebhookUrl, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(messagePayloadForN8N),
       });
-      console.log("[MensagensConfigPage] handleSave: Resposta do Webhook N8N - Status:", webhookResponse.status, "OK:", webhookResponse.ok); 
+      console.log("[MensagensSequenciaConfigPage] handleSave: Resposta do Webhook N8N - Status:", webhookResponse.status, "OK:", webhookResponse.ok);
 
       if (!webhookResponse.ok) {
-        console.log("[MensagensConfigPage] handleSave: Webhook response NOT OK. Tentando ler corpo do erro..."); 
+        console.log("[MensagensSequenciaConfigPage] handleSave: Webhook response NOT OK. Tentando ler corpo do erro...");
         const errTxt = await webhookResponse.text().catch((e) => {
-            console.error("[MensagensConfigPage] handleSave: Erro ao ler corpo da resposta do webhook:", e); 
+            console.error("[MensagensSequenciaConfigPage] handleSave: Erro ao ler corpo da resposta do webhook:", e);
             return "Erro ao ler corpo da resposta do webhook.";
-        }); 
-        console.log("[MensagensConfigPage] handleSave: Corpo do erro do webhook (raw):", errTxt); 
+        });
+        console.log("[MensagensSequenciaConfigPage] handleSave: Corpo do erro do webhook (raw):", errTxt);
         let detailedError = `Falha na comunicação com o webhook (${webhookResponse.status}).`;
         if (errTxt && errTxt !== "Erro ao ler corpo da resposta do webhook.") {
             try {
@@ -446,26 +473,26 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                 detailedError = `Erro ${webhookResponse.status}: ${errTxt.substring(0,150)}`;
             }
         }
-        console.error("[MensagensConfigPage] handleSave: Webhook N8N response NOT OK. DetailedError:", detailedError); 
-        throw new Error(detailedError); 
+        console.error("[MensagensSequenciaConfigPage] handleSave: Webhook N8N response NOT OK. DetailedError:", detailedError);
+        throw new Error(detailedError);
       }
-      
-      console.log("[MensagensConfigPage] handleSave: Webhook N8N OK. Exibindo toast de sucesso."); 
-      toast({ title: "Sucesso", description: `Mensagem "${messageName}" salva.` });
+
+      console.log("[MensagensSequenciaConfigPage] handleSave: Webhook N8N OK. Exibindo toast de sucesso.");
+      toast({ title: "Sucesso", description: `Sequência "${messageName}" salva.` });
       if (currentClinicId) {
-        console.log("[MensagensConfigPage] handleSave: Invalidando queries para ['leadMessagesList',", currentClinicId, "]"); 
-        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] }); 
+        console.log("[MensagensSequenciaConfigPage] handleSave: Invalidando queries para ['leadMessagesList',", currentClinicId, "]");
+        queryClient.invalidateQueries({ queryKey: ['leadMessagesList', currentClinicId] });
       }
-      
-      console.log("[MensagensConfigPage] handleSave: Agendando navegação."); 
+
+      console.log("[MensagensSequenciaConfigPage] handleSave: Agendando navegação.");
       setTimeout(() => {
-        console.log("[MensagensConfigPage] handleSave: Navegando..."); 
+        console.log("[MensagensSequenciaConfigPage] handleSave: Navegando...");
         if (currentClinicCode) navigate(`/dashboard/9?clinic_code=${encodeURIComponent(currentClinicCode)}&status=${isEditing ? "updated_sent" : "created_sent"}`);
-        else navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`); 
+        else navigate(`/dashboard/9?status=${isEditing ? "updated_sent" : "created_sent"}`);
       }, 1000);
 
     } catch (e: any) {
-      console.error("[MensagensConfigPage] Error saving message:", e);
+      console.error("[MensagensSequenciaConfigPage] Error saving message:", e);
       setError(e.message || "Erro ao salvar sequência");
       toast({
         title: "Erro",
@@ -476,577 +503,351 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     }
   };
 
-  const handleCategoryChange = (value: string) => {
-    setCategory(value);
-    if (isGeneralContext) {
-        setMessageText(defaultTemplates[value] || "");
-    } else if (isCashbackContext) {
-         setMessageText(defaultTemplates[value] || ""); 
-    }
-  };
-
-  const showCategoryGeneral = isGeneralContext;
-  const showTargetTypeSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado");
-  const showGroupSelectGeneral = isGeneralContext && (category === "Chegou" || category === "Liberado") && targetType === "Grupo";
-  const showServicesLinkedGeneral = isGeneralContext && category !== "Aniversário" && category !== "Chegou" && category !== "Liberado";
-  const showScheduledTimeGeneral = isGeneralContext && (category === "Confirmar Agendamento" || category === "Aniversário");
-
-  const showCashbackTiming = isCashbackContext;
-  const showScheduledTimeCashback = isCashbackContext; 
-
-  const showFunnelStageSelectLeads = isLeadsContext;
-  const showTimingFieldsLeads = isLeadsContext; 
-  const showScheduledTimeLeads = false; 
-
-  const showSendingOrder = !!mediaFile || !!mediaSavedUrl;
-
   const handleCancel = () => {
     if (!clinicData?.code) return;
-    let redirectPath = '/dashboard'; 
-    if (messageContext === 'clientes') redirectPath = '/dashboard/11';
-    else if (messageContext === 'cashback') redirectPath = '/dashboard/14/messages';
-    else if (messageContext === 'leads') redirectPath = '/dashboard/9'; 
-
+    const redirectPath = '/dashboard/9'; // Always redirect to Leads Messages Page
     window.location.href = `${redirectPath}?clinic_code=${encodeURIComponent(
       clinicData.code
     )}`;
   };
 
-  const pageTitle = messageId
-    ? `Editar Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`
-    : `Configurar Nova Mensagem (${messageContext === 'clientes' ? 'Clientes' : messageContext === 'cashback' ? 'Cashback' : messageContext === 'leads' ? 'Leads' : 'Geral'})`;
+  const pageTitle = isEditing
+    ? `Editar Sequência: ${messageName}`
+    : `Configurar Nova Sequência de Mensagens`;
 
-  const isLoadingData = loading || (isLeadsContext && (isLoadingFunnels || isLoadingStages));
-  const fetchError = error || (isLeadsContext && (funnelsError || stagesError));
+  const isLoadingData = loading; // Simplified loading state
+  const fetchError = error; // Simplified error state
 
-  const availablePlaceholders = useMemo(() => {
-      const allKeys = Object.keys(placeholderData);
-      if (isCashbackContext) {
-          return allKeys.filter(key => key.startsWith('primeiro_nome_cliente') || key.startsWith('nome_completo_cliente') || key.startsWith('valor_cashback') || key.startsWith('validade_cashback'));
-      }
-      if (isLeadsContext) {
-          return allKeys.filter(key =>
-              key.startsWith('primeiro_nome_cliente') ||
-              key.startsWith('nome_completo_cliente') ||
-              key.startsWith('primeiro_nome_funcionario') || 
-              key.startsWith('nome_completo_funcionario') ||
-              key.startsWith('nome_servico_principal') || 
-              key.startsWith('lista_servicos') ||
-              key.startsWith('data_agendamento') || 
-              key.startsWith('dia_agendamento_num') ||
-              key.startsWith('dia_semana_relativo_extenso') ||
-              key.startsWith('mes_agendamento_num') ||
-              key.startsWith('mes_agendamento_extenso') ||
-              key.startsWith('hora_agendamento')
-          );
-      }
-      return allKeys; 
-  }, [messageContext]); 
+  // Placeholder data for message preview (simplified for sequences)
+  const placeholderData = {
+      primeiro_nome_cliente: "Maria",
+      nome_completo_cliente: "Maria Souza",
+      primeiro_nome_funcionario: "Silva",
+      nome_completo_funcionario: "Dr(a). João Silva",
+      nome_servico_principal: "Consulta Inicial",
+      lista_servicos: "Consulta Inicial, Exame Simples",
+      data_agendamento: "19/04/2025",
+      dia_agendamento_num: "19",
+      dia_semana_relativo_extenso: "sábado",
+      mes_agendamento_num: "04",
+      mes_agendamento_extenso: "Abril",
+      hora_agendamento: "15:30",
+  };
 
-  const handlePlaceholderClick = (placeholder: string) => {
+  const availablePlaceholders = Object.keys(placeholderData);
+
+  const handlePlaceholderClick = (stepId: string, placeholder: string) => {
       const placeholderText = `{${placeholder}}`;
-      const textarea = messageTextRef.current;
+      const textarea = messageTextareaRefs.current.get(stepId);
       if (textarea) {
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
-          const newText = messageText.slice(0, start) + placeholderText + messageText.slice(end);
+          const currentText = messageSteps.find(s => s.id === stepId)?.text || '';
+          const newText = currentText.slice(0, start) + placeholderText + currentText.slice(end);
 
-          setMessageText(newText);
+          handleUpdateStep(stepId, { text: newText });
 
           setTimeout(() => {
               textarea.selectionStart = textarea.selectionEnd = start + placeholderText.length;
-              textarea.focus(); 
-          }, 0); 
+              textarea.focus();
+          }, 0);
       }
   };
 
-  console.log("[MensagensConfigPage] Rendering. selectedGroup:", selectedGroup, "groups:", groups.length, "value prop for Select:", selectedGroup === null ? undefined : selectedGroup.toString()); 
+  const toggleEmojiPickerForStep = (stepId: string | null) => {
+    setShowEmojiPickerForStep(prev => (prev === stepId ? null : stepId));
+  };
+
+  const onEmojiSelect = (event: CustomEvent) => {
+    const emoji = event.detail.unicode;
+    if (showEmojiPickerForStep) {
+      const textarea = messageTextareaRefs.current.get(showEmojiPickerForStep);
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = messageSteps.find(s => s.id === showEmojiPickerForStep)?.text || '';
+        const newText = currentText.slice(0, start) + emoji + currentText.slice(end);
+
+        handleUpdateStep(showEmojiPickerForStep, { text: newText });
+
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+          textarea.focus();
+        }, 0);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const currentPickerId = showEmojiPickerForStep;
+    if (!currentPickerId) return;
+
+    const picker = emojiPickerRefs.current.get(currentPickerId);
+    if (!picker) return;
+
+    customElements.whenDefined('emoji-picker').then(() => {
+        picker.addEventListener("emoji-click", onEmojiSelect as EventListener);
+    }).catch(err => {
+        console.error("Error waiting for emoji-picker definition:", err);
+    });
+
+    return () => {
+      if (picker) {
+        picker.removeEventListener("emoji-click", onEmojiSelect as EventListener);
+      }
+    };
+  }, [showEmojiPickerForStep, messageSteps]); // Re-attach listener if active step changes or messageSteps update
+
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
-      <Card className="w-full"> 
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {isLoadingData ? ( 
+          {isLoadingData ? (
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="animate-spin" />
               Carregando dados...
             </div>
-          ) : fetchError ? ( 
+          ) : fetchError ? (
             <div className="text-red-600 font-semibold flex items-center gap-2">
                 <TriangleAlert className="h-5 w-5" />
-                {fetchError.message || funnelsError?.message || stagesError?.message || "Erro ao carregar dados."}
+                {fetchError.message || "Erro ao carregar dados."}
             </div>
           ) : (
             <>
-              {showCategoryGeneral && (
-                  <div>
-                    <label
-                      htmlFor="category"
-                      className="block mb-1 font-medium text-gray-700"
-                    >
-                      Categoria *
-                    </label>
-                    <Select
-                      value={category}
-                      onValueChange={handleCategoryChange}
-                      id="category"
-                      disabled={messageId !== null} 
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orderedCategoriesGeneral.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                     {messageId !== null && (
-                         <p className="text-sm text-gray-500 mt-1">A categoria não pode ser alterada após a criação.</p>
-                     )}
-                  </div>
-              )}
-
-              {showFunnelStageSelectLeads && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                          <label
-                            htmlFor="funnel"
-                            className="block mb-1 font-medium text-gray-700"
-                          >
-                            Funil *
-                          </label>
-                          <Select
-                            value={selectedFunnelId?.toString() || ''}
-                            onValueChange={(value) => setSelectedFunnelId(value ? parseInt(value, 10) : null)}
-                            id="funnel"
-                            disabled={isLoadingFunnels || !!funnelsError}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o funil" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allFunnels?.map(funnel => (
-                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                           {funnelsError && <p className="text-sm text-red-600 mt-1">Erro ao carregar funis.</p>}
-                      </div>
-                      <div>
-                          <label
-                            htmlFor="stage"
-                            className="block mb-1 font-medium text-gray-700"
-                          >
-                            Etapa *
-                          </label>
-                          <Select
-                            value={selectedStageId?.toString() || ''}
-                            onValueChange={(value) => setSelectedStageId(value ? parseInt(value, 10) : null)}
-                            id="stage"
-                            disabled={selectedFunnelId === null || isLoadingStages || !!stagesError || (stagesForSelectedFunnel?.length ?? 0) === 0}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a etapa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                               {(stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError ? (
-                                   <SelectItem value="none" disabled>Nenhuma etapa disponível</SelectItem>
-                               ) : (
-                                   stagesForSelectedFunnel?.map(stage => (
-                                       <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
-                                   ))
-                               )}
-                            </SelectContent>
-                          </Select>
-                           {stagesError && <p className="text-sm text-red-600 mt-1">Erro ao carregar etapas.</p>}
-                           {selectedFunnelId !== null && (stagesForSelectedFunnel?.length ?? 0) === 0 && !isLoadingStages && !stagesError && (
-                                <p className="text-sm text-orange-600 mt-1">Nenhuma etapa encontrada para este funil.</p>
-                           )}
-                      </div>
-                  </div>
-              )}
-
-
               <div>
                 <label
-                  htmlFor="instance"
+                  htmlFor="messageName"
                   className="block mb-1 font-medium text-gray-700"
                 >
-                  Instância (Número Enviador) *
+                  Nome da Sequência *
                 </label>
-                <Select
-                  value={instanceId?.toString() || ""}
-                  onValueChange={(v) => setInstanceId(v ? parseInt(v, 10) : null)}
-                  id="instance"
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a instância" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instances.map((inst) => (
-                      <SelectItem key={inst.id} value={inst.id.toString()}>
-                        {inst.nome_exibição}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="messageName"
+                  value={messageName}
+                  onChange={(e) => setMessageName(e.target.value)}
+                  placeholder="Ex: Sequência de Boas-Vindas para Leads"
+                  disabled={saving}
+                />
               </div>
 
-              {showTargetTypeSelectGeneral && (
-                <div>
-                  <label
-                    htmlFor="targetType"
-                    className="block mb-1 font-medium text-gray-700"
-                  >
-                    Enviar Para *
-                  </label>
-                  <Select
-                    value={targetType}
-                    onValueChange={(v) =>
-                      setTargetType(v as "Grupo" | "Cliente" | "Funcionário")
-                    }
-                    id="targetType"
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Grupo">Grupo do WhatsApp</SelectItem>
-                      <SelectItem value="Cliente">Cliente (Mensagem Direta)</SelectItem>
-                      <SelectItem value="Funcionário">Funcionário (Mensagem Direta)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <h3 className="text-lg font-semibold text-gray-800 mt-4">Passos da Sequência</h3>
+              <div className="flex flex-col gap-4 border p-4 rounded-md bg-gray-50">
+                {messageSteps.length === 0 && (
+                  <div className="text-center text-gray-600 py-4">Nenhum passo adicionado. Clique em "Adicionar Passo" para começar.</div>
+                )}
+                {messageSteps.map((step, index) => (
+                  <div key={step.id} className="border border-gray-200 rounded-md p-4 bg-white shadow-sm relative">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium text-gray-800">Passo {index + 1} ({step.type === 'texto' ? 'Texto' : step.type === 'imagem' ? 'Imagem' : step.type === 'video' ? 'Vídeo' : step.type === 'audio' ? 'Áudio' : 'Atraso'})</h4>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleRemoveStep(step.id)}
+                        disabled={saving}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-              {showGroupSelectGeneral && (
-                <div>
-                  <label
-                    htmlFor="group"
-                    className="block mb-1 font-medium text-gray-700"
-                  >
-                    Grupo Alvo *
-                  </label>
-                  <Select
-                    value={selectedGroup ?? undefined} 
-                    onValueChange={(v) => {
-                        console.log("[MensagensConfigPage] Group Select onValueChange:", v); 
-                        setSelectedGroup(v || null); 
-                    }}
-                    id="group"
-                    disabled={groups.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o grupo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups.map((g) => {
-                          console.log("[MensagensConfigPage] Group SelectItem value:", g.id_grupo, "name:", g.nome_grupo); 
-                          return (
-                            <SelectItem key={g.id_grupo} value={g.id_grupo}> 
-                              {g.nome_grupo}
-                            </SelectItem>
-                          );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {(showScheduledTimeGeneral || showScheduledTimeCashback) && ( 
-                <div>
-                  <label
-                    htmlFor="scheduledTime"
-                    className="block mb-1 font-medium text-gray-700"
-                  >
-                    Hora Programada *
-                  </label>
-                  <Select
-                    value={scheduledTime}
-                    onValueChange={setScheduledTime}
-                    id="scheduledTime"
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a hora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        "08:00",
-                        "09:00",
-                        "10:00",
-                        "11:00",
-                        "12:00",
-                        "13:00",
-                        "14:00",
-                        "15:00",
-                        "16:00",
-                        "17:00",
-                      ].map((time) => (
-                        <SelectItem key={time} value={time}>
-                          {time}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {showCashbackTiming && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <div>
-                          <label
-                            htmlFor="diasMensagemCashback"
-                            className="block mb-1 font-medium text-gray-700"
-                          >
-                            Dias *
-                          </label>
-                          <Input
-                              id="diasMensagemCashback"
+                        <Label htmlFor={`step-type-${step.id}`}>Tipo de Passo</Label>
+                        <Select
+                          value={step.type}
+                          onValueChange={(value: MessageStepType) => handleUpdateStep(step.id, { type: value, text: value === 'texto' ? '' : undefined, mediaFile: null, mediaKey: null, originalFileName: undefined, delayValue: value === 'atraso' ? 60 : undefined, delayUnit: value === 'atraso' ? 'segundos' : undefined, sendingOrder: (value === 'imagem' || value === 'video' || value === 'audio') ? 'both' : undefined })}
+                          disabled={saving}
+                        >
+                          <SelectTrigger id={`step-type-${step.id}`}>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="texto">Texto</SelectItem>
+                            <SelectItem value="imagem">Imagem</SelectItem>
+                            <SelectItem value="video">Vídeo</SelectItem>
+                            <SelectItem value="audio">Áudio</SelectItem>
+                            <SelectItem value="atraso">Atraso</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {step.type === 'texto' && (
+                        <div>
+                          <Label htmlFor={`step-text-${step.id}`}>Conteúdo do Texto *</Label>
+                          <div className="relative">
+                            <Textarea
+                              id={`step-text-${step.id}`}
+                              rows={4}
+                              value={step.text || ''}
+                              onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })}
+                              ref={el => messageTextareaRefs.current.set(step.id, el)}
+                              placeholder="Digite o texto. Use {variaveis}, *para negrito*, _para itálico_..."
+                              disabled={saving}
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="absolute right-2 top-2"
+                              onClick={() => toggleEmojiPickerForStep(step.id)}
+                              type="button"
+                              aria-label="Inserir emoji"
+                              disabled={saving}
+                            >
+                              <Smile />
+                            </Button>
+                            <div className="absolute z-50 top-full right-0 mt-1" hidden={showEmojiPickerForStep !== step.id}>
+                                <emoji-picker
+                                  ref={el => emojiPickerRefs.current.set(step.id, el)}
+                                  style={{ width: "300px", height: "300px" }}
+                                />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
+                        <>
+                          <div>
+                            <Label htmlFor={`step-media-${step.id}`}>Anexar Arquivo *</Label>
+                            <Input
+                              id={`step-media-${step.id}`}
+                              type="file"
+                              accept={step.type === 'imagem' ? 'image/*' : step.type === 'video' ? 'video/*' : 'audio/*'}
+                              onChange={(e) => handleMediaFileChange(step.id, e.target.files ? e.target.files[0] : null)}
+                              disabled={saving}
+                            />
+                            {mediaPreviewUrls[step.id] && (
+                              <div className="mt-2">
+                                {step.type === 'imagem' && (
+                                  <img src={mediaPreviewUrls[step.id] || ''} alt="Preview" className="max-w-xs rounded" />
+                                )}
+                                {step.type === 'video' && (
+                                  <video src={mediaPreviewUrls[step.id] || ''} controls className="max-w-xs rounded" />
+                                )}
+                                {step.type === 'audio' && (
+                                  <audio src={mediaPreviewUrls[step.id] || ''} controls />
+                                )}
+                              </div>
+                            )}
+                            {!mediaPreviewUrls[step.id] && step.mediaKey && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                Arquivo salvo: {step.originalFileName || step.mediaKey}
+                                {mediaPreviewStatus[step.id]?.isLoading && <Loader2 className="h-4 w-4 animate-spin inline-block ml-2" />}
+                                {mediaPreviewStatus[step.id]?.error && <TriangleAlert className="h-4 w-4 text-red-500 inline-block ml-2" title={mediaPreviewStatus[step.id]?.error || ''} />}
+                              </p>
+                            )}
+                            <p className="text-sm text-gray-500 mt-1">
+                              {step.type === 'imagem' && `JPG, PNG, GIF, WEBP - máx ${MAX_IMAGE_SIZE_MB}MB`}
+                              {step.type === 'video' && `MP4, WEBM, MOV - máx ${MAX_VIDEO_SIZE_MB}MB`}
+                              {step.type === 'audio' && `MP3, OGG, WAV - máx ${MAX_AUDIO_SIZE_MB}MB`}
+                            </p>
+                          </div>
+                          <div>
+                              <Label htmlFor={`sending-order-${step.id}`}>Ordem de Envio (Texto e Mídia) *</Label>
+                              <Select
+                                  value={step.sendingOrder || 'both'}
+                                  onValueChange={(value: 'both' | 'text_first' | 'media_first') => handleUpdateStep(step.id, { sendingOrder: value })}
+                                  disabled={saving}
+                              >
+                                  <SelectTrigger id={`sending-order-${step.id}`}>
+                                      <SelectValue placeholder="Selecione a ordem" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="both">Texto e Mídia Juntos</SelectItem>
+                                      <SelectItem value="text_first">Texto Primeiro, Depois Mídia</SelectItem>
+                                      <SelectItem value="media_first">Mídia Primeiro, Depois Texto</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                              <p className="text-sm text-gray-500 mt-1">Define a ordem em que o texto e o anexo serão enviados.</p>
+                          </div>
+                        </>
+                      )}
+
+                      {step.type === 'atraso' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor={`delay-value-${step.id}`}>Valor do Atraso *</Label>
+                            <Input
+                              id={`delay-value-${step.id}`}
                               type="number"
-                              placeholder="Ex: 3"
-                              value={diasMensagemCashback}
-                              onChange={(e) => setDiasMensagemCashback(e.target.value)}
+                              placeholder="Ex: 60"
+                              value={step.delayValue || ''}
+                              onChange={(e) => handleUpdateStep(step.id, { delayValue: parseInt(e.target.value, 10) || 0 })}
                               min="0"
-                          />
-                          <p className="text-sm text-gray-500 mt-1">Número de dias para o agendamento.</p>
-                      </div>
-                      <div>
-                          <Label
-                            htmlFor="tipoMensagemCashback"
-                            className="block mb-1 font-medium text-gray-700"
-                          >
-                            Agendar Para *
-                          </Label>
-                          <RadioGroup
-                              value={tipoMensagemCashback}
-                              onValueChange={setTipoMensagemCashback}
-                              id="tipoMensagemCashback"
-                              className="flex flex-col space-y-1"
-                          >
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="apos_venda" id="apos_venda" />
-                                  <Label htmlFor="apos_venda">Dias após a venda</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="antes_validade" id="antes_validade" />
-                                  <Label htmlFor="antes_validade">Dias antes da validade do cashback</Label>
-                              </div>
-                          </RadioGroup>
-                          <p className="text-sm text-gray-500 mt-1">Referência para o cálculo da data de envio.</p>
-                      </div>
-                  </div>
-              )}
-
-              {showTimingFieldsLeads && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                          <label
-                            htmlFor="timingType"
-                            className="block mb-1 font-medium text-gray-700"
-                          >
-                            Agendar Envio *
-                          </label>
-                          <Select
-                              value={timingType}
-                              onValueChange={setTimingType}
-                              id="timingType"
-                          >
-                              <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o tipo" />
+                              disabled={saving}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`delay-unit-${step.id}`}>Unidade do Atraso *</Label>
+                            <Select
+                              value={step.delayUnit || 'segundos'}
+                              onValueChange={(value: 'segundos' | 'minutos' | 'horas' | 'dias') => handleUpdateStep(step.id, { delayUnit: value })}
+                              disabled={saving}
+                            >
+                              <SelectTrigger id={`delay-unit-${step.id}`}>
+                                <SelectValue placeholder="Selecione a unidade" />
                               </SelectTrigger>
                               <SelectContent>
-                                  <SelectItem value="immediate">Imediatamente ao entrar na etapa</SelectItem>
-                                  <SelectItem value="delay">Com atraso após entrar na etapa</SelectItem>
+                                <SelectItem value="segundos">Segundos</SelectItem>
+                                <SelectItem value="minutos">Minutos</SelectItem>
+                                <SelectItem value="horas">Horas</SelectItem>
+                                <SelectItem value="dias">Dias</SelectItem>
                               </SelectContent>
-                          </Select>
-                      </div>
-                      {timingType === 'delay' && (
-                          <>
-                              <div>
-                                  <label
-                                    htmlFor="delayValue"
-                                    className="block mb-1 font-medium text-gray-700"
-                                  >
-                                    Valor do Atraso *
-                                  </label>
-                                  <Input
-                                      id="delayValue"
-                                      type="number"
-                                      placeholder="Ex: 2"
-                                      value={delayValue}
-                                      onChange={(e) => setDelayValue(e.target.value)}
-                                      min="0"
-                                  />
-                              </div>
-                              <div>
-                                  <label
-                                    htmlFor="delayUnit"
-                                    className="block mb-1 font-medium text-gray-700"
-                                  >
-                                    Unidade do Atraso *
-                                  </label>
-                                  <Select
-                                      value={delayUnit}
-                                      onValueChange={setDelayUnit}
-                                      id="delayUnit"
-                                  >
-                                      <SelectTrigger>
-                                          <SelectValue placeholder="Selecione a unidade" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="minutes">Minutos</SelectItem>
-                                          <SelectItem value="hours">Horas</SelectItem>
-                                          <SelectItem value="days">Dias</SelectItem>
-                                      </SelectContent>
-                                  </Select>
-                              </div>
-                          </>
+                            </Select>
+                          </div>
+                        </div>
                       )}
-                  </div>
-              )}
-
-
-              <div>
-                <label
-                  htmlFor="messageText"
-                  className="block mb-1 font-medium text-gray-700"
-                >
-                  Texto da Mensagem Principal *
-                </label>
-                <div className="relative">
-                  <Textarea
-                    id="messageText"
-                    rows={6}
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    ref={messageTextRef}
-                    placeholder="Digite a mensagem principal. Use {variaveis}, *para negrito*, _para itálico_..."
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute right-2 top-2"
-                    onClick={toggleEmojiPicker}
-                    type="button"
-                    aria-label="Inserir emoji"
-                  >
-                    <Smile />
-                  </Button>
-                  <div className="absolute z-50 top-full right-0 mt-1" hidden={!showEmojiPicker}>
-                      <emoji-picker
-                        ref={emojiPickerRef}
-                        style={{ width: "300px", height: "300px" }}
-                      />
                     </div>
-                </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Button onClick={() => handleAddStep('texto')} variant="outline" disabled={saving}>
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Texto
+                </Button>
+                <Button onClick={() => handleAddStep('imagem')} variant="outline" disabled={saving}>
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Imagem
+                </Button>
+                <Button onClick={() => handleAddStep('video')} variant="outline" disabled={saving}>
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Vídeo
+                </Button>
+                <Button onClick={() => handleAddStep('audio')} variant="outline" disabled={saving}>
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Áudio
+                </Button>
+                <Button onClick={() => handleAddStep('atraso')} variant="outline" disabled={saving}>
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Atraso
+                </Button>
               </div>
 
               {availablePlaceholders.length > 0 && (
                   <div className="placeholder-list mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis (clique para inserir):</p> 
+                      <p className="text-sm font-medium text-gray-700 mb-2">Placeholders disponíveis (clique para inserir no campo de texto):</p>
                       <div className="flex flex-wrap gap-2 text-sm text-gray-800">
                           {availablePlaceholders.map(placeholder => (
                               <span
                                   key={placeholder}
-                                  className="bg-gray-200 px-2 py-1 rounded font-mono text-xs cursor-pointer hover:bg-gray-300 transition-colors" 
-                                  onClick={() => handlePlaceholderClick(placeholder)} 
+                                  className="bg-gray-200 px-2 py-1 rounded font-mono text-xs cursor-pointer hover:bg-gray-300 transition-colors"
+                                  onClick={() => {
+                                    if (showEmojiPickerForStep) { // Only allow if a text area is active
+                                      handlePlaceholderClick(showEmojiPickerForStep, placeholder);
+                                    } else {
+                                      toast({ title: "Atenção", description: "Selecione um campo de texto para inserir o placeholder.", variant: "info" });
+                                    }
+                                  }}
                                >
                                   {"{"}{placeholder}{"}"}
                               </span>
                           ))}
                       </div>
-                       {isLeadsContext && (
-                           <p className="text-xs text-gray-500 mt-2">
-                               *A disponibilidade de alguns placeholders (como dados de agendamento ou funcionário) pode depender da configuração da etapa e dos dados do lead.
-                           </p>
-                       )}
+                      <p className="text-xs text-gray-500 mt-2">
+                          *A disponibilidade de alguns placeholders (como dados de agendamento ou funcionário) pode depender da configuração da etapa e dos dados do lead.
+                      </p>
                   </div>
               )}
-
-
-              <div>
-                <label
-                  htmlFor="mediaFile"
-                  className="block mb-1 font-medium text-gray-700"
-                >
-                  Anexar Mídia (Opcional)
-                </label>
-                <Input
-                  type="file"
-                  id="mediaFile"
-                  accept="image/*,video/*,audio/*"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setMediaFile(e.target.files[0]);
-                    } else {
-                      setMediaFile(null);
-                    }
-                  }}
-                />
-                {mediaPreviewUrl && (
-                  <div className="mt-2">
-                    {mediaFile?.type.startsWith("image/") && (
-                      <img
-                        src={mediaPreviewUrl}
-                        alt="Preview da mídia"
-                        className="max-w-xs rounded"
-                      />
-                    )}
-                    {mediaFile?.type.startsWith("video/") && (
-                      <video
-                        src={mediaPreviewUrl}
-                        controls
-                        className="max-w-xs rounded"
-                      />
-                    )}
-                    {mediaFile?.type.startsWith("audio/") && (
-                      <audio src={mediaPreviewUrl} controls />
-                    )}
-                  </div>
-                )}
-                {!mediaPreviewUrl && mediaSavedUrl && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Mídia salva: {mediaSavedUrl}
-                  </p>
-                )}
-                <p className="text-sm text-gray-500 mt-1">
-                  Imagem (JPG, PNG, GIF, WEBP - máx 5MB), Vídeo (MP4, WEBM, MOV -
-                  máx 10MB), Áudio (MP3, OGG, WAV - máx 10MB).
-                </p>
-              </div>
-
-              {showSendingOrder && (
-                  <div>
-                      <label
-                        htmlFor="sendingOrder"
-                        className="block mb-1 font-medium text-gray-700"
-                      >
-                        Ordem de Envio (Texto e Mídia) *
-                      </label>
-                      <Select
-                          value={sendingOrder}
-                          onValueChange={setSendingOrder}
-                          id="sendingOrder"
-                      >
-                          <SelectTrigger>
-                              <SelectValue placeholder="Selecione a ordem" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="both">Texto e Mídia Juntos</SelectItem>
-                              <SelectItem value="text_first">Texto Primeiro, Depois Mídia</SelectItem>
-                              <SelectItem value="media_first">Mídia Primeiro, Depois Texto</SelectItem>
-                          </SelectContent>
-                      </Select>
-                       <p className="text-sm text-gray-500 mt-1">Define a ordem em que o texto e o anexo serão enviados.</p>
-                  </div>
-              )}
-
 
               <div className="flex justify-end gap-4 pt-4 border-t">
                 <Button variant="outline" onClick={handleCancel} disabled={saving}>
@@ -1059,7 +860,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                       Salvando...
                     </>
                   ) : (
-                    "Salvar Alterações"
+                    "Salvar Sequência"
                   )}
                 </Button>
               </div>
@@ -1071,4 +872,4 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   );
 };
 
-export default MensagensConfigPage;
+export default MensagensSequenciaConfigPage;
