@@ -9,57 +9,82 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, TriangleAlert, CheckCircle2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to get session directly
 
 const SetNewPasswordPage: React.FC = () => {
   const navigate = useNavigate();
-  const { session, isLoadingAuth } = useAuth(); // Get session and loading state from AuthContext
   const location = useLocation();
 
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [isLoadingPage, setIsLoadingPage] = useState(true); // Local loading for this page's checks
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [emailFromUrl, setEmailFromUrl] = useState<string | null>(null); // To display email
+  const [isOtpVerified, setIsOtpVerified] = useState(false); // New state to track OTP verification
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const emailParam = params.get('email');
-    setEmailFromUrl(emailParam ? decodeURIComponent(emailParam) : null);
-
-    // If AuthContext is still loading, wait.
-    if (isLoadingAuth) {
-      setIsLoadingPage(true);
-      return;
+    if (emailParam) {
+      setEmail(decodeURIComponent(emailParam));
     }
-
-    // If a session exists, the user is ready to set password.
-    if (session) {
-      console.log("[SetNewPasswordPage] Session found. User is ready to set new password.");
-      setError(null); // Clear any previous errors
-      setSuccess("Sua sessão foi verificada. Agora você pode definir sua nova senha.");
-    } else {
-      console.log("[SetNewPasswordPage] No active session found. User needs to request a reset link.");
-      setError("Sua sessão expirou ou o link é inválido. Por favor, solicite um novo link de redefinição de senha.");
-    }
-    setIsLoadingPage(false);
-
-    // Clean up URL fragment if any (though Edge Function should prevent it)
+    // Clear any hash fragments that might be present from previous attempts
     if (location.hash) {
       window.history.replaceState({}, document.title, window.location.pathname + location.search);
     }
+  }, [location.search, location.hash]);
 
-  }, [session, isLoadingAuth, location.search, location.hash, navigate]); // Depend on session and isLoadingAuth
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!email.trim() || !otpCode.trim()) {
+      setError("Por favor, insira seu e-mail e o código OTP.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Verificar o OTP para o tipo 'recovery'
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: otpCode.trim(),
+        type: 'recovery',
+      });
+
+      if (verifyError) {
+        console.error("Erro ao verificar código OTP:", verifyError);
+        throw new Error(verifyError.message);
+      }
+
+      if (!data.session) {
+        console.error("Nenhuma sessão retornada após a verificação do OTP.");
+        throw new Error("Falha na verificação do código. Tente novamente.");
+      }
+
+      setIsOtpVerified(true); // OTP verificado com sucesso
+      setSuccess("Código verificado com sucesso! Agora você pode definir sua nova senha.");
+      showSuccess("Código verificado!");
+
+    } catch (err: any) {
+      console.error("Erro na verificação do OTP:", err);
+      setError(err.message || "Ocorreu um erro ao verificar o código.");
+      showError(err.message || "Erro na verificação.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSetNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!session) { // Check if session is still active before attempting update
-      setError("Sua sessão expirou. Por favor, solicite um novo link de redefinição.");
+    if (!isOtpVerified) {
+      setError("Por favor, verifique o código OTP primeiro.");
       return;
     }
     if (password.length < 6) {
@@ -71,8 +96,9 @@ const SetNewPasswordPage: React.FC = () => {
       return;
     }
 
-    setIsLoadingPage(true); // Use local loading state
+    setIsLoading(true);
     try {
+      // Atualizar a senha do usuário (requer uma sessão ativa, que é estabelecida após verifyOtp)
       const { data, error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
@@ -94,26 +120,9 @@ const SetNewPasswordPage: React.FC = () => {
       setError(err.message || "Ocorreu um erro ao definir sua senha.");
       showError(err.message || "Erro ao definir senha.");
     } finally {
-      setIsLoadingPage(false);
+      setIsLoading(false);
     }
   };
-
-  // Render loading state for the page itself
-  if (isLoadingPage) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-        <Card className="w-[400px]">
-          <CardHeader>
-            <CardTitle className="text-center text-primary text-3xl font-bold mb-2">Carregando...</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-gray-700 text-center">Verificando sessão...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
@@ -142,11 +151,49 @@ const SetNewPasswordPage: React.FC = () => {
             </div>
           )}
 
-          {session ? ( // Only show password fields if a session is active
+          {!isOtpVerified ? (
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
+              <p className="text-sm text-gray-600 text-center">
+                Insira o e-mail e o código que você recebeu para definir sua nova senha.
+              </p>
+              <div className="form-group">
+                <Label htmlFor="email">Seu Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="form-group">
+                <Label htmlFor="otpCode">Código de Redefinição</Label>
+                <Input
+                  id="otpCode"
+                  type="text"
+                  placeholder="Digite o código de 6 dígitos"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  "Verificar Código"
+                )}
+              </Button>
+            </form>
+          ) : (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
               <p className="text-sm text-gray-600 text-center">
-                {emailFromUrl && `Para o e-mail: ${emailFromUrl}`}
-                <br/>
                 Defina sua nova senha.
               </p>
               <div className="form-group">
@@ -158,7 +205,7 @@ const SetNewPasswordPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoadingPage} // Use local loading state
+                  disabled={isLoading}
                 />
               </div>
               <div className="form-group">
@@ -170,11 +217,11 @@ const SetNewPasswordPage: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  disabled={isLoadingPage} // Use local loading state
+                  disabled={isLoading}
                 />
               </div>
-              <Button type="submit" disabled={isLoadingPage}>
-                {isLoadingPage ? (
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Definindo Senha...
@@ -184,16 +231,8 @@ const SetNewPasswordPage: React.FC = () => {
                 )}
               </Button>
             </form>
-          ) : (
-            <div className="text-center text-gray-600">
-              <p>Não foi possível carregar a tela de definição de senha.</p>
-              <p className="mt-2">Por favor, solicite um novo link de redefinição de senha.</p>
-              <Button variant="link" onClick={() => navigate('/request-reset-code')} className="mt-4">
-                Solicitar Novo Link
-              </Button>
-            </div>
           )}
-          <Button variant="link" onClick={() => navigate('/')} disabled={isLoadingPage}>
+          <Button variant="link" onClick={() => navigate('/')} disabled={isLoading}>
             Voltar para o Login
           </Button>
         </CardContent>
