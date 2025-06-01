@@ -25,8 +25,7 @@ import SelectClinicPage from "./pages/SelectClinicPage";
 import UserRegistrationPage from "./pages/UserRegistrationPage";
 import UserListPage from "./pages/UserListPage";
 import RequestResetCodePage from "./pages/RequestResetCodePage";
-import VerifyResetCodePage from "./pages/VerifyResetCodePage";
-// REMOVIDO: import SetNewPasswordPage from "./pages/SetNewPasswordPage"; // Import new page
+import SetNewPasswordPage from "./pages/SetNewPasswordPage"; // Import new page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -68,11 +67,8 @@ const App = () => {
 
           {/* New routes for password reset by code */}
           <Route path="/request-reset-code" element={<RequestResetCodePage />} />
-          <Route path="/verify-reset-code" element={<VerifyResetCodePage />} />
+          <Route path="/set-new-password" element={<SetNewPasswordPage />} />
           
-          {/* REMOVIDO: Rota para definir senha após o cadastro inicial, agora usa o fluxo de redefinição */}
-          {/* <Route path="/set-new-password" element={<SetNewPasswordPage />} /> */}
-
           {/* SelectClinicPage is a direct route */}
           <Route path="/select-clinic" element={<SelectClinicPage />} />
 

@@ -31,7 +31,7 @@ const RequestResetCodePage: React.FC = () => {
       // após o usuário clicar no link do e-mail (se for um magic link) ou para onde
       // a página de verificação de código deve estar.
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/verify-reset-code?email=${encodeURIComponent(email.trim())}`,
+        redirectTo: `${window.location.origin}/set-new-password?email=${encodeURIComponent(email.trim())}`,
       });
 
       if (resetError) {
@@ -40,9 +40,9 @@ const RequestResetCodePage: React.FC = () => {
       }
 
       // Em vez de apenas mostrar uma mensagem, redirecionamos para a página de verificação
-      showSuccess("Um e-mail com o código foi enviado. Redirecionando para a tela de verificação...");
+      showSuccess("Um e-mail com o código foi enviado. Redirecionando para a tela de definição de senha...");
       setTimeout(() => {
-        navigate(`/verify-reset-code?email=${encodeURIComponent(email.trim())}`);
+        navigate(`/set-new-password?email=${encodeURIComponent(email.trim())}`);
       }, 1500); // Pequeno atraso para o toast aparecer
 
     } catch (err: any) {
@@ -58,7 +58,7 @@ const RequestResetCodePage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle className="text-center text-primary text-3xl font-bold mb-2">Solicitar Redefinição de Senha</CardTitle>
+          <CardTitle className="text-center text-primary text-3xl font-bold mb-2">Solicitar Definição de Senha</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <img
@@ -68,7 +68,7 @@ const RequestResetCodePage: React.FC = () => {
           />
 
           <p className="text-sm text-gray-600 text-center">
-            Insira seu e-mail para receber um código ou link de redefinição de senha.
+            Insira seu e-mail para receber um código ou link para definir sua senha.
           </p>
 
           <form onSubmit={handleRequestCode} className="flex flex-col gap-4">
