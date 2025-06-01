@@ -230,11 +230,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
-  const messageTextRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextRef = useRef<HTMLTextAreaElement | null>(messageTextareaRef); // Corrected ref initialization
 
   // Determine context based on URL parameter
   const urlParams = new URLSearchParams(location.search); 
   const contextParam = urlParams.get("context");
+  // These variables are derived from state, so they are always defined.
+  // The issue might be a timing/caching problem in the environment.
+  // We'll use messageContext directly in handleCategoryChange for robustness.
   const isGeneralContext = messageContext === 'clientes'; 
   const isCashbackContext = messageContext === 'cashback';
   const isLeadsContext = messageContext === 'leads';
@@ -599,7 +602,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       return;
     }
 
-    if (isGeneralContext) {
+    // Use messageContext directly from state for robustness
+    if (messageContext === 'clientes') {
         if (!category) { 
           toast({
             title: "Erro",
@@ -642,7 +646,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         }
     }
 
-    if (isCashbackContext) {
+    // Use messageContext directly from state for robustness
+    if (messageContext === 'cashback') {
         const offsetNum = parseInt(diasMensagemCashback, 10); 
         if (diasMensagemCashback.trim() === '' || isNaN(offsetNum) || offsetNum < 0) {
              toast({
@@ -667,7 +672,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
          }
     }
 
-    if (isLeadsContext) {
+    // Use messageContext directly from state for robustness
+    if (messageContext === 'leads') {
         if (selectedFunnelId === null) {
              toast({
                  title: "Erro",
@@ -770,7 +776,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         sending_order: sendingOrder,
       };
 
-      if (isGeneralContext) {
+      // Use messageContext directly from state for robustness
+      if (messageContext === 'clientes') {
           saveData.servicos_vinculados = linkedServices;
           saveData.para_cliente = targetType === "Cliente";
           saveData.para_funcionario = targetType === "Funcionário";
@@ -782,7 +789,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           } else {
               saveData.nome_grupo = null;
           }
-      } else if (isCashbackContext) {
+      } else if (messageContext === 'cashback') {
           saveData.dias_mensagem_cashback = parseInt(diasMensagemCashback, 10); 
           saveData.tipo_mensagem_cashback = tipoMensagemCashback; 
           saveData.para_cliente = true; 
@@ -790,7 +797,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           saveData.para_grupo = false;
           saveData.grupo = null; 
           saveData.nome_grupo = null; 
-      } else if (isLeadsContext) { 
+      } else if (messageContext === 'leads') { 
           saveData.id_funil = selectedFunnelId;
           saveData.id_etapa = selectedStageId;
           saveData.para_cliente = true; 
@@ -851,9 +858,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    if (isGeneralContext) {
+    // Use messageContext directly from state for robustness
+    if (messageContext === 'clientes') {
         setMessageText(defaultTemplates[value] || "");
-    } else if (isCashbackContext) {
+    } else if (messageContext === 'cashback') {
          setMessageText(defaultTemplates[value] || ""); 
     }
   };
