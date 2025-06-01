@@ -163,7 +163,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'inbox': Inbox,
   'info-icon': InfoIcon,
   'instagram': Instagram,
-  'key': Key,
+  'key': Key, // Added Key icon mapping
   'keyboard': Keyboard,
   'lamp': Lamp,
   'laptop': Laptop,
@@ -441,12 +441,21 @@ export const Sidebar: React.FC = () => {
   // Determine active menu item based on current route
   const getActive = (item: MenuItem) => {
       // Determine the expected internal path for this item
-      // Special handling for 'register-user' based on icon_key
-      const itemPath = item.icon_key === 'user-plus' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
+      // Special handling for 'register-user' and 'change-password' based on icon_key
+      let itemPath: string;
+      if (item.icon_key === 'user-plus') {
+          itemPath = '/dashboard/register-user';
+      } else if (item.icon_key === 'key') { // NEW: Handle 'key' icon for change-password
+          itemPath = '/dashboard/change-password';
+      } else if (String(item.id) === '1') {
+          itemPath = '/dashboard';
+      } else {
+          itemPath = `/dashboard/${item.id}`;
+      }
 
       // Check if the current location pathname matches the item's path
       // Use startsWith for /dashboard to match /dashboard and /dashboard/
-      if (String(item.id) === '1') {
+      if (itemPath === '/dashboard') {
           return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
       }
 
@@ -494,8 +503,17 @@ export const Sidebar: React.FC = () => {
             const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
 
             // Determine the target path for react-router-dom Link
-            // Special handling for 'register-user'
-            const finalTo = item.icon_key === 'user-plus' ? '/dashboard/register-user' : (String(item.id) === '1' ? '/dashboard' : `/dashboard/${item.id}`);
+            // Special handling for 'register-user' and 'change-password'
+            let finalTo: string;
+            if (item.icon_key === 'user-plus') {
+                finalTo = '/dashboard/register-user';
+            } else if (item.icon_key === 'key') { // NEW: Handle 'key' icon for change-password
+                finalTo = '/dashboard/change-password';
+            } else if (String(item.id) === '1') {
+                finalTo = '/dashboard';
+            } else {
+                finalTo = `/dashboard/${item.id}`;
+            }
 
 
             // Always render as a react-router-dom Link for internal navigation
