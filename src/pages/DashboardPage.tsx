@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Repeat, TagIcon, TriangleAlert } from "lucide-react"; // Added TriangleAlert to imports
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Repeat, TagIcon, TriangleAlert, ChevronLeft, ChevronRight } from "lucide-react"; // Added TriangleAlert, ChevronLeft, ChevronRight to imports
 import { useQuery } from "@tanstack/react-query";
-import { endOfMonth, getDay, isAfter, startOfDay, format } from 'date-fns'; // Import format
+import { endOfMonth, getDay, isAfter, startOfDay, format, subMonths, addMonths, isBefore } from 'date-fns'; // Import format, subMonths, addMonths, isBefore
 import { ptBR } from 'date-fns/locale'; // Import locale for month names
+import { Button } from "@/components/ui/button"; // Import Button
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -81,25 +82,28 @@ const APPOINTMENTS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     const [remainingBusinessDays, setRemainingBusinessDays] = useState<number>(0);
+    const [currentDate, setCurrentDate] = useState<Date>(startOfMonth(new Date())); // State for current month
+
     useEffect(() => {
         setRemainingBusinessDays(calculateRemainingBusinessDays());
     }, []);
 
+    // Derive month and year from currentDate state
+    const currentMonthNum = currentDate.getMonth() + 1;
+    const currentYearNum = currentDate.getFullYear();
+
     // Fetch sales data from webhook using react-query
     const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<DetailedSalesData | null>({
-        queryKey: ['salesData', clinicData?.id, new Date().getMonth() + 1, new Date().getFullYear()],
+        queryKey: ['salesData', clinicData?.id, currentMonthNum, currentYearNum], // Updated queryKey
         queryFn: async () => {
             if (!clinicData?.id) { // Use clinicData.id
                 throw new Error("ID da clínica não disponível para buscar dados de vendas.");
             }
 
-            const currentMonth = new Date().getMonth() + 1;
-            const currentYear = new Date().getFullYear();
-
             console.log(`Chamando webhook de vendas para:`, {
                 clinic_id: clinicData.id, // Use clinicData.id
-                mes: currentMonth,
-                ano: currentYear
+                mes: currentMonthNum, // Use currentMonthNum
+                ano: currentYearNum // Use currentYearNum
             });
 
             try {
@@ -111,8 +115,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id, // Use clinicData.id
-                        mes: currentMonth,
-                        ano: currentYear
+                        mes: currentMonthNum, // Use currentMonthNum
+                        ano: currentYearNum // Use currentYearNum
                     })
                 });
 
@@ -172,19 +176,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch leads data from webhook using react-query
     const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({
-        queryKey: ['leadsData', clinicData?.id, new Date().getMonth() + 1, new Date().getFullYear()],
+        queryKey: ['leadsData', clinicData?.id, currentMonthNum, currentYearNum], // Updated queryKey
         queryFn: async () => {
             if (!clinicData?.id) { // Use clinicData.id
                 throw new Error("ID da clínica não disponível para buscar dados de leads.");
             }
 
-            const currentMonth = new Date().getMonth() + 1;
-            const currentYear = new Date().getFullYear();
-
             console.log(`Chamando webhook de leads para:`, {
                 clinic_id: clinicData.id, // Use clinicData.id
-                mes: currentMonth,
-                ano: currentYear
+                mes: currentMonthNum, // Use currentMonthNum
+                ano: currentYearNum // Use currentYearNum
             });
 
             try {
@@ -196,8 +197,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id, // Use clinicData.id
-                        mes: currentMonth,
-                        ano: currentYear
+                        mes: currentMonthNum, // Use currentMonthNum
+                        ano: currentYearNum // Use currentYearNum
                     })
                 });
 
@@ -247,19 +248,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch appointments data from webhook using react-query
     const { data: appointmentsData, isLoading: isLoadingAppointments, error: appointmentsError } = useQuery<AppointmentsData | null>({
-        queryKey: ['appointmentsData', clinicData?.id, new Date().getMonth() + 1, new Date().getFullYear()],
+        queryKey: ['appointmentsData', clinicData?.id, currentMonthNum, currentYearNum], // Updated queryKey
         queryFn: async () => {
             if (!clinicData?.id) { // Use clinicData.id
                 throw new Error("ID da clínica não disponível para buscar dados de avaliações.");
             }
 
-            const currentMonth = new Date().getMonth() + 1;
-            const currentYear = new Date().getFullYear();
-
             console.log(`Chamando webhook de avaliações para:`, {
                 clinic_id: clinicData.id, // Use clinicData.id
-                mes: currentMonth,
-                ano: currentYear
+                mes: currentMonthNum, // Use currentMonthNum
+                ano: currentYearNum // Use currentYearNum
             });
 
             try {
@@ -271,8 +269,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id, // Use clinicData.id
-                        mes: currentMonth,
-                        ano: currentYear
+                        mes: currentMonthNum, // Use currentMonthNum
+                        ano: currentYearNum // Use currentYearNum
                     })
                 });
 
@@ -374,10 +372,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Get current month and year for the title
     // UPDATED: Format date to show month name and year with capitalized month
-    const currentMonth = format(new Date(), 'MMMM', { locale: ptBR });
+    const currentMonth = format(currentDate, 'MMMM', { locale: ptBR });
     const capitalizedMonth = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
-    const currentYear = format(new Date(), 'yyyy');
+    const currentYear = format(currentDate, 'yyyy');
     const currentMonthYear = `${capitalizedMonth} - ${currentYear}`;
+
+    const goToPreviousMonth = () => {
+        setCurrentDate(startOfMonth(subMonths(currentDate, 1)));
+    };
+
+    const goToNextMonth = () => {
+        const today = startOfMonth(new Date());
+        const nextMonth = startOfMonth(addMonths(currentDate, 1));
+        if (!isAfter(nextMonth, today)) { // Disable if next month is in the future
+            setCurrentDate(nextMonth);
+        }
+    };
+
+    const isNextMonthDisabled = !isBefore(currentDate, startOfMonth(new Date()));
 
 
     if (!clinicData) {
@@ -389,82 +401,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
             <h2 className="text-2xl font-bold text-primary mb-4">Bem-vindo ao CRM {clinicData.nome}</h2>
             <p className="text-gray-700 mb-6">Utilize o menu lateral para navegar pelas funcionalidades disponíveis para seu acesso.</p>
 
-            {/* Section: Leads and Appointments */}
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-                <h3 className="text-xl font-semibold text-blue-800 mb-4">Resumo de Leads e Avaliações</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Card: Total de Leads - Now fetched from webhook */}
-                    <Card className="text-center">
-                        <CardHeader className="pb-2">
-                            <Users className="mx-auto h-8 w-8 text-primary" />
-                            <CardTitle className="text-md font-medium">Total de Leads</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingLeads ? (
-                                <div className="flex justify-center items-center">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : leadsError ? (
-                                <div className="text-sm text-destructive">Erro ao carregar leads.</div>
-                            ) : (
-                                <div className="text-2xl font-bold text-primary">
-                                    {/* Display the count_remoteJid, default to 0 if null/undefined */}
-                                    {leadsData?.count_remoteJid ?? 0}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Card: Avaliações Agendadas (Fetched) */}
-                    <Card className="text-center">
-                        <CardHeader className="pb-2">
-                            <CalendarClock className="mx-auto h-8 w-8 text-primary" />
-                            <CardTitle className="text-md font-medium">Avaliações Agendadas</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingAppointments ? (
-                                <div className="flex justify-center items-center">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : appointmentsError ? (
-                                <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
-                            ) : (
-                                <div className="text-2xl font-bold text-primary">
-                                    {/* Use sum_total_agendamentos, default to 0 if null/undefined */}
-                                    {appointmentsData?.sum_total_agendamentos ?? 0}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Card: Avaliações Realizadas (Fetched) */}
-                    <Card className="text-center">
-                        <CardHeader className="pb-2">
-                            <CalendarCheck className="mx-auto h-8 w-8 text-primary" />
-                            <CardTitle className="text-md font-medium">Avaliações Realizadas</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isLoadingAppointments ? (
-                                <div className="flex justify-center items-center">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : appointmentsError ? (
-                                <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
-                            ) : (
-                                <div className="text-2xl font-bold text-primary">
-                                    {/* Use sum_total_realizados, default to 0 if null/undefined */}
-                                    {appointmentsData?.sum_total_realizados ?? 0}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-
-            {/* Section: Sales - UPDATED to show more detailed metrics */}
+            {/* Month Navigation and Sales Section */}
             <div className="bg-green-50 p-4 rounded-lg mb-6">
-                {/* Updated section title */}
-                <h3 className="text-xl font-semibold text-green-800 mb-4">Resumo de Vendas - {currentMonthYear}</h3>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-green-800">Resumo de Vendas - {currentMonthYear}</h3>
+                    <div className="date-navigation flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={goToPreviousMonth} title="Mês Anterior">
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={goToNextMonth} disabled={isNextMonthDisabled} title="Próximo Mês">
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
                 {isLoadingSales ? (
                      <div className="flex flex-col items-center justify-center p-8">
                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -626,6 +575,77 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         </Card>
                     </div>
                 )}
+            </div>
+
+            {/* Section: Leads and Appointments */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                <h3 className="text-xl font-semibold text-blue-800 mb-4">Resumo de Leads e Avaliações</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Card: Total de Leads - Now fetched from webhook */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <Users className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Total de Leads</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingLeads ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : leadsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar leads.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {/* Display the count_remoteJid, default to 0 if null/undefined */}
+                                    {leadsData?.count_remoteJid ?? 0}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Card: Avaliações Agendadas (Fetched) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <CalendarClock className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Avaliações Agendadas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingAppointments ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : appointmentsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar agendamentos.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {/* Use sum_total_agendamentos, default to 0 if null/undefined */}
+                                    {appointmentsData?.sum_total_agendamentos ?? 0}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Card>
+
+                    {/* Card: Avaliações Realizadas (Fetched) */}
+                    <Card className="text-center">
+                        <CardHeader className="pb-2">
+                            <CalendarCheck className="mx-auto h-8 w-8 text-primary" />
+                            <CardTitle className="text-md font-medium">Avaliações Realizadas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoadingAppointments ? (
+                                <div className="flex justify-center items-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : appointmentsError ? (
+                                <div className="text-sm text-destructive">Erro ao carregar realizadas.</div>
+                            ) : (
+                                <div className="text-2xl font-bold text-primary">
+                                    {/* Use sum_total_realizados, default to 0 if null/undefined */}
+                                    {appointmentsData?.sum_total_realizados ?? 0}
+                                </div>
+                            </CardContent>
+                        </Card>
+                </div>
             </div>
 
             {/* Section: Contexto Mensal */}
