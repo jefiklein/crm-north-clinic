@@ -604,9 +604,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {appointmentsData?.sum_total_agendamentos ?? 0}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            )}
+                        </CardContent>
                     </Card>
+                    
 
                     {/* Card: Avaliações Realizadas (Fetched) */}
                     <Card className="text-center">
@@ -625,8 +626,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {appointmentsData?.sum_total_realizados ?? 0}
                                 </div>
-                            </CardContent>
+                            )}
                         </CardContent>
+                    </Card> {/* Added missing closing tag */}
                 </div>
             </div>
 
