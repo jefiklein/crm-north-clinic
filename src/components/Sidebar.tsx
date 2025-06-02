@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client'; // Import Supabase cl
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { useQuery } from '@tanstack/react-query'; // Import useQuery
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -27,6 +28,8 @@ interface MenuItem {
   permissao_necessaria: number; // Required permission level
   ordem?: number; // Order for sorting
   ativo: boolean; // Assuming there's an 'ativo' column
+  parent_id: number | null; // NEW: Parent ID for grouping
+  is_group: boolean; // NEW: Indicates if this item is a group header
 }
 
 // Define the structure for user profile data
@@ -363,6 +366,7 @@ export const Sidebar: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const location = useLocation(); // Hook to get current location
   const { session } = useAuth(); // Get session from AuthContext
+  const [expandedGroups, setExpandedGroups] = useState<Set<number | string>>(new Set()); // State to manage expanded groups
 
   // Retrieve clinicData from localStorage directly within the component for now
   // A better approach would be using React Context or a state management library
@@ -422,7 +426,7 @@ export const Sidebar: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('north_clinic_crm_menu')
-          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo') // Select the new icon_key column
+          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo, parent_id, is_group') // Select the new icon_key, parent_id, is_group columns
           .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
           .order('ordem', { ascending: true }); // Order by 'ordem'
 
@@ -484,9 +488,8 @@ export const Sidebar: React.FC = () => {
 
 
   // Determine active menu item based on current route
-  const getActive = (item: MenuItem) => {
+  const getActive = (item: MenuItem, allItems: MenuItem[]) => {
       // Determine the expected internal path for this item
-      // Special handling for 'register-user'
       let itemPath: string;
       if (item.icon_key === 'user-plus') {
           itemPath = '/dashboard/register-user';
@@ -497,13 +500,92 @@ export const Sidebar: React.FC = () => {
       }
 
       // Check if the current location pathname matches the item's path
-      // Use startsWith for /dashboard to match /dashboard and /dashboard/
-      if (itemPath === '/dashboard') {
-          return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+      const isDirectlyActive = location.pathname === itemPath || (itemPath === '/dashboard' && location.pathname === '/dashboard/');
+
+      // If it's a group, check if any of its children are active
+      if (item.is_group) {
+          const children = allItems.filter(child => child.parent_id === item.id);
+          const isChildActive = children.some(child => getActive(child, allItems)); // Recursively check children
+          return isDirectlyActive || isChildActive;
       }
 
-      // For other items, check for an exact match
-      return location.pathname === itemPath;
+      return isDirectlyActive;
+  };
+
+  // Toggle group expansion
+  const toggleGroup = (groupId: number | string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
+  // Filter top-level items (groups and non-grouped items)
+  const topLevelItems = menuItems.filter(item => item.parent_id === null);
+
+  // Function to render a single menu item (or group header)
+  const renderMenuItem = (item: MenuItem, isChild: boolean = false) => {
+    const IconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
+    const isActive = getActive(item, menuItems);
+
+    let finalTo: string;
+    if (item.icon_key === 'user-plus') {
+        finalTo = '/dashboard/register-user';
+    } else if (String(item.id) === '1') {
+        finalTo = '/dashboard';
+    } else {
+        finalTo = `/dashboard/${item.id}`;
+    }
+
+    const baseClasses = `flex items-center py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200`;
+    const activeClasses = `text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]`;
+    const paddingClasses = isChild ? 'pl-8' : 'pl-4'; // Indent children
+
+    if (item.is_group) {
+      const isGroupExpanded = expandedGroups.has(item.id);
+      return (
+        <Collapsible
+          key={item.id}
+          open={isGroupExpanded}
+          onOpenChange={() => toggleGroup(item.id)}
+        >
+          <CollapsibleTrigger asChild>
+            <div className={`${baseClasses} ${paddingClasses} ${isActive ? activeClasses : ''} cursor-pointer pr-4`}>
+              {React.createElement(IconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })}
+              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0 flex-grow text-left">{item.nome}</span>
+              {isGroupExpanded ? (
+                <ChevronUp className="h-4 w-4 ml-auto transition-transform duration-200 group-hover:opacity-100 opacity-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4 ml-auto transition-transform duration-200 group-hover:opacity-100 opacity-0" />
+              )}
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {menuItems
+              .filter(child => child.parent_id === item.id)
+              .sort((a, b) => (a.ordem || Infinity) - (b.ordem || Infinity))
+              .map(child => renderMenuItem(child, true))}
+          </CollapsibleContent>
+        </Collapsible>
+      );
+    } else {
+      // Regular menu item (not a group)
+      return (
+        <Link
+          key={item.id}
+          to={finalTo}
+          className={`${baseClasses} ${paddingClasses} ${isActive ? activeClasses : ''}`}
+        >
+          {React.createElement(IconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })}
+          <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span>
+        </Link>
+      );
+    }
   };
 
 
@@ -541,35 +623,7 @@ export const Sidebar: React.FC = () => {
              </div>
         )}
 
-        {menuItems.map(item => {
-            // Use icon_key first, fallback to parsing icon_class if icon_key is missing
-            const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
-
-            // Determine the target path for react-router-dom Link
-            // Special handling for 'register-user'
-            let finalTo: string;
-            if (item.icon_key === 'user-plus') {
-                finalTo = '/dashboard/register-user';
-            } else if (String(item.id) === '1') {
-                finalTo = '/dashboard';
-            } else {
-                finalTo = `/dashboard/${item.id}`;
-            }
-
-
-            // Always render as a react-router-dom Link for internal navigation
-            return (
-                <Link
-                    key={item.id}
-                    to={finalTo} // Use the determined internal path
-                    // Updated colors for internal links and active state
-                    className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
-                >
-                    {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
-                    <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
-                </Link>
-            );
-        })}
+        {topLevelItems.map(item => renderMenuItem(item))}
       </nav>
 
       {/* Fixed bottom section for user profile and change password */}
