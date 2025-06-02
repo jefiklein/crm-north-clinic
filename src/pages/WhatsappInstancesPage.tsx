@@ -200,25 +200,22 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         refetchOnWindowFocus: false,
     });
 
-    // NEW: Fetch stages for a specific funnel (used in the modal)
-    const { data: stagesForSelectedFunnel, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['stagesForFunnelWhatsappInstances', selectedInstanceForDetail?.default_lead_stage_id ? (allFunnels?.find(f => f.id === stagesMap.get(selectedInstanceForDetail.default_lead_stage_id)?.id_funil)?.id || null) : null], // Re-fetch when selected instance's stage changes or its funnel changes
-        queryFn: async ({ queryKey }) => {
-            const [, funnelId] = queryKey;
-            if (funnelId === null) return [];
-            console.log(`[WhatsappInstancesPage] Fetching stages for funnel ${funnelId} from Supabase...`);
+    // NEW: Fetch ALL stages (not just for a specific funnel)
+    const { data: allStagesFromDb, isLoading: isLoadingAllStages, error: allStagesError } = useQuery<FunnelStage[]>({
+        queryKey: ['allStagesWhatsappInstances'], // Changed key to reflect all stages
+        queryFn: async () => {
+            console.log(`[WhatsappInstancesPage] Fetching ALL stages from Supabase...`);
             const { data, error } = await supabase
                 .from('north_clinic_crm_etapa')
                 .select('id, nome_etapa, id_funil, ordem')
-                .eq('id_funil', funnelId)
-                .order('ordem', { ascending: true });
+                .order('ordem', { ascending: true }); // Order by order for consistency
             if (error) {
-                console.error("[WhatsappInstancesPage] Supabase stages fetch error:", error);
-                throw new Error(`Erro ao buscar etapas: ${error.message}`);
+                console.error("[WhatsappInstancesPage] Supabase all stages fetch error:", error);
+                throw new Error(`Erro ao buscar todas as etapas: ${error.message}`);
             }
             return data || [];
         },
-        enabled: hasPermission && (selectedInstanceForDetail?.trackeamento || addInstanceFormData.trackeamento) && (selectedInstanceForDetail?.default_lead_stage_id ? (allFunnels?.find(f => f.id === stagesMap.get(selectedInstanceForDetail.default_lead_stage_id)?.id_funil)?.id || null) : null) !== null, // Only enable if trackeamento is true and a funnel is implicitly selected
+        enabled: hasPermission, // Always enabled if user has permission
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
@@ -226,15 +223,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
     // NEW: Create a map for stages to easily find their funnel ID
     const stagesMap = useMemo(() => {
         const map = new Map<number, FunnelStage>();
-        allFunnels?.forEach(funnel => {
-            stagesForSelectedFunnel?.forEach(stage => {
-                if (stage.id_funil === funnel.id) {
-                    map.set(stage.id, stage);
-                }
-            });
+        allStagesFromDb?.forEach(stage => { // Use allStagesFromDb here
+            map.set(stage.id, stage);
         });
         return map;
-    }, [allFunnels, stagesForSelectedFunnel]);
+    }, [allStagesFromDb]); // Depend on allStagesFromDb
 
 
     const linkedEmployeeIds = useMemo(() => {
@@ -741,8 +734,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
          );
     }
 
-    const overallLoading = isLoadingInstances || isLoadingEmployees || isLoadingFunnels || isLoadingStages; // NEW: Include funnel/stage loading
-    const overallError = instancesError || employeesError || funnelsError || stagesError; // NEW: Include funnel/stage errors
+    const overallLoading = isLoadingInstances || isLoadingEmployees || isLoadingFunnels || isLoadingAllStages; // NEW: Include allStages loading
+    const overallError = instancesError || employeesError || funnelsError || allStagesError; // NEW: Include allStages errors
 
     return (
         <div className="whatsapp-instances-container flex flex-col h-full p-6 bg-gray-100">
@@ -1085,11 +1078,11 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             {addInstanceFormData.trackeamento && (
                                 <div className="form-group">
                                     <Label htmlFor="add-default-lead-stage">Etapa Padrão para Novos Leads *</Label>
-                                    {isLoadingFunnels || isLoadingStages ? (
+                                    {isLoadingFunnels || isLoadingAllStages ? (
                                         <div className="flex items-center gap-2 text-gray-500">
                                             <Loader2 className="h-4 w-4 animate-spin" /> Carregando funis e etapas...
                                         </div>
-                                    ) : funnelsError || stagesError ? (
+                                    ) : funnelsError || allStagesError ? (
                                         <p className="text-sm text-red-600">Erro ao carregar funis/etapas.</p>
                                     ) : (
                                         <Select
@@ -1105,7 +1098,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                                                 {allFunnels?.map(funnel => (
                                                     <React.Fragment key={funnel.id}>
                                                         <p className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 sticky top-0 z-10">{funnel.nome_funil}</p>
-                                                        {stagesForSelectedFunnel?.filter(stage => stage.id_funil === funnel.id).map(stage => (
+                                                        {allStagesFromDb?.filter(stage => stage.id_funil === funnel.id).map(stage => (
                                                             <SelectItem key={stage.id} value={stage.id.toString()}>
                                                                 {stage.nome_etapa}
                                                             </SelectItem>
@@ -1176,9 +1169,9 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     clinicId={clinicId}
                     employeesList={employeesList || []}
                     linkedEmployeeIds={linkedEmployeeIds}
-                    allFunnels={allFunnels || []} // NEW: Pass allFunnels
-                    allStages={stagesForSelectedFunnel || []} // NEW: Pass stages for selected funnel
-                    stagesMap={stagesMap} // NEW: Pass stagesMap
+                    allFunnels={allFunnels || []} 
+                    allStages={allStagesFromDb || []} // Pass all stages from DB
+                    stagesMap={stagesMap} 
                     onSave={handleSaveInstanceDetails}
                     isSaving={updateInstanceMutation.isLoading}
                 />
