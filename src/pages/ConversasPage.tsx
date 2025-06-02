@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Imp
 import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
+import { useLocation } from 'react-router-dom'; // Import useLocation
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -153,8 +154,14 @@ const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   console.log("[ConversasPage] Component Rendered. clinicData:", clinicData); // Log clinicData on render
   const queryClient = useQueryClient(); // Get query client instance
+  const location = useLocation(); // Hook to get current location
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  // Initialize selectedConversationId from URL parameter
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('remoteJid');
+  });
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
   // Removed selectedInstanceEvolutionName state

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings, ArrowRight } from "lucide-react"; 
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings, ArrowRight, MessageSquareText, Repeat, Check, ChevronsUpDown, MessageSquareMore } from "lucide-react"; // Added MessageSquareMore icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; 
@@ -34,11 +34,12 @@ interface FunnelStage {
     id_funil: number;
 }
 
-// Define the structure for Funnel Leads (from Supabase)
+// Define the structure for Funnel Leads (from Supabase) - UPDATED to include remoteJid
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
     telefone: number | null;
+    remoteJid: string; // Added remoteJid
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
@@ -258,7 +259,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) 
+                .select('id, nome_lead, telefone, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Select remoteJid
                 .eq('id_clinica', currentClinicId) 
                 .in('id_etapa', stageIds); 
 
@@ -487,7 +488,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const handleConfigureMessages = () => {
         if (!clinicCode || funnelIdForQuery === undefined) {
-            showError("Código da clínica ou ID do funil não disponível para navegação.");
+            showError("Dados necessários para navegação não disponíveis.");
             return;
         }
         navigate(`/dashboard/funnel-config/${menuIdParam}`);
@@ -508,6 +509,16 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const closeNewLeadModal = () => setIsNewLeadModal(false);
     const handleLeadAdded = () => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
+    };
+
+    // NEW: Function to navigate to conversations page with specific lead
+    const handleOpenLeadConversation = (remoteJid: string) => {
+        if (!clinicCode) {
+            showError("Código da clínica não disponível para abrir conversa.");
+            return;
+        }
+        // Navigate to the conversations page (route 2) with the remoteJid as a URL parameter
+        navigate(`/dashboard/2?remoteJid=${encodeURIComponent(remoteJid)}`);
     };
 
     if (isInvalidFunnel) {
@@ -675,6 +686,20 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                                 >
                                                                     Detalhes
                                                                 </Button>
+                                                                {lead.remoteJid && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 p-0 ml-2"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenLeadConversation(lead.remoteJid);
+                                                                        }}
+                                                                        title="Abrir Conversa no WhatsApp"
+                                                                    >
+                                                                        <MessageSquareMore className="h-4 w-4 text-green-600" />
+                                                                    </Button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -753,6 +778,20 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     >
                                                         Detalhes
                                                     </Button>
+                                                    {lead.remoteJid && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="ml-2 flex-shrink-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenLeadConversation(lead.remoteJid);
+                                                            }}
+                                                            title="Abrir Conversa no WhatsApp"
+                                                        >
+                                                            <MessageSquareMore className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             );
                                         })}
