@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle } from 'lucide-react'; // Added Clock and XCircle icons
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, ExternalLink } from 'lucide-react'; // Added ExternalLink icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
@@ -951,6 +951,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const isLoadingLeadInfo = isLoadingSelectedLead || isLoadingStages || isLoadingFunnels;
   const leadInfoError = selectedLeadError || stagesError || funnelsError;
 
+  // Function to open WhatsApp chat
+  const handleOpenInWhatsapp = () => {
+    if (selectedConversationId) {
+      const phoneNumber = selectedConversationId.split('@')[0];
+      if (phoneNumber) {
+        window.open(`https://wa.me/${phoneNumber}`, '_blank');
+      } else {
+        showError("Número de telefone inválido para abrir no WhatsApp.");
+      }
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -1040,7 +1051,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
           {/* Conversation Detail Panel */}
           <div className="conversation-detail-panel flex-grow flex flex-col overflow-hidden bg-gray-50">
-            <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
+            <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center justify-between bg-gray-100"> {/* Added justify-between */}
               {selectedConversationSummary ? (
                 <div className="flex flex-col">
                     {/* Display nome_lead or formatted phone */}
@@ -1086,6 +1097,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               ) : (
                 <span className="text-primary text-lg font-bold">Selecione uma conversa</span>
               )}
+              {/* NEW: Open in WhatsApp Button */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleOpenInWhatsapp}
+                disabled={!selectedConversationId}
+                title="Abrir no WhatsApp"
+                className="ml-auto flex-shrink-0"
+              >
+                <ExternalLink className="h-5 w-5" />
+              </Button>
             </div>
 
             <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
