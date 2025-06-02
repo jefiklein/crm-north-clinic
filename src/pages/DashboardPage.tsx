@@ -89,12 +89,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
     }, []);
 
     // Derive month and year from the *actual current date* for backend calls (as requested)
-    const actualCurrentMonthNum = new Date().getMonth() + 1;
-    const actualCurrentYearNum = new Date().getFullYear();
+    // MODIFIED: Use currentDate's month and year for backend calls
+    const currentMonthNum = currentDate.getMonth() + 1;
+    const currentYearNum = currentDate.getFullYear();
 
     // Fetch sales data from webhook using react-query
     const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<DetailedSalesData | null>({
-        queryKey: ['salesData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryKey: ['salesData', clinicData?.id, currentMonthNum, currentYearNum], // Using currentDate's month/year
         queryFn: async () => {
             if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de vendas.");
@@ -102,8 +103,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
             console.log(`Chamando webhook de vendas para:`, {
                 clinic_id: clinicData.id,
-                mes: actualCurrentMonthNum,
-                ano: actualCurrentYearNum
+                mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                ano: currentYearNum   // MODIFIED: Use currentYearNum
             });
 
             try {
@@ -115,8 +116,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id,
-                        mes: actualCurrentMonthNum,
-                        ano: actualCurrentYearNum
+                        mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                        ano: currentYearNum   // MODIFIED: Use currentYearNum
                     })
                 });
 
@@ -176,7 +177,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch leads data from webhook using react-query
     const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({
-        queryKey: ['leadsData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryKey: ['leadsData', clinicData?.id, currentMonthNum, currentYearNum], // Using currentDate's month/year
         queryFn: async () => {
             if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de leads.");
@@ -184,8 +185,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
             console.log(`Chamando webhook de leads para:`, {
                 clinic_id: clinicData.id,
-                mes: actualCurrentMonthNum,
-                ano: actualCurrentYearNum
+                mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                ano: currentYearNum   // MODIFIED: Use currentYearNum
             });
 
             try {
@@ -197,8 +198,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id,
-                        mes: actualCurrentMonthNum,
-                        ano: actualCurrentYearNum
+                        mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                        ano: currentYearNum   // MODIFIED: Use currentYearNum
                     })
                 });
 
@@ -248,7 +249,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch appointments data from webhook using react-query
     const { data: appointmentsData, isLoading: isLoadingAppointments, error: appointmentsError } = useQuery<AppointmentsData | null>({
-        queryKey: ['appointmentsData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryKey: ['appointmentsData', clinicData?.id, currentMonthNum, currentYearNum], // Using currentDate's month/year
         queryFn: async () => {
             if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de avaliações.");
@@ -256,8 +257,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
             console.log(`Chamando webhook de avaliações para:`, {
                 clinic_id: clinicData.id,
-                mes: actualCurrentMonthNum,
-                ano: actualCurrentYearNum
+                mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                ano: currentYearNum   // MODIFIED: Use currentYearNum
             });
 
             try {
@@ -269,8 +270,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                     },
                     body: JSON.stringify({
                         clinic_id: clinicData.id,
-                        mes: actualCurrentMonthNum,
-                        ano: actualCurrentYearNum
+                        mes: currentMonthNum, // MODIFIED: Use currentMonthNum
+                        ano: currentYearNum   // MODIFIED: Use currentYearNum
                     })
                 });
 
@@ -628,7 +629,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 </div>
                             )}
                         </CardContent>
-                    </Card> {/* Added missing closing tag */}
+                    </Card>
                 </div>
             </div>
 
