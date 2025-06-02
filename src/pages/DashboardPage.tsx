@@ -88,24 +88,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
         setRemainingBusinessDays(calculateRemainingBusinessDays());
     }, []);
 
-    // Derive month and year from the *currentDate* state for backend calls
-    const selectedMonthNum = currentDate.getMonth() + 1;
-    const selectedYearNum = currentDate.getFullYear();
+    // Derive month and year from the *actual current date* for backend calls (as requested)
+    const actualCurrentMonthNum = new Date().getMonth() + 1;
+    const actualCurrentYearNum = new Date().getFullYear();
 
     // Fetch sales data from webhook using react-query
     const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<DetailedSalesData | null>({
-        queryKey: ['salesData', clinicData?.id, selectedMonthNum, selectedYearNum], // Using selected month/year
-        queryFn: async ({ queryKey }) => {
-            const [, clinicId, month, year] = queryKey; // Destructure month and year from queryKey
-
-            if (!clinicId) {
+        queryKey: ['salesData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryFn: async () => {
+            if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de vendas.");
             }
 
             console.log(`Chamando webhook de vendas para:`, {
-                clinic_id: clinicId,
-                mes: month,
-                ano: year
+                clinic_id: clinicData.id,
+                mes: actualCurrentMonthNum,
+                ano: actualCurrentYearNum
             });
 
             try {
@@ -116,9 +114,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         "Accept": "application/json"
                     },
                     body: JSON.stringify({
-                        clinic_id: clinicId,
-                        mes: month,
-                        ano: year
+                        clinic_id: clinicData.id,
+                        mes: actualCurrentMonthNum,
+                        ano: actualCurrentYearNum
                     })
                 });
 
@@ -178,18 +176,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch leads data from webhook using react-query
     const { data: leadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsData | null>({
-        queryKey: ['leadsData', clinicData?.id, selectedMonthNum, selectedYearNum], // Using selected month/year
-        queryFn: async ({ queryKey }) => {
-            const [, clinicId, month, year] = queryKey; // Destructure month and year from queryKey
-
-            if (!clinicId) {
+        queryKey: ['leadsData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryFn: async () => {
+            if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de leads.");
             }
 
             console.log(`Chamando webhook de leads para:`, {
-                clinic_id: clinicId,
-                mes: month,
-                ano: year
+                clinic_id: clinicData.id,
+                mes: actualCurrentMonthNum,
+                ano: actualCurrentYearNum
             });
 
             try {
@@ -200,9 +196,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         "Accept": "application/json"
                     },
                     body: JSON.stringify({
-                        clinic_id: clinicId,
-                        mes: month,
-                        ano: year
+                        clinic_id: clinicData.id,
+                        mes: actualCurrentMonthNum,
+                        ano: actualCurrentYearNum
                     })
                 });
 
@@ -252,18 +248,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
 
     // Fetch appointments data from webhook using react-query
     const { data: appointmentsData, isLoading: isLoadingAppointments, error: appointmentsError } = useQuery<AppointmentsData | null>({
-        queryKey: ['appointmentsData', clinicData?.id, selectedMonthNum, selectedYearNum], // Using selected month/year
-        queryFn: async ({ queryKey }) => {
-            const [, clinicId, month, year] = queryKey; // Destructure month and year from queryKey
-
-            if (!clinicId) {
+        queryKey: ['appointmentsData', clinicData?.id, actualCurrentMonthNum, actualCurrentYearNum], // Using actual current month/year
+        queryFn: async () => {
+            if (!clinicData?.id) {
                 throw new Error("ID da clínica não disponível para buscar dados de avaliações.");
             }
 
             console.log(`Chamando webhook de avaliações para:`, {
-                clinic_id: clinicId,
-                mes: month,
-                ano: year
+                clinic_id: clinicData.id,
+                mes: actualCurrentMonthNum,
+                ano: actualCurrentYearNum
             });
 
             try {
@@ -274,9 +268,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                         "Accept": "application/json"
                     },
                     body: JSON.stringify({
-                        clinic_id: clinicId,
-                        mes: month,
-                        ano: year
+                        clinic_id: clinicData.id,
+                        mes: actualCurrentMonthNum,
+                        ano: actualCurrentYearNum
                     })
                 });
 
@@ -610,8 +604,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {appointmentsData?.sum_total_agendamentos ?? 0}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            )}
+                        </CardContent>
+                    </Card>
                     
 
                     {/* Card: Avaliações Realizadas (Fetched) */}
@@ -631,8 +626,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                 <div className="text-2xl font-bold text-primary">
                                     {appointmentsData?.sum_total_realizados ?? 0}
                                 </div>
-                            </CardContent>
-                        </Card> {/* Added missing closing tag */}
+                            )}
+                        </CardContent>
+                    </Card> {/* Added missing closing tag */}
                 </div>
             </div>
 
