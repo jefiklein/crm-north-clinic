@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, ExternalLink } from 'lucide-react'; // Added ExternalLink icon
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, MessagesSquare } from 'lucide-react'; // Changed ExternalLink to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
@@ -146,7 +146,7 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
@@ -1106,7 +1106,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 title="Abrir no WhatsApp"
                 className="ml-auto flex-shrink-0"
               >
-                <ExternalLink className="h-5 w-5" />
+                <MessagesSquare className="h-5 w-5" /> {/* Changed icon to MessagesSquare */}
               </Button>
             </div>
 
