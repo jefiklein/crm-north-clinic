@@ -592,7 +592,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                                 </div>
                                                                 <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
                                                                     <MessageSquareText className="h-3 w-3" />
-                                                                    <span>Envio: {action.sending_preference === 'all_linked' ? 'Todas as Instâncias' : 'Instância Principal'}</span>
+                                                                    <span>Envio: {action.sending_preference === 'all_linked' ? 'Todas as Instâncias' : 'Instância Principal do Lead'}</span>
                                                                 </div>
                                                             </>
                                                         )}
@@ -850,12 +850,12 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all_linked">Todas as Instâncias Vinculadas</SelectItem>
-                                                <SelectItem value="main_instance">Instância Principal da Clínica</SelectItem>
+                                                <SelectItem value="main_instance">Instância Principal do Lead</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <p className="text-sm text-gray-500 mt-1">
                                             "Todas as Instâncias Vinculadas" enviará a mensagem por cada instância associada à sequência.
-                                            "Instância Principal da Clínica" enviará apenas pela instância definida como principal nas configurações da clínica.
+                                            "Instância Principal do Lead" enviará apenas pela instância definida como principal nas configurações da clínica.
                                         </p>
                                     </div>
                                 </>
