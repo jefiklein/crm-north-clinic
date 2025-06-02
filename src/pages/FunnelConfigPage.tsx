@@ -50,6 +50,7 @@ interface StageAction {
     timing_type: string; // 'immediate' or 'delay'
     delay_value: number | null;
     delay_unit: string | null; // 'minutes', 'hours', 'days'
+    sending_preference: string; // NEW: 'all_linked' or 'main_instance'
     
     // Joined data from other tables (optional, for display)
     north_clinic_mensagens_sequencias?: {
@@ -114,6 +115,9 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
     const [timingType, setTimingType] = useState<string>('immediate'); 
     const [delayValue, setDelayValue] = useState<string>(''); 
     const [delayUnit, setDelayUnit] = useState<string>('hours'); 
+
+    // NEW: State for sending preference
+    const [sendingPreference, setSendingPreference] = useState<string>('all_linked'); // 'all_linked' or 'main_instance'
 
     // State to store the currently configured action for editing
     const [currentActionBeingEdited, setCurrentActionBeingEdited] = useState<StageAction | null>(null);
@@ -295,6 +299,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             timing_type: string;
             delay_value?: number | null;
             delay_unit?: string | null;
+            sending_preference?: string; // NEW: Add to payload
         }) => {
             if (!clinicId) throw new Error("ID da clínica não disponível.");
 
@@ -310,6 +315,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 delay_unit: payload.timing_type === 'delay' ? payload.delay_unit : null,
                 id_sequencia: payload.action_type === 'message' ? payload.id_sequencia : null,
                 target_etapa_id: payload.action_type === 'change_stage' ? payload.target_etapa_id : null,
+                sending_preference: payload.action_type === 'message' ? payload.sending_preference : null, // NEW: Add to payload
             };
 
             console.log("[FunnelConfigPage] Sending payload to N8N webhook:", webhookPayload);
@@ -338,11 +344,13 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             showSuccess(`Ação ${variables.actionId ? 'atualizada' : 'vinculada'} com sucesso!`);
             setIsActionConfigModalOpen(false);
             setCurrentActionBeingEdited(null);
+            setSelectedActionType(null); // Reset action type
             setSelectedMessageToLink(null);
             setTargetStageForChange(null);
             setTimingType('immediate');
             setDelayValue('');
             setDelayUnit('hours');
+            setSendingPreference('all_linked'); // Reset sending preference
             queryClient.invalidateQueries({ queryKey: ['stageActionsConfig', clinicId, funnelIdForQuery] });
         },
         onError: (error: Error) => {
@@ -366,6 +374,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             setTimingType(actionToEdit.timing_type);
             setDelayValue(actionToEdit.delay_value?.toString() || '');
             setDelayUnit(actionToEdit.delay_unit as 'minutes' | 'hours' | 'days' || 'hours');
+            setSendingPreference(actionToEdit.sending_preference || 'all_linked'); // NEW: Set sending preference
         } else {
             // If new action, start with initial choice view
             setModalView('initial');
@@ -375,6 +384,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
             setTimingType('immediate');
             setDelayValue('');
             setDelayUnit('hours');
+            setSendingPreference('all_linked'); // NEW: Default for new action
         }
         setMessageSearchTerm('');
     };
@@ -438,6 +448,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                 return;
             }
             payload.id_sequencia = selectedMessageToLink;
+            payload.sending_preference = sendingPreference; // NEW: Add to payload
         } else if (selectedActionType === 'change_stage') {
             if (targetStageForChange === null) {
                 showError('Selecione uma etapa de destino.');
@@ -579,6 +590,10 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                                                     {action.timing_type === 'immediate' ? <Clock className="h-3 w-3" /> : <Hourglass className="h-3 w-3" />}
                                                                     <span>Agendamento: {formatTiming(action.timing_type, action.delay_value, action.delay_unit)}</span>
                                                                 </div>
+                                                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                                                    <MessageSquareText className="h-3 w-3" />
+                                                                    <span>Envio: {action.sending_preference === 'all_linked' ? 'Todas as Instâncias' : 'Instância Principal'}</span>
+                                                                </div>
                                                             </>
                                                         )}
                                                         {action.action_type === 'change_stage' && (
@@ -626,6 +641,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                     setTimingType('immediate');
                     setDelayValue('');
                     setDelayUnit('hours');
+                    setSendingPreference('all_linked'); // Reset sending preference
                     setMessageSearchTerm('');
                 }
             }}>
@@ -818,6 +834,30 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </Command>
                                         </PopoverContent>
                                     </Popover>
+
+                                    {/* NEW: Sending Preference for Messages */}
+                                    <div className="mt-4">
+                                        <Label htmlFor="sendingPreference" className="block mb-1 font-medium text-gray-700">
+                                            Preferência de Envio *
+                                        </Label>
+                                        <Select
+                                            value={sendingPreference}
+                                            onValueChange={setSendingPreference}
+                                            id="sendingPreference"
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione a preferência" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all_linked">Todas as Instâncias Vinculadas</SelectItem>
+                                                <SelectItem value="main_instance">Instância Principal da Clínica</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            "Todas as Instâncias Vinculadas" enviará a mensagem por cada instância associada à sequência.
+                                            "Instância Principal da Clínica" enviará apenas pela instância definida como principal nas configurações da clínica.
+                                        </p>
+                                    </div>
                                 </>
                             )}
 
