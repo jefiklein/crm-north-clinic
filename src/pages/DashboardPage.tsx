@@ -644,7 +644,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ clinicData }) => {
                                     {appointmentsData?.sum_total_realizados ?? 0}
                                 </div>
                             </CardContent>
-                        </Card>
+                        </CardContent>
                 </div>
             </div>
 
