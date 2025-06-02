@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { cn } from '@/lib/utils';
 import { EmojiPicker } from "emoji-picker-element"; // Keep EmojiPicker for step textareas
+import MultiSelectServices from "@/components/MultiSelectServices"; // Import MultiSelectServices
 
 interface ClinicData {
   code: string;
@@ -48,6 +49,13 @@ interface MessageStep {
   delayValue?: number;
   delayUnit?: 'segundos' | 'minutos' | 'horas' | 'dias';
   sendingOrder?: 'both' | 'text_first' | 'media_first'; // New field for media steps
+}
+
+// Define the structure for Instance (for MultiSelectServices)
+interface Instance {
+  id: number;
+  nome_exibição: string;
+  nome_instancia_evolution: string | null;
 }
 
 // Constants for file validation
@@ -81,6 +89,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
 
   const [messageName, setMessageName] = useState<string>("");
   const [messageSteps, setMessageSteps] = useState<MessageStep[]>([]);
+  const [instances, setInstances] = useState<Instance[]>([]); // State for instances
+  const [selectedInstanceIds, setSelectedInstanceIds] = useState<number[]>([]); // New state for selected instances
 
   // State for media previews, similar to ConversasPage
   const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string | null>>({});
@@ -199,11 +209,20 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       setMediaPreviewStatus({});
       setMessageSteps([]); // Clear steps before loading
 
-      if (isEditing && messageIdToEdit !== null) {
-        try {
+      try {
+        // Fetch instances first
+        const { data: instancesData, error: instancesError } = await supabase
+          .from("north_clinic_config_instancias")
+          .select("id, nome_exibição, nome_instancia_evolution")
+          .eq("id_clinica", clinicId);
+
+        if (instancesError) throw instancesError;
+        setInstances(instancesData || []);
+
+        if (isEditing && messageIdToEdit !== null) {
           const { data: msgData, error: msgError } = await supabase
               .from('north_clinic_mensagens_sequencias')
-              .select('id, nome_sequencia')
+              .select('id, nome_sequencia, linked_instance_ids') // Select the new column
               .eq('id', messageIdToEdit)
               .eq('id_clinica', clinicId)
               .single();
@@ -212,6 +231,8 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           if (!msgData) throw new Error("Mensagem não encontrada ou acesso negado.");
 
           setMessageName(msgData.nome_sequencia);
+          setSelectedInstanceIds(msgData.linked_instance_ids || []); // Set selected instances
+
           const { data: stepsData, error: stepsError } = await supabase
             .from('north_clinic_mensagens_sequencia_passos')
             .select('id, tipo_passo, conteudo_texto, url_arquivo, nome_arquivo_original, atraso_valor, atraso_unidade')
@@ -235,16 +256,16 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
             }));
           setMessageSteps(loadedSteps);
 
-        } catch (e: any) {
-          console.error("[MensagensSequenciaConfigPage] Error loading message for editing:", e);
-          setError(e.message || "Erro ao carregar dados da mensagem.");
-          toast({ title: "Erro ao Carregar", description: e.message, variant: "destructive" });
-        } finally {
-          setLoading(false);
+        } else {
+          setMessageName("");
+          setMessageSteps([{ id: Date.now().toString(), type: 'texto', text: '' }]);
+          setSelectedInstanceIds([]); // Clear selected instances for new sequence
         }
-      } else {
-        setMessageName("");
-        setMessageSteps([{ id: Date.now().toString(), type: 'texto', text: '' }]);
+      } catch (e: any) {
+        console.error("[MensagensSequenciaConfigPage] Error loading message for editing:", e);
+        setError(e.message || "Erro ao carregar dados da mensagem.");
+        toast({ title: "Erro ao Carregar", description: e.message, variant: "destructive" });
+      } finally {
         setLoading(false);
       }
     }
@@ -361,6 +382,11 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       console.error("[MensagensSequenciaConfigPage] handleSave: Nenhum passo adicionado.");
       return;
     }
+    if (selectedInstanceIds.length === 0) { // New validation for selected instances
+        toast({ title: "Erro", description: "Selecione pelo menos uma instância para vincular à sequência.", variant: "destructive" });
+        console.error("[MensagensSequenciaConfigPage] handleSave: Nenhuma instância selecionada.");
+        return;
+    }
 
      for (const step of messageSteps) {
          if (step.type === 'texto' && !step.text?.trim()) {
@@ -432,6 +458,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         sequenceName: messageName,
         contexto: 'leads', // Hardcoded context for lead sequences
         ativo: true, // Sequences are active by default on creation
+        linkedInstanceIds: selectedInstanceIds, // Include selected instances
         steps: processedSteps.map((step, index) => ({
           db_id: step.db_id,
           ordem: index + 1,
@@ -639,6 +666,22 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                   placeholder="Ex: Sequência de Boas-Vindas para Leads"
                   disabled={saving}
                 />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="linkedInstances"
+                  className="block mb-1 font-medium text-gray-700"
+                >
+                  Instâncias Vinculadas *
+                </label>
+                <MultiSelectServices
+                  options={instances.map(inst => ({ id: inst.id, nome: inst.nome_exibição }))}
+                  selectedIds={selectedInstanceIds}
+                  onChange={setSelectedInstanceIds}
+                  disabled={saving}
+                />
+                <p className="text-sm text-gray-500 mt-1">Selecione uma ou mais instâncias do WhatsApp que podem enviar mensagens desta sequência.</p>
               </div>
 
               <h3 className="text-lg font-semibold text-gray-800 mt-4">Passos da Sequência</h3>
