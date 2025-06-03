@@ -1,21 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, TriangleAlert, User, Camera, XCircle, LinkIcon } from 'lucide-react';
+import { Loader2, TriangleAlert, User, Camera, XCircle, LinkIcon, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn, formatPhone } from '@/lib/utils';
@@ -51,12 +49,8 @@ interface LeadDetails {
   avatar_url: string | null; // New field
 }
 
-interface LeadDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  clinicId: string | number | null;
-  leadId: number | null; // Pass the lead's numeric ID
-  onLeadUpdated: () => void;
+interface LeadDetailPageProps {
+  clinicData: ClinicData | null;
 }
 
 const MEDIA_UPLOAD_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
@@ -77,13 +71,11 @@ function getInitials(name: string | null): string {
   return '??';
 }
 
-const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
-  isOpen,
-  onClose,
-  clinicId,
-  leadId,
-  onLeadUpdated,
-}) => {
+const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
+  const navigate = useNavigate();
+  const { leadId: leadIdParam } = useParams<{ leadId: string }>();
+  const leadId = leadIdParam ? parseInt(leadIdParam, 10) : null;
+
   const queryClient = useQueryClient();
   const [editedData, setEditedData] = useState<Partial<LeadDetails>>({});
   const [rawPhone, setRawPhone] = useState('');
@@ -94,26 +86,26 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
   // Fetch lead details
   const { data: leadData, isLoading: isLoadingLead, error: fetchLeadError, refetch: refetchLead } = useQuery<LeadDetails | null>({
-    queryKey: ['leadDetails', leadId, clinicId],
+    queryKey: ['leadDetails', leadId, clinicData?.id],
     queryFn: async () => {
-      if (!leadId || !clinicId) return null;
+      if (!leadId || !clinicData?.id) return null;
       const { data, error } = await supabase
         .from('north_clinic_leads_API')
         .select('id, nome_lead, telefone, remoteJid, id_etapa, origem, sourceUrl, avatar_url')
         .eq('id', leadId)
-        .eq('id_clinica', clinicId)
+        .eq('id_clinica', clinicData.id)
         .single();
       if (error && error.code !== 'PGRST116') throw new Error(error.message);
       return data || null;
     },
-    enabled: isOpen && !!leadId && !!clinicId,
+    enabled: !!leadId && !!clinicData?.id,
     staleTime: 0, // Always refetch when opened
     refetchOnWindowFocus: false,
   });
 
   // Fetch all stages
   const { data: allStages, isLoading: isLoadingStages, error: stagesError } = useQuery<FunnelStage[]>({
-    queryKey: ['allStagesLeadDetailModal'],
+    queryKey: ['allStagesLeadDetailPage'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('north_clinic_crm_etapa')
@@ -122,14 +114,14 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       if (error) throw new Error(`Erro ao buscar etapas: ${error.message}`);
       return data || [];
     },
-    enabled: isOpen,
+    enabled: true, // Always enabled as no clinicId filter is needed
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
   // Fetch all funnels
   const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
-    queryKey: ['allFunnelsLeadDetailModal'],
+    queryKey: ['allFunnelsLeadDetailPage'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('north_clinic_crm_funil')
@@ -138,7 +130,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       if (error) throw new Error(`Erro ao buscar funis: ${error.message}`);
       return data || [];
     },
-    enabled: isOpen,
+    enabled: true, // Always enabled as no clinicId filter is needed
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -180,11 +172,10 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     },
     onSuccess: () => {
       showSuccess("Lead atualizado com sucesso!");
-      queryClient.invalidateQueries({ queryKey: ['leadDetails', leadId, clinicId] });
-      queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId] }); // Invalidate leads in funnels
+      queryClient.invalidateQueries({ queryKey: ['leadDetails', leadId, clinicData?.id] });
+      queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicData?.id] }); // Invalidate leads in funnels
       queryClient.invalidateQueries({ queryKey: ['allLeads'] }); // Invalidate all leads
-      onLeadUpdated(); // Notify parent component
-      onClose();
+      // No onLeadUpdated callback needed here, as it's a full page
     },
     onError: (err: Error) => {
       showError(`Erro ao atualizar lead: ${err.message}`);
@@ -245,10 +236,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         }
       }
     };
-    if (isOpen) { // Only fetch when modal is open
-        fetchExistingAvatar();
-    }
-  }, [isOpen, leadData?.avatar_url, avatarPreviewUrl, avatarFile]);
+    fetchExistingAvatar();
+  }, [leadData?.avatar_url, avatarPreviewUrl, avatarFile]);
 
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,7 +282,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
   const handleSave = async () => {
     setError(null);
-    if (!leadId || !clinicId) {
+    if (!leadId || !clinicData?.id) {
       setError("Dados do lead ou da clínica não disponíveis.");
       return;
     }
@@ -313,7 +302,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         const formData = new FormData();
         formData.append("data", avatarFile, avatarFile.name);
         formData.append("fileName", avatarFile.name);
-        formData.append("clinicId", clinicId.toString());
+        formData.append("clinicId", clinicData.id.toString());
         const uploadRes = await fetch(MEDIA_UPLOAD_WEBHOOK_URL, {
           method: "POST",
           body: formData,
@@ -335,7 +324,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
     saveLeadMutation.mutate({
       leadId: leadId,
-      clinicId: clinicId,
+      clinicId: clinicData.id,
       nome_lead: editedData.nome_lead.trim(),
       telefone: rawPhone ? parseInt(rawPhone, 10) : null,
       id_etapa: editedData.id_etapa,
@@ -348,178 +337,204 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const isLoading = isLoadingLead || isLoadingStages || isLoadingFunnels || saveLeadMutation.isLoading;
   const fetchError = fetchLeadError || stagesError || funnelsError;
 
-  if (!isOpen) return null;
+  if (!clinicData) {
+    return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
+  }
+
+  if (!leadId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <TriangleAlert className="mx-auto h-12 w-12 text-red-500 mb-4" />
+            <CardTitle className="text-2xl font-bold text-destructive">Lead Não Encontrado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700">O ID do lead não foi fornecido ou é inválido.</p>
+            <Button onClick={() => navigate(-1)} className="mt-4">
+              <ChevronLeft className="h-4 w-4 mr-2" /> Voltar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Detalhes do Lead</DialogTitle>
-          <DialogDescription>
-            Visualize e edite as informações do lead.
-          </DialogDescription>
-        </DialogHeader>
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <span className="text-lg text-gray-700">Carregando detalhes do lead...</span>
-          </div>
-        ) : fetchError ? (
-          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-            <TriangleAlert className="h-5 w-5" />
-            <p className="text-sm">Erro ao carregar lead: {fetchError.message}</p>
-          </div>
-        ) : !leadData ? (
-          <div className="p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-md flex items-center gap-2">
-            <TriangleAlert className="h-5 w-5" />
-            <p className="text-sm">Lead não encontrado.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 py-4">
-            {error && (
-              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-                <TriangleAlert className="h-4 w-4" />
-                <p className="text-sm">{error}</p>
-              </div>
-            )}
+    <div className="lead-detail-page-container max-w-3xl mx-auto p-6 bg-gray-100">
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+            <User className="h-6 w-6" /> Detalhes do Lead
+          </CardTitle>
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ChevronLeft className="h-4 w-4 mr-2" /> Voltar
+          </Button>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6 pt-4">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <span className="text-lg text-gray-700">Carregando detalhes do lead...</span>
+            </div>
+          ) : fetchError ? (
+            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+              <TriangleAlert className="h-5 w-5" />
+              <p className="text-sm">Erro ao carregar lead: {fetchError.message}</p>
+            </div>
+          ) : !leadData ? (
+            <div className="p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-md flex items-center gap-2">
+              <TriangleAlert className="h-5 w-5" />
+              <p className="text-sm">Lead não encontrado.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 py-4">
+              {error && (
+                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4" />
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
 
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative w-24 h-24">
-                <Avatar className="w-24 h-24">
-                  {avatarPreviewUrl ? (
-                    <img src={avatarPreviewUrl} alt="Avatar do Lead" className="object-cover w-full h-full rounded-full" />
-                  ) : (
-                    <AvatarFallback className="bg-gray-300 text-gray-800 text-3xl font-semibold">
-                      {getInitials(editedData.nome_lead)}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute bottom-0 right-0 bg-white rounded-full border border-gray-300 shadow-md hover:bg-gray-100"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={saveLeadMutation.isLoading}
-                >
-                  <Camera className="h-5 w-5 text-gray-600" />
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleAvatarFileChange}
-                  disabled={saveLeadMutation.isLoading}
-                />
-                {(avatarPreviewUrl || editedData.avatar_url) && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative w-24 h-24">
+                  <Avatar className="w-24 h-24">
+                    {avatarPreviewUrl ? (
+                      <img src={avatarPreviewUrl} alt="Avatar do Lead" className="object-cover w-full h-full rounded-full" />
+                    ) : (
+                      <AvatarFallback className="bg-gray-300 text-gray-800 text-3xl font-semibold">
+                        {getInitials(editedData.nome_lead)}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-0 right-0 bg-white rounded-full border border-gray-300 shadow-md hover:bg-red-100"
-                    onClick={handleRemoveAvatar}
+                    className="absolute bottom-0 right-0 bg-white rounded-full border border-gray-300 shadow-md hover:bg-gray-100"
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={saveLeadMutation.isLoading}
                   >
-                    <XCircle className="h-5 w-5 text-red-500" />
+                    <Camera className="h-5 w-5 text-gray-600" />
                   </Button>
-                )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    disabled={saveLeadMutation.isLoading}
+                  />
+                  {(avatarPreviewUrl || editedData.avatar_url) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-0 right-0 bg-white rounded-full border border-gray-300 shadow-md hover:bg-red-100"
+                      onClick={handleRemoveAvatar}
+                      disabled={saveLeadMutation.isLoading}
+                    >
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nome_lead" className="text-right">Nome</Label>
-              <Input
-                id="nome_lead"
-                value={editedData.nome_lead || ''}
-                onChange={(e) => setEditedData(prev => ({ ...prev, nome_lead: e.target.value }))}
-                className="col-span-3"
-                disabled={saveLeadMutation.isLoading}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="telefone" className="text-right">Telefone</Label>
-              <Input
-                id="telefone"
-                value={formatPhone(rawPhone)}
-                onChange={handlePhoneChange}
-                className="col-span-3"
-                placeholder="(XX) XXXXX-XXXX"
-                disabled={saveLeadMutation.isLoading}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="id_etapa" className="text-right">Etapa</Label>
-              <Select
-                value={editedData.id_etapa?.toString() || ''}
-                onValueChange={(value) => setEditedData(prev => ({ ...prev, id_etapa: value ? parseInt(value, 10) : null }))}
-                disabled={saveLeadMutation.isLoading || isLoadingStages || !!stagesError || (allStages?.length ?? 0) === 0}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecione a etapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStages?.map(stage => (
-                    <SelectItem key={stage.id} value={String(stage.id)}>
-                      {stage.nome_etapa} ({funnelMap.get(stage.id_funil)?.nome_funil || 'Funil Desconhecido'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="origem" className="text-right">Origem</Label>
-              <Input
-                id="origem"
-                value={editedData.origem || ''}
-                onChange={(e) => setEditedData(prev => ({ ...prev, origem: e.target.value }))}
-                className="col-span-3"
-                disabled={saveLeadMutation.isLoading}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="sourceUrl" className="text-right">Link Anúncio</Label>
-              <div className="col-span-3 flex items-center gap-2">
-                <Input
-                  id="sourceUrl"
-                  value={editedData.sourceUrl || ''}
-                  onChange={(e) => setEditedData(prev => ({ ...prev, sourceUrl: e.target.value }))}
-                  className="flex-grow"
-                  disabled={saveLeadMutation.isLoading}
-                />
-                {editedData.sourceUrl && (
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={editedData.sourceUrl} target="_blank" rel="noopener noreferrer">
-                      <LinkIcon className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <Label htmlFor="nome_lead">Nome</Label>
+                  <Input
+                    id="nome_lead"
+                    value={editedData.nome_lead || ''}
+                    onChange={(e) => setEditedData(prev => ({ ...prev, nome_lead: e.target.value }))}
+                    disabled={saveLeadMutation.isLoading}
+                  />
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="telefone">Telefone</Label>
+                  <Input
+                    id="telefone"
+                    value={formatPhone(rawPhone)}
+                    onChange={handlePhoneChange}
+                    placeholder="(XX) XXXXX-XXXX"
+                    disabled={saveLeadMutation.isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <Label htmlFor="id_etapa">Etapa</Label>
+                  <Select
+                    value={editedData.id_etapa?.toString() || ''}
+                    onValueChange={(value) => setEditedData(prev => ({ ...prev, id_etapa: value ? parseInt(value, 10) : null }))}
+                    disabled={saveLeadMutation.isLoading || isLoadingStages || !!stagesError || (allStages?.length ?? 0) === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allStages?.map(stage => (
+                        <SelectItem key={stage.id} value={String(stage.id)}>
+                          {stage.nome_etapa} ({funnelMap.get(stage.id_funil)?.nome_funil || 'Funil Desconhecido'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="origem">Origem</Label>
+                  <Input
+                    id="origem"
+                    value={editedData.origem || ''}
+                    onChange={(e) => setEditedData(prev => ({ ...prev, origem: e.target.value }))}
+                    disabled={saveLeadMutation.isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <Label htmlFor="sourceUrl">Link Anúncio</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="sourceUrl"
+                    value={editedData.sourceUrl || ''}
+                    onChange={(e) => setEditedData(prev => ({ ...prev, sourceUrl: e.target.value }))}
+                    className="flex-grow"
+                    disabled={saveLeadMutation.isLoading}
+                  />
+                  {editedData.sourceUrl && (
+                    <Button variant="outline" size="icon" asChild>
+                      <a href={editedData.sourceUrl} target="_blank" rel="noopener noreferrer">
+                        <LinkIcon className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading || saveLeadMutation.isLoading}>
+          )}
+          <div className="flex justify-end gap-4 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={isLoading || saveLeadMutation.isLoading}>
               Cancelar
             </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isLoading || saveLeadMutation.isLoading || !leadData}
-          >
-            {saveLeadMutation.isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar Alterações"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isLoading || saveLeadMutation.isLoading || !leadData}
+            >
+              {saveLeadMutation.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
-export default LeadDetailModal;
+export default LeadDetailPage;

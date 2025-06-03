@@ -9,8 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
-import LeadDetailModal from '@/components/LeadDetailModal'; // Import LeadDetailModal
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -103,11 +103,11 @@ function getInitials(name: string | null): string {
 
 
 const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
+    const navigate = useNavigate(); // Initialize useNavigate
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
-    const [isLeadDetailModalOpen, setIsLeadDetailModalOpen] = useState(false); // State for modal visibility
-    const [selectedLeadIdForDetail, setSelectedLeadIdForDetail] = useState<number | null>(null); // State for selected lead ID
+    // Removed isLeadDetailModalOpen and selectedLeadIdForDetail states
 
     const ITEMS_PER_PAGE = 15;
 
@@ -349,15 +349,15 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         }
     };
 
-    // Function to open the LeadDetailModal
+    // Function to navigate to the LeadDetailPage
     const openLeadDetails = (leadId: number) => {
-        setSelectedLeadIdForDetail(leadId);
-        setIsLeadDetailModalOpen(true);
+        navigate(`/dashboard/leads/${leadId}`);
     };
 
-    // Function to handle lead update from modal (refetch leads list)
+    // Function to handle lead update from modal (refetch leads list) - No longer needed here as it's a page
     const handleLeadUpdated = () => {
-        refetchLeads(); // Refetch the leads list to show updated data
+        // This function is now empty as the page will refetch its own data
+        // and the parent AllLeadsPage will refetch when returning to it.
     };
 
 
@@ -502,17 +502,6 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     </div>
                 )}
             </Card>
-
-            {/* Lead Detail Modal */}
-            {clinicId && (
-                <LeadDetailModal
-                    isOpen={isLeadDetailModalOpen}
-                    onClose={() => setIsLeadDetailModalOpen(false)}
-                    clinicId={clinicId}
-                    leadId={selectedLeadIdForDetail}
-                    onLeadUpdated={handleLeadUpdated}
-                />
-            )}
         </div>
     );
 };

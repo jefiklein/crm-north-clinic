@@ -15,7 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; 
 import { showSuccess, showError } from '@/utils/toast'; 
 import NewLeadModal from '@/components/NewLeadModal';
-import LeadDetailModal from '@/components/LeadDetailModal'; // Import LeadDetailModal
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
 
 // Define the structure for clinic data
@@ -147,8 +146,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [dragOverStageId, setDragOverStageId] = useState<number | null>(null); 
     const [isNewLeadModalOpen, setIsNewLeadModal] = useState(false); 
-    const [isLeadDetailModalOpen, setIsLeadDetailModalOpen] = useState(false); // State for modal visibility
-    const [selectedLeadIdForDetail, setSelectedLeadIdForDetail] = useState<number | null>(null); // State for selected lead ID
+    // Removed isLeadDetailModalOpen and selectedLeadIdForDetail states
 
     const ITEMS_PER_PAGE = 15;
     const clinicId = clinicData?.id;
@@ -527,15 +525,15 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };
 
-    // Function to open the LeadDetailModal
+    // Function to navigate to the LeadDetailPage
     const openLeadDetails = (leadId: number) => {
-        setSelectedLeadIdForDetail(leadId);
-        setIsLeadDetailModalOpen(true);
+        navigate(`/dashboard/leads/${leadId}`);
     };
 
-    // Function to handle lead update from modal (refetch leads list)
+    // Function to handle lead update from modal (refetch leads list) - No longer needed here as it's a page
     const handleLeadUpdated = () => {
-        refetchLeads(); // Refetch the leads list to show updated data
+        // This function is now empty as the page will refetch its own data
+        // and the parent FunnelPage will refetch when returning to it.
     };
 
 
@@ -848,17 +846,6 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                     clinicId={clinicId}
                     funnelIdForQuery={funnelIdForQuery}
                     onLeadAdded={handleLeadAdded}
-                />
-            )}
-
-            {/* Lead Detail Modal */}
-            {clinicId && (
-                <LeadDetailModal
-                    isOpen={isLeadDetailModalOpen}
-                    onClose={() => setIsLeadDetailModalOpen(false)}
-                    clinicId={clinicId}
-                    leadId={selectedLeadIdForDetail}
-                    onLeadUpdated={handleLeadUpdated}
                 />
             )}
         </TooltipProvider>
