@@ -1,24 +1,32 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Ensure AvatarImage is imported
+import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon, ArrowLeft } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { formatPhone } from '@/lib/utils';
+
+interface ClinicData {
+  code: string;
+  nome: string;
+  id: string | number | null;
+  acesso_crm: boolean;
+  acesso_config_msg: boolean;
+  id_permissao: number;
+}
 
 interface LeadDetail {
   id: number;
@@ -45,30 +53,23 @@ interface FunnelDetails {
   nome_funil: string;
 }
 
-interface LeadDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  leadId: number | null;
-  clinicId: string | number | null;
-  onLeadUpdated: () => void; // Callback to refresh parent list
+interface LeadDetailPageProps {
+  clinicData: ClinicData | null;
 }
 
 const MEDIA_UPLOAD_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
 const MEDIA_RETRIEVE_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
-// NEW WEBHOOK: You will need to configure this in n8n to update north_clinic_leads_API table
-const UPDATE_LEAD_DETAILS_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/update-lead-details"; // Placeholder
+const UPDATE_LEAD_DETAILS_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/update-lead-details";
 
 const MAX_IMAGE_SIZE_MB = 5;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
-  isOpen,
-  onClose,
-  leadId,
-  clinicId,
-  onLeadUpdated,
-}) => {
+const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
+  const { leadId: leadIdParam } = useParams<{ leadId: string }>();
+  const leadId = leadIdParam ? parseInt(leadIdParam, 10) : null;
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+
   const [formData, setFormData] = useState<Partial<LeadDetail>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,8 +77,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarUploadStatus, setAvatarUploadStatus] = useState<{ isLoading: boolean, error: string | null }>({ isLoading: false, error: null });
 
-  // Refs for file input to clear it
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const clinicId = clinicData?.id;
 
   // Fetch lead details
   const { data: leadDetails, isLoading: isLoadingLead, error: fetchLeadError } = useQuery<LeadDetail | null>({
@@ -93,7 +95,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       if (error && error.code !== 'PGRST116') throw new Error(error.message);
       return data || null;
     },
-    enabled: isOpen && !!leadId && !!clinicId,
+    enabled: !!leadId && !!clinicId,
     staleTime: 0, // Always refetch when opened
     refetchOnWindowFocus: false,
   });
@@ -109,7 +111,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       if (error) throw new Error(`Erro ao buscar etapas: ${error.message}`);
       return data || [];
     },
-    enabled: isOpen,
+    enabled: true, // Always enabled
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -124,7 +126,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       if (error) throw new Error(`Erro ao buscar funis: ${error.message}`);
       return data || [];
     },
-    enabled: isOpen,
+    enabled: true, // Always enabled
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -150,7 +152,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         id_etapa: leadDetails.id_etapa,
         avatar_url: leadDetails.avatar_url,
       });
-      // If there's a saved avatar URL, try to fetch a signed URL for preview
       if (leadDetails.avatar_url) {
         fetchSignedUrlForPreview(leadDetails.avatar_url);
       } else {
@@ -160,14 +161,13 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       setFormData({});
       setAvatarPreviewUrl(null);
     }
-    setAvatarFile(null); // Clear selected file on new lead load
-    if (fileInputRef.current) fileInputRef.current.value = ''; // Clear file input
+    setAvatarFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setError(null);
     setIsSaving(false);
     setAvatarUploadStatus({ isLoading: false, error: null });
   }, [leadDetails]);
 
-  // Handle avatar file selection
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -191,13 +191,11 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       setError(null);
     } else {
       setAvatarFile(null);
-      // If no new file, revert to saved URL if it exists
       setAvatarPreviewUrl(leadDetails?.avatar_url ? leadDetails.avatar_url : null);
       setAvatarUploadStatus({ isLoading: false, error: null });
     }
   };
 
-  // Fetch signed URL for existing avatar
   const fetchSignedUrlForPreview = async (fileKey: string) => {
     if (!fileKey) {
       setAvatarPreviewUrl(null);
@@ -230,12 +228,11 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     }
   };
 
-  // Handle removing the avatar
   const handleRemoveAvatar = () => {
     setAvatarFile(null);
     setAvatarPreviewUrl(null);
-    setFormData(prev => ({ ...prev, avatar_url: null })); // Mark for deletion in DB
-    if (fileInputRef.current) fileInputRef.current.value = ''; // Clear file input
+    setFormData(prev => ({ ...prev, avatar_url: null }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setError(null);
   };
 
@@ -284,18 +281,17 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         setAvatarUploadStatus({ isLoading: false, error: null });
       }
 
-      // Prepare payload for the new update webhook
       const payload = {
         leadId: leadId,
         clinicId: clinicId,
         updates: {
           nome_lead: formData.nome_lead?.trim(),
           id_etapa: formData.id_etapa,
-          avatar_url: finalAvatarUrl, // This will be null if removed, or the new key
+          avatar_url: finalAvatarUrl,
         },
       };
 
-      console.log("[LeadDetailModal] Sending update payload to webhook:", payload);
+      console.log("[LeadDetailPage] Sending update payload to webhook:", payload);
 
       const response = await fetch(UPDATE_LEAD_DETAILS_WEBHOOK_URL, {
         method: 'POST',
@@ -309,10 +305,11 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       }
 
       showSuccess("Lead atualizado com sucesso!");
-      onLeadUpdated(); // Trigger refetch in parent
-      onClose(); // Close modal
+      queryClient.invalidateQueries({ queryKey: ['leadDetails', leadId, clinicId] }); // Invalidate to refetch latest data
+      queryClient.invalidateQueries({ queryKey: ['paginatedLeads'] }); // Invalidate all leads list
+      navigate('/dashboard/3'); // Navigate back to AllLeadsPage
     } catch (e: any) {
-      console.error("[LeadDetailModal] Save failed:", e);
+      console.error("[LeadDetailPage] Save failed:", e);
       setError(e.message || "Ocorreu um erro desconhecido ao salvar.");
       showError(e.message || "Erro desconhecido.");
       setAvatarUploadStatus(prev => ({ ...prev, isLoading: false, error: prev.error || e.message }));
@@ -321,18 +318,13 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     }
   };
 
-  const handleClose = () => {
-    setAvatarFile(null);
-    setAvatarPreviewUrl(null);
-    setAvatarUploadStatus({ isLoading: false, error: null });
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    onClose();
+  const handleBack = () => {
+    navigate('/dashboard/3'); // Navigate back to AllLeadsPage
   };
 
   const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels;
   const fetchError = fetchLeadError || stagesError || funnelsError;
 
-  // Get Funnel Name for the selected stage
   const selectedStageFunnelName = useMemo(() => {
     if (formData.id_etapa === null || formData.id_etapa === undefined) return 'N/D';
     const stage = stageMap.get(formData.id_etapa);
@@ -343,188 +335,208 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     return 'N/D';
   }, [formData.id_etapa, stageMap, funnelMap]);
 
-  if (!isOpen) return null;
+  if (!leadId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-100 p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <TriangleAlert className="mx-auto h-12 w-12 text-red-500 mb-4" />
+            <CardTitle className="text-2xl font-bold text-destructive">Lead Não Encontrado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700">O ID do lead não foi fornecido ou é inválido.</p>
+            <Button onClick={handleBack} className="mt-4">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para a Lista de Leads
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Detalhes do Lead</DialogTitle>
-        </DialogHeader>
-        {isLoadingData ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <span className="text-lg text-primary">Carregando detalhes do lead...</span>
-          </div>
-        ) : fetchError ? (
-          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-            <TriangleAlert className="h-5 w-5" />
-            <p className="text-sm">Erro ao carregar lead: {fetchError.message}</p>
-          </div>
-        ) : !leadDetails ? (
-          <div className="p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-md flex items-center gap-2">
-            <TriangleAlert className="h-5 w-5" />
-            <p className="text-sm">Lead não encontrado.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 py-4">
-            {error && (
-              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
-                <TriangleAlert className="h-4 w-4" />
-                <p className="text-sm">{error}</p>
-              </div>
-            )}
+    <div className="lead-detail-page-container max-w-3xl mx-auto p-6 bg-gray-100">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-primary">Detalhes do Lead</h1>
+        <Button variant="outline" onClick={handleBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para a Lista
+        </Button>
+      </div>
 
-            {/* Avatar Section */}
-            <div className="flex flex-col items-center gap-3 mb-4">
-              <Avatar className="h-24 w-24 border-2 border-primary">
-                {avatarPreviewUrl ? (
-                  <AvatarImage src={avatarPreviewUrl} alt="Avatar do Lead" className="object-cover" />
-                ) : (
-                  <AvatarFallback className="bg-gray-200 text-gray-600 text-4xl font-bold">
-                    {leadDetails.nome_lead ? leadDetails.nome_lead[0].toUpperCase() : <User className="h-12 w-12" />}
-                  </AvatarFallback>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Informações do Lead</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {isLoadingData ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <span className="text-lg text-primary">Carregando detalhes do lead...</span>
+            </div>
+          ) : fetchError ? (
+            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+              <TriangleAlert className="h-5 w-5" />
+              <p className="text-sm">Erro ao carregar lead: {fetchError.message}</p>
+            </div>
+          ) : !leadDetails ? (
+            <div className="p-4 bg-orange-100 border border-orange-400 text-orange-700 rounded-md flex items-center gap-2">
+              <TriangleAlert className="h-5 w-5" />
+              <p className="text-sm">Lead não encontrado.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 py-4">
+              {error && (
+                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4" />
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Avatar Section */}
+              <div className="flex flex-col items-center gap-3 mb-4">
+                <Avatar className="h-24 w-24 border-2 border-primary">
+                  {avatarPreviewUrl ? (
+                    <AvatarImage src={avatarPreviewUrl} alt="Avatar do Lead" className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-gray-200 text-gray-600 text-4xl font-bold">
+                      {leadDetails.nome_lead ? leadDetails.nome_lead[0].toUpperCase() : <User className="h-12 w-12" />}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                {avatarUploadStatus.isLoading && (
+                  <div className="flex items-center text-primary text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando imagem...
+                  </div>
                 )}
-              </Avatar>
-              {avatarUploadStatus.isLoading && (
-                <div className="flex items-center text-primary text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando imagem...
-                </div>
-              )}
-              {avatarUploadStatus.error && (
-                <div className="text-red-600 text-sm flex items-center gap-1">
-                  <TriangleAlert className="h-4 w-4" /> {avatarUploadStatus.error}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
-                  <Camera className="h-4 w-4 mr-2" /> Alterar Foto
-                </Button>
-                {(avatarPreviewUrl || leadDetails.avatar_url) && (
-                  <Button variant="destructive" size="sm" onClick={handleRemoveAvatar} disabled={isSaving}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Remover Foto
+                {avatarUploadStatus.error && (
+                  <div className="text-red-600 text-sm flex items-center gap-1">
+                    <TriangleAlert className="h-4 w-4" /> {avatarUploadStatus.error}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
+                    <Camera className="h-4 w-4 mr-2" /> Alterar Foto
                   </Button>
-                )}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleAvatarFileChange}
-                />
-              </div>
-            </div>
-
-            {/* Lead Details Form */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Nome</Label>
-              <Input
-                id="name"
-                value={formData.nome_lead || ''}
-                onChange={(e) => setFormData({ ...formData, nome_lead: e.target.value })}
-                className="col-span-3"
-                disabled={isSaving}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">Telefone</Label>
-              <Input
-                id="phone"
-                value={formatPhone(leadDetails.telefone)}
-                className="col-span-3"
-                disabled // Phone is read-only
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="remoteJid" className="text-right">RemoteJid</Label>
-              <Input
-                id="remoteJid"
-                value={leadDetails.remoteJid}
-                className="col-span-3"
-                disabled // RemoteJid is read-only
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="stage" className="text-right">Etapa</Label>
-              <Select
-                value={formData.id_etapa?.toString() || ''}
-                onValueChange={(value) => setFormData({ ...formData, id_etapa: parseInt(value, 10) })}
-                disabled={isSaving || (allStages?.length ?? 0) === 0}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecione a etapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStages?.map((stage) => (
-                    <SelectItem key={stage.id} value={String(stage.id)}>
-                      {stage.nome_etapa} (Funil: {funnelMap.get(stage.id_funil)?.nome_funil || 'Desconhecido'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="funnel" className="text-right">Funil</Label>
-              <Input
-                id="funnel"
-                value={selectedStageFunnelName}
-                className="col-span-3"
-                disabled // Funnel is derived, read-only
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="origin" className="text-right">Origem</Label>
-              <Input
-                id="origin"
-                value={leadDetails.origem || 'N/D'}
-                className="col-span-3"
-                disabled // Origin is read-only
-              />
-            </div>
-            {leadDetails.sourceUrl && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="sourceUrl" className="text-right">Anúncio</Label>
-                <div className="col-span-3 flex items-center gap-2">
-                  <Input
-                    id="sourceUrl"
-                    value={leadDetails.sourceUrl}
-                    className="flex-grow"
-                    disabled // Source URL is read-only
+                  {(avatarPreviewUrl || leadDetails.avatar_url) && (
+                    <Button variant="destructive" size="sm" onClick={handleRemoveAvatar} disabled={isSaving}>
+                      <Trash2 className="h-4 w-4 mr-2" /> Remover Foto
+                    </Button>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
                   />
-                  <Button variant="outline" size="icon" asChild>
-                    <a href={leadDetails.sourceUrl} target="_blank" rel="noopener noreferrer" title="Abrir link">
-                      <LinkIcon className="h-4 w-4" />
-                    </a>
-                  </Button>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isSaving}>
+
+              {/* Lead Details Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    value={formData.nome_lead || ''}
+                    onChange={(e) => setFormData({ ...formData, nome_lead: e.target.value })}
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    value={formatPhone(leadDetails.telefone)}
+                    disabled // Phone is read-only
+                  />
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="remoteJid">RemoteJid</Label>
+                  <Input
+                    id="remoteJid"
+                    value={leadDetails.remoteJid}
+                    disabled // RemoteJid is read-only
+                  />
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="stage">Etapa</Label>
+                  <Select
+                    value={formData.id_etapa?.toString() || ''}
+                    onValueChange={(value) => setFormData({ ...formData, id_etapa: parseInt(value, 10) })}
+                    disabled={isSaving || (allStages?.length ?? 0) === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allStages?.map((stage) => (
+                        <SelectItem key={stage.id} value={String(stage.id)}>
+                          {stage.nome_etapa} (Funil: {funnelMap.get(stage.id_funil)?.nome_funil || 'Desconhecido'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="funnel">Funil</Label>
+                  <Input
+                    id="funnel"
+                    value={selectedStageFunnelName}
+                    disabled // Funnel is derived, read-only
+                  />
+                </div>
+                <div className="form-group">
+                  <Label htmlFor="origin">Origem</Label>
+                  <Input
+                    id="origin"
+                    value={leadDetails.origem || 'N/D'}
+                    disabled // Origin is read-only
+                  />
+                </div>
+                {leadDetails.sourceUrl && (
+                  <div className="form-group col-span-full">
+                    <Label htmlFor="sourceUrl">Anúncio</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="sourceUrl"
+                        value={leadDetails.sourceUrl}
+                        className="flex-grow"
+                        disabled // Source URL is read-only
+                      />
+                      <Button variant="outline" size="icon" asChild>
+                        <a href={leadDetails.sourceUrl} target="_blank" rel="noopener noreferrer" title="Abrir link">
+                          <LinkIcon className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-4 pt-4 border-t">
+            <Button variant="outline" onClick={handleBack} disabled={isSaving}>
               Cancelar
             </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving || isLoadingData || !leadDetails || avatarUploadStatus.isLoading}
-          >
-            {isSaving || avatarUploadStatus.isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar Alterações"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || isLoadingData || !leadDetails || avatarUploadStatus.isLoading}
+            >
+              {isSaving || avatarUploadStatus.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
-export default LeadDetailModal;
+export default LeadDetailPage;
