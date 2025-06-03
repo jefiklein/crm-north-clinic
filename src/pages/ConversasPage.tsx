@@ -481,7 +481,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
       const { data, error } = await supabase
         .from('north_clinic_tags')
         .select('id, name')
-        .eq('id_clinica', clinicId)
+        .eq('id_clinica', clinicId) // Explicitly filter by clinicId
         .order('name', { ascending: true });
       if (error) throw new Error(`Erro ao buscar tags disponíveis: ${error.message}`);
       return data || [];
@@ -497,16 +497,20 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
     queryFn: async () => {
       console.log(`[ConversasPage] Fetching currentLeadTags for lead ${selectedLeadDetails?.id} and clinic ${clinicId}`);
       if (!selectedLeadDetails?.id || !clinicId) return [];
-      // Set the RLS context for the clinic_code
+      // Set the RLS context for the clinic_code (still needed for other RLS policies)
       await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
       const { data, error } = await supabase
         .from('north_clinic_lead_tags')
-        .select('tag_id, north_clinic_tags(id, name)')
-        .eq('lead_id', selectedLeadDetails.id); // Use selectedLeadDetails.id
+        .select('tag_id, north_clinic_tags(id, name, id_clinica)') // Include id_clinica in the join
+        .eq('lead_id', selectedLeadDetails.id) // Use selectedLeadDetails.id
+        .eq('north_clinic_tags.id_clinica', clinicId); // Explicitly filter the joined table by clinicId
+      
+      console.log(`[ConversasPage] Raw Supabase response for currentLeadTags:`, data, error);
+
       if (error) throw new Error(`Erro ao buscar tags do lead: ${error.message}`);
-      // Flatten the nested data
-      const fetchedTags = data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null) || [];
-      console.log(`[ConversasPage] Fetched currentLeadTags:`, fetchedTags);
+      // Flatten the nested data and ensure id_clinica matches (though the query should handle this now)
+      const fetchedTags = data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null && tag.id_clinica === clinicId) || [];
+      console.log(`[ConversasPage] Processed currentLeadTags:`, fetchedTags);
       return fetchedTags;
     },
     enabled: !!selectedLeadDetails?.id && !!clinicId && hasPermission, // Enable only if lead ID and clinic ID are available
