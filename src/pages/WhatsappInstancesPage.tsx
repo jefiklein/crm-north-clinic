@@ -34,7 +34,6 @@ interface InstanceInfo {
     id_server_evolution: number | null;
     confirmar_agendamento: boolean;
     id_funcionario?: number | null; 
-    default_lead_stage_id?: number | null; // NEW: Add default_lead_stage_id
 }
 
 interface InstanceStatus {
@@ -52,20 +51,6 @@ interface QrCodeResponse {
 interface EmployeeInfo {
     id: number;
     nome: string;
-}
-
-// NEW: Define structure for Funnel Details
-interface FunnelDetails {
-    id: number;
-    nome_funil: string;
-}
-
-// NEW: Define structure for Funnel Stage
-interface FunnelStage {
-    id: number;
-    nome_etapa: string;
-    ordem: number | null;
-    id_funil: number;
 }
 
 interface WhatsappInstancesPageProps {
@@ -112,7 +97,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         historico: false,     // Added to state (even if hidden, for consistency)
         confirmar_agendamento: false, // Added to state (even if hidden, for consistency)
         id_funcionario: null as number | null, // Added to state
-        default_lead_stage_id: null as number | null, // NEW: Add to state
     });
     const [addInstanceAlert, setAddInstanceAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
     const [isCreatingInstance, setIsCreatingInstance] = useState(false); // New state for immediate loading feedback
@@ -138,7 +122,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
 
             const { data, error } = await supabase
                 .from('north_clinic_config_instancias')
-                .select('id, nome_exibição, telefone, tipo, nome_instancia_evolution, trackeamento, historico, id_server_evolution, confirmar_agendamento, id_funcionario, default_lead_stage_id') // NEW: Select default_lead_stage_id
+                .select('id, nome_exibição, telefone, tipo, nome_instancia_evolution, trackeamento, historico, id_server_evolution, confirmar_agendamento, id_funcionario') 
                 .eq('id_clinica', clinicId) 
                 .order('nome_exibição', { ascending: true }); 
 
@@ -179,56 +163,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
         staleTime: 5 * 60 * 1000, 
         refetchOnWindowFocus: false,
     });
-
-    // NEW: Fetch all funnels for the select dropdown
-    const { data: allFunnels, isLoading: isLoadingFunnels, error: funnelsError } = useQuery<FunnelDetails[]>({
-        queryKey: ['allFunnelsWhatsappInstances'],
-        queryFn: async () => {
-            console.log(`[WhatsappInstancesPage] Fetching all funnels from Supabase...`);
-            const { data, error } = await supabase
-                .from('north_clinic_crm_funil')
-                .select('id, nome_funil')
-                .order('nome_funil', { ascending: true });
-            if (error) {
-                console.error("[WhatsappInstancesPage] Supabase all funnels fetch error:", error);
-                throw new Error(`Erro ao buscar funis: ${error.message}`);
-            }
-            return data || [];
-        },
-        enabled: hasPermission,
-        staleTime: 5 * 60 * 1000,
-        refetchOnWindowFocus: false,
-    });
-
-    // NEW: Fetch ALL stages (not just for a specific funnel)
-    const { data: allStagesFromDb, isLoading: isLoadingAllStages, error: allStagesError } = useQuery<FunnelStage[]>({
-        queryKey: ['allStagesWhatsappInstances'], // Changed key to reflect all stages
-        queryFn: async () => {
-            console.log(`[WhatsappInstancesPage] Fetching ALL stages from Supabase...`);
-            const { data, error } = await supabase
-                .from('north_clinic_crm_etapa')
-                .select('id, nome_etapa, id_funil, ordem')
-                .order('ordem', { ascending: true }); // Order by order for consistency
-            if (error) {
-                console.error("[WhatsappInstancesPage] Supabase all stages fetch error:", error);
-                throw new Error(`Erro ao buscar todas as etapas: ${error.message}`);
-            }
-            return data || [];
-        },
-        enabled: hasPermission, // Always enabled if user has permission
-        staleTime: 5 * 60 * 1000,
-        refetchOnWindowFocus: false,
-    });
-
-    // NEW: Create a map for stages to easily find their funnel ID
-    const stagesMap = useMemo(() => {
-        const map = new Map<number, FunnelStage>();
-        allStagesFromDb?.forEach(stage => { // Use allStagesFromDb here
-            map.set(stage.id, stage);
-        });
-        return map;
-    }, [allStagesFromDb]); // Depend on allStagesFromDb
-
 
     const linkedEmployeeIds = useMemo(() => {
         const ids = new Set<number>();
@@ -440,7 +374,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             historico: boolean;     // Added to payload
             confirmar_agendamento: boolean; // Added to payload
             id_funcionario: number | null; // Added to payload
-            default_lead_stage_id: number | null; // NEW: Add to payload
         }) => {
             if (!clinicId) throw new Error("ID da clínica não definido.");
 
@@ -477,7 +410,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     confirmar_agendamento: instanceData.confirmar_agendamento, // Use value from form data
                     id_server_evolution: null,
                     id_funcionario: instanceData.id_funcionario, // Use value from form data
-                    default_lead_stage_id: instanceData.default_lead_stage_id, // NEW: Add to payload
                 })
             });
 
@@ -525,7 +457,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 historico: false,
                 confirmar_agendamento: false,
                 id_funcionario: null,
-                default_lead_stage_id: null, // NEW: Reset
             });
             queryClient.invalidateQueries({ queryKey: ['whatsappInstances', clinicId] });
 
@@ -541,7 +472,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                      confirmar_agendamento: addInstanceFormData.confirmar_agendamento, // Use value from form data
                      id_server_evolution: null,
                      id_funcionario: addInstanceFormData.id_funcionario, // Use value from form data
-                     default_lead_stage_id: addInstanceFormData.default_lead_stage_id, // NEW: Use value from form data
                  };
                  setCurrentInstanceForQr(newInstanceInfo);
                  setQrCodeUrl(data.qrCodeUrl);
@@ -571,7 +501,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
             historico: boolean;
             confirmar_agendamento: boolean;
             id_funcionario: number | null;
-            default_lead_stage_id: number | null; // NEW: Add to payload
         }) => { 
             if (!clinicId) throw new Error("ID da clínica não definido.");
             
@@ -585,7 +514,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                 historico: updateData.historico,
                 confirmar_agendamento: updateData.confirmar_agendamento,
                 id_funcionario: updateData.id_funcionario,
-                default_lead_stage_id: updateData.default_lead_stage_id, // NEW: Add to payload
             };
 
             console.log(`[WhatsappInstancesPage] Attempting to update instance ${updateData.instanceId} via webhook with payload:`, payload);
@@ -734,8 +662,8 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
          );
     }
 
-    const overallLoading = isLoadingInstances || isLoadingEmployees || isLoadingFunnels || isLoadingAllStages; // NEW: Include allStages loading
-    const overallError = instancesError || employeesError || funnelsError || allStagesError; // NEW: Include allStages errors
+    const overallLoading = isLoadingInstances || isLoadingEmployees;
+    const overallError = instancesError || employeesError;
 
     return (
         <div className="whatsapp-instances-container flex flex-col h-full p-6 bg-gray-100">
@@ -945,7 +873,7 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         setAddInstanceAlert(null);
                         setIsCreatingInstance(true); // Set local loading state immediately
 
-                        const { nome_exibição, telefone, tipo, trackeamento, default_lead_stage_id } = addInstanceFormData;
+                        const { nome_exibição, telefone, tipo } = addInstanceFormData;
 
                         if (!nome_exibição || !telefone || !tipo) {
                             setAddInstanceAlert({ message: 'Por favor, preencha todos os campos obrigatórios.', type: 'error' });
@@ -966,12 +894,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                         if (isDuplicateName) {
                             setAddInstanceAlert({ message: `Já existe uma instância com o nome "${nome_exibição}". Por favor, use um nome diferente.`, type: 'error' });
                             setIsCreatingInstance(false); // Reset loading state
-                            return;
-                        }
-
-                        if (trackeamento && default_lead_stage_id === null) { // NEW: Validate default_lead_stage_id if trackeamento is true
-                            setAddInstanceAlert({ message: 'Se "Recebe Leads" está ativo, a etapa padrão para leads é obrigatória.', type: 'error' });
-                            setIsCreatingInstance(false);
                             return;
                         }
                         
@@ -1074,44 +996,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                             </div>
                             <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância terá um monitoramento e trackeamento de leads. Ative somente se essa instância é usada para prospecção e venda para leads.</p>
 
-                            {/* NEW: Default Lead Stage Select, conditional on trackeamento */}
-                            {addInstanceFormData.trackeamento && (
-                                <div className="form-group">
-                                    <Label htmlFor="add-default-lead-stage">Etapa Padrão para Novos Leads *</Label>
-                                    {isLoadingFunnels || isLoadingAllStages ? (
-                                        <div className="flex items-center gap-2 text-gray-500">
-                                            <Loader2 className="h-4 w-4 animate-spin" /> Carregando funis e etapas...
-                                        </div>
-                                    ) : funnelsError || allStagesError ? (
-                                        <p className="text-sm text-red-600">Erro ao carregar funis/etapas.</p>
-                                    ) : (
-                                        <Select
-                                            value={addInstanceFormData.default_lead_stage_id?.toString() || ''}
-                                            onValueChange={(value) => setAddInstanceFormData({ ...addInstanceFormData, default_lead_stage_id: value === 'none' ? null : parseInt(value, 10) })}
-                                            disabled={isCreatingInstance || (allFunnels?.length ?? 0) === 0}
-                                        >
-                                            <SelectTrigger id="add-default-lead-stage">
-                                                <SelectValue placeholder="Selecione a etapa padrão" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">-- Nenhuma --</SelectItem>
-                                                {allFunnels?.map(funnel => (
-                                                    <React.Fragment key={funnel.id}>
-                                                        <p className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 sticky top-0 z-10">{funnel.nome_funil}</p>
-                                                        {allStagesFromDb?.filter(stage => stage.id_funil === funnel.id).map(stage => (
-                                                            <SelectItem key={stage.id} value={stage.id.toString()}>
-                                                                {stage.nome_etapa}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </React.Fragment>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                    <p className="text-xs text-gray-500 mt-1">Novos leads recebidos por esta instância serão automaticamente cadastrados nesta etapa.</p>
-                                </div>
-                            )}
-
                             {/* Ocultando o campo Salvar Histórico de Conversas */}
                             {false && (
                                 <div className="flex items-center space-x-2 mt-2">
@@ -1169,9 +1053,6 @@ const WhatsappInstancesPage: React.FC<WhatsappInstancesPageProps> = ({ clinicDat
                     clinicId={clinicId}
                     employeesList={employeesList || []}
                     linkedEmployeeIds={linkedEmployeeIds}
-                    allFunnels={allFunnels || []} 
-                    allStages={allStagesFromDb || []} // Pass all stages from DB
-                    stagesMap={stagesMap} 
                     onSave={handleSaveInstanceDetails}
                     isSaving={updateInstanceMutation.isLoading}
                 />

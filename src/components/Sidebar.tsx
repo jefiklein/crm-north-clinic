@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom'; // Using Link for navigation
 import {
-  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign,
-  Headset, UserCog, Bot // NEW: Import new icons
+  Users, CalendarCheck, LineChart, MessageSquare, Circle, Loader2, TriangleAlert, Settings, FileText, DollarSign, Briefcase, ClipboardList, Bell, BarChart2, CreditCard, Package, ShoppingCart, TagIcon, Truck, MapPin, Phone, Mail, Globe, Home, Info, HelpCircle, Book, Folder, Database, Server, Cloud, Code, Terminal, Layers, Grid, List, Table2, Calendar, Clock, Map, Compass, Target, AwardIcon as AwardIconLucide, Gift, HeartIcon, StarIcon, SunIcon, MoonIcon, CloudRain, Zap, CoffeeIcon, Feather, Anchor, AtSign, BatteryCharging, BellRing, Bookmark, Box, Camera, Car, Cast, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Chrome, CircleDollarSign, CircleHelp, CircleMinus, CirclePlus, Clock4, CloudDrizzle, CloudFog, CloudHail, CloudLightning, CloudSnow, CloudSun, Code2, Codesandbox, Command, Download, Dribbble, Droplet, Edit, ExternalLink, Eye, Facebook, Figma, File, FileArchive, FileAudio, FileCode, FileHeart, FileImage, FileJson, FileKey, FileMinus, FileMusic, FileOutput, FilePlus, FileQuestion, FileSearch, FileSpreadsheet, FileStack, FileSymlink, FileTerminal, FileType, FileUp, FileVideo, FileWarning, FileX, Filter, Flag, FolderArchive, FolderDot, FolderGit2, FolderGit, FolderOpen, FolderRoot, FolderSearch, FolderSymlink, FolderTree, Frown, Gamepad2, Gauge, Gem, Github, Gitlab, GlobeIcon, GraduationCap, Handshake, HardDrive, Hash, Headphones, Image, Inbox, InfoIcon, Instagram, Key, Keyboard, Lamp, Laptop, LifeBuoy, Lightbulb, Link2, Linkedin, ListIcon, Loader, Lock, LogIn, LogOut, MailIcon, MapIcon, Maximize, Megaphone, Menu, MessageCircle, MessageSquareIcon, Mic, Minimize, Minus, Monitor, MoreHorizontal, MoreVertical, Mountain, Mouse, Music, Navigation, Newspaper, Octagon, Package2, PackageIcon, Paperclip, Pause, PenTool, Percent, PhoneCall, PhoneForwarded, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, PhoneOutgoingIcon, PictureInPicture, PieChart, Pin, Play, Plus, Pocket, Power, Printer, Puzzle, QrCode, Radio, Receipt, RectangleHorizontal, RectangleVertical, Redo, RefreshCcw, Repeat, Reply, Rocket, Rss, Save, Scale, Scan, Scissors, Search, Send, ServerIcon, SettingsIcon, Share, Shield, ShoppingBag, ShoppingCartIcon, Shuffle, SidebarClose, SidebarOpen, Sigma, Siren, SkipBack, SkipForward, Slack, Slash, SlidersHorizontal, SlidersVertical, Smile, Snowflake, SortAsc, SortDesc, Speaker, Square, Sticker, StopCircle, Store, Sunrise, Sunset, TableIcon, Thermometer, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, ToggleRight, Tornado, Train, Trash, Trello, TrendingDown, TrendingUp, Triangle, TriangleAlertIcon, TruckIcon, Tv, Twitch, Twitter, Type, Umbrella, Underline, Undo, Unlock, Upload, UploadCloud, User, UserCheck, UserMinus, UserPlus, UserX, UsersIcon, Utensils, Verified, Video, VideoOff, View, Voicemail, Volume, Volume1, Volume2, VolumeX, Wallet, Wand2, Watch, Waves, Webcam, Wifi, WifiOff, Wind, X, Youtube, ZapIcon, ZoomIn, ZoomOut, MailOpen, Smartphone, MessagesSquare, BadgeDollarSign
 } from 'lucide-react'; // Using Lucide React for icons
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { useQuery } from '@tanstack/react-query'; // Import useQuery
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"; // Import Collapsible
 
 // Define the structure for clinic data (should match the one in App.tsx)
 interface ClinicData {
@@ -29,8 +27,6 @@ interface MenuItem {
   permissao_necessaria: number; // Required permission level
   ordem?: number; // Order for sorting
   ativo: boolean; // Assuming there's an 'ativo' column
-  parent_id: number | null; // NEW: Parent ID for grouping
-  is_group: boolean; // NEW: Indicates if this item is a group header
 }
 
 // Define the structure for user profile data
@@ -337,10 +333,7 @@ const iconMap: { [key: string]: React.ElementType } = {
   'mail-open': MailOpen,
   'smartphone': Smartphone,
   'messages-square': MessagesSquare,
-  'badge-dollar-sign': BadgeDollarSign,
-  'headset': Headset, // NEW: Headset icon
-  'user-cog': UserCog, // NEW: UserCog icon
-  'bot': Bot // NEW: Bot icon
+  'badge-dollar-sign': BadgeDollarSign
 }
 
 
@@ -370,7 +363,6 @@ export const Sidebar: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const location = useLocation(); // Hook to get current location
   const { session } = useAuth(); // Get session from AuthContext
-  const [expandedGroups, setExpandedGroups] = useState<Set<number | string>>(new Set()); // State to manage expanded groups
 
   // Retrieve clinicData from localStorage directly within the component for now
   // A better approach would be using React Context or a state management library
@@ -430,7 +422,7 @@ export const Sidebar: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('north_clinic_crm_menu')
-          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo, parent_id, is_group') // Select the new icon_key, parent_id, is_group columns
+          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo') // Select the new icon_key column
           .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
           .order('ordem', { ascending: true }); // Order by 'ordem'
 
@@ -492,8 +484,9 @@ export const Sidebar: React.FC = () => {
 
 
   // Determine active menu item based on current route
-  const getActive = (item: MenuItem, allItems: MenuItem[]) => {
+  const getActive = (item: MenuItem) => {
       // Determine the expected internal path for this item
+      // Special handling for 'register-user'
       let itemPath: string;
       if (item.icon_key === 'user-plus') {
           itemPath = '/dashboard/register-user';
@@ -504,92 +497,13 @@ export const Sidebar: React.FC = () => {
       }
 
       // Check if the current location pathname matches the item's path
-      const isDirectlyActive = location.pathname === itemPath || (itemPath === '/dashboard' && location.pathname === '/dashboard/');
-
-      // If it's a group, check if any of its children are active
-      if (item.is_group) {
-          const children = allItems.filter(child => child.parent_id === item.id);
-          const isChildActive = children.some(child => getActive(child, allItems)); // Recursively check children
-          return isDirectlyActive || isChildActive;
+      // Use startsWith for /dashboard to match /dashboard and /dashboard/
+      if (itemPath === '/dashboard') {
+          return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
       }
 
-      return isDirectlyActive;
-  };
-
-  // Toggle group expansion
-  const toggleGroup = (groupId: number | string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
-    });
-  };
-
-  // Filter top-level items (groups and non-grouped items)
-  const topLevelItems = menuItems.filter(item => item.parent_id === null);
-
-  // Function to render a single menu item (or group header)
-  const renderMenuItem = (item: MenuItem, isChild: boolean = false) => {
-    const IconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
-    const isActive = getActive(item, menuItems);
-
-    let finalTo: string;
-    if (item.icon_key === 'user-plus') {
-        finalTo = '/dashboard/register-user';
-    } else if (String(item.id) === '1') {
-        finalTo = '/dashboard';
-    } else {
-        finalTo = `/dashboard/${item.id}`;
-    }
-
-    const baseClasses = `flex items-center py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200`;
-    const activeClasses = `text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]`;
-    const paddingClasses = isChild ? 'pl-8' : 'pl-4'; // Indent children
-
-    if (item.is_group) {
-      const isGroupExpanded = expandedGroups.has(item.id);
-      return (
-        <Collapsible
-          key={item.id}
-          open={isGroupExpanded}
-          onOpenChange={() => toggleGroup(item.id)}
-        >
-          <CollapsibleTrigger asChild>
-            <div className={`${baseClasses} ${paddingClasses} ${isActive ? activeClasses : ''} cursor-pointer pr-4`}>
-              {React.createElement(IconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })}
-              <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0 flex-grow text-left">{item.nome}</span>
-              {isGroupExpanded ? (
-                <ChevronUp className="h-4 w-4 ml-auto transition-transform duration-200 group-hover:opacity-100 opacity-0" />
-              ) : (
-                <ChevronDown className="h-4 w-4 ml-auto transition-transform duration-200 group-hover:opacity-100 opacity-0" />
-              )}
-            </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            {menuItems
-              .filter(child => child.parent_id === item.id)
-              .sort((a, b) => (a.ordem || Infinity) - (b.ordem || Infinity))
-              .map(child => renderMenuItem(child, true))}
-          </CollapsibleContent>
-        </Collapsible>
-      );
-    } else {
-      // Regular menu item (not a group)
-      return (
-        <Link
-          key={item.id}
-          to={finalTo}
-          className={`${baseClasses} ${paddingClasses} ${isActive ? activeClasses : ''}`}
-        >
-          {React.createElement(IconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })}
-          <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span>
-        </Link>
-      );
-    }
+      // For other items, check for an exact match
+      return location.pathname === itemPath;
   };
 
 
@@ -627,7 +541,35 @@ export const Sidebar: React.FC = () => {
              </div>
         )}
 
-        {topLevelItems.map(item => renderMenuItem(item))}
+        {menuItems.map(item => {
+            // Use icon_key first, fallback to parsing icon_class if icon_key is missing
+            const iconComponent = getLucideIcon(item.icon_key || (item.icon_class ? item.icon_class.match(/fa-([^ ]+)/)?.[1] : undefined));
+
+            // Determine the target path for react-router-dom Link
+            // Special handling for 'register-user'
+            let finalTo: string;
+            if (item.icon_key === 'user-plus') {
+                finalTo = '/dashboard/register-user';
+            } else if (String(item.id) === '1') {
+                finalTo = '/dashboard';
+            } else {
+                finalTo = `/dashboard/${item.id}`;
+            }
+
+
+            // Always render as a react-router-dom Link for internal navigation
+            return (
+                <Link
+                    key={item.id}
+                    to={finalTo} // Use the determined internal path
+                    // Updated colors for internal links and active state
+                    className={`flex items-center px-4 py-3 text-gray-400 hover:text-gray-50 hover:bg-gray-800 transition-colors duration-200 ${getActive(item) ? 'text-blue-400 bg-gray-700 border-l-4 border-blue-400 pl-[calc(1rem-4px)]' : ''}`}
+                >
+                    {React.createElement(iconComponent, { className: "h-5 w-5 mr-3 flex-shrink-0" })} {/* Render the icon component */}
+                    <span className="menu-text text-sm transition-opacity duration-300 group-hover:opacity-100 opacity-0">{item.nome}</span> {/* Use item.nome for label */}
+                </Link>
+            );
+        })}
       </nav>
 
       {/* Fixed bottom section for user profile and change password */}
