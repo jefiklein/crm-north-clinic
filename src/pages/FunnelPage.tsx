@@ -65,6 +65,7 @@ interface StageAction {
     timing_type: string; // 'immediate' or 'delay'
     delay_value: number | null;
     delay_unit: string | null; // 'minutes', 'hours', 'days'
+    sending_preference: string; // NEW: 'all_linked' or 'main_instance'
     
     // Joined data from other tables (optional, for display)
     north_clinic_mensagens_sequencias?: {
@@ -521,6 +522,11 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         navigate(`/dashboard/2?remoteJid=${encodeURIComponent(remoteJid)}`);
     };
 
+    // NEW: Function to navigate to LeadDetailPage
+    const handleViewLeadDetails = (leadId: number) => {
+        navigate(`/dashboard/leads/${leadId}`);
+    };
+
     if (isInvalidFunnel) {
         console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
             clinicData: clinicData,
@@ -609,7 +615,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                         </div>
                     ) : totalItems === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 bg-gray-50 rounded-md">
-                            <Info className="h-12 w-12 mb-4" />
+                            <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
                             <span className="text-lg text-center">Nenhum lead encontrado neste funil.</span>
                         </div>
                     ) : (
@@ -680,8 +686,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                                     className="p-0 h-auto text-primary text-xs"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation(); 
-                                                                        console.log("Detalhes do Lead:", lead); 
-                                                                        alert("Detalhes do Lead logados no console do navegador."); 
+                                                                        handleViewLeadDetails(lead.id); // Navigate to LeadDetailPage
                                                                     }}
                                                                 >
                                                                     Detalhes
@@ -772,8 +777,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                         className="ml-4 flex-shrink-0"
                                                         onClick={(e) => {
                                                             e.stopPropagation(); 
-                                                            console.log("Detalhes do Lead:", lead); 
-                                                            alert("Detalhes do Lead logados no console do navegador."); 
+                                                            handleViewLeadDetails(lead.id); // Navigate to LeadDetailPage
                                                         }}
                                                     >
                                                         Detalhes
