@@ -14,12 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Ensure AvatarImage is imported
-import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon, ArrowLeft } from 'lucide-react';
+import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon, ArrowLeft, Clock, MessageSquare, TagIcon } from 'lucide-react'; // Added Clock, MessageSquare, TagIcon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { formatPhone } from '@/lib/utils';
 import LeadTagManager from '@/components/LeadTagManager'; // Import the new component
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
+import { format } from 'date-fns'; // Import format for date formatting
+import { ptBR } from 'date-fns/locale'; // Import locale for date formatting
 
 interface ClinicData {
   code: string;
@@ -58,6 +61,26 @@ interface FunnelDetails {
 interface Tag {
   id: number;
   name: string;
+}
+
+// NEW: Interface for Lead Interactions
+interface LeadInteraction {
+  id: number;
+  created_at: string; // ISO timestamp
+  lead_id: number;
+  clinic_id: number;
+  interaction_type: string;
+  ad_name: string | null;
+  source_url: string | null;
+  instance_id: number | null;
+  metadata: any | null; // JSONB type
+}
+
+// NEW: Interface for Instance Info (to resolve instance_id to name)
+interface InstanceInfo {
+  id: number;
+  nome_exibição: string;
+  nome_instancia_evolution: string | null;
 }
 
 interface LeadDetailPageProps {
@@ -166,16 +189,16 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
 
   // NEW: Fetch tags currently linked to this lead
   const { data: currentLeadTags, isLoading: isLoadingLeadTags, error: leadTagsError, refetch: refetchLeadTags } = useQuery<Tag[]>({
-    queryKey: ['currentLeadTags', leadId, clinicId],
+    queryKey: ['currentLeadTags', selectedLeadDetails?.id, clinicId], // Use selectedLeadDetails.id
     queryFn: async () => {
-      console.log(`[LeadDetailPage] Fetching currentLeadTags for lead ${leadId} and clinic ${clinicId}`);
-      if (!leadId || !clinicId) return [];
+      console.log(`[LeadDetailPage] Fetching currentLeadTags for lead ${selectedLeadDetails?.id} and clinic ${clinicId}`);
+      if (!selectedLeadDetails?.id || !clinicId) return [];
       // Set the RLS context for the clinic_code (still needed for other RLS policies)
       await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
       const { data, error } = await supabase
         .from('north_clinic_lead_tags')
         .select('tag_id, north_clinic_tags(id, name, id_clinica)') // Include id_clinica in the join
-        .eq('lead_id', leadId)
+        .eq('lead_id', selectedLeadDetails.id) // Use selectedLeadDetails.id
         .eq('north_clinic_tags.id_clinica', clinicId); // Explicitly filter the joined table by clinicId
       
       console.log(`[LeadDetailPage] Raw Supabase response for currentLeadTags:`, data, error);
@@ -186,10 +209,54 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       console.log(`[LeadDetailPage] Processed currentLeadTags:`, fetchedTags);
       return fetchedTags;
     },
-    enabled: !!leadId && !!clinicId,
+    enabled: !!selectedLeadDetails?.id && !!clinicId,
     staleTime: 0, // Always refetch lead tags
     refetchOnWindowFocus: false,
   });
+
+  // NEW: Fetch Lead Interactions
+  const { data: leadInteractions, isLoading: isLoadingInteractions, error: fetchInteractionsError } = useQuery<LeadInteraction[]>({
+    queryKey: ['leadInteractions', leadId, clinicId],
+    queryFn: async () => {
+      if (!leadId || !clinicId) return [];
+      const { data, error } = await supabase
+        .from('lead_interactions')
+        .select('*')
+        .eq('lead_id', leadId)
+        .eq('clinic_id', clinicId)
+        .order('created_at', { ascending: false }); // Order by most recent first
+      if (error) throw new Error(`Erro ao buscar interações: ${error.message}`);
+      return data || [];
+    },
+    enabled: !!leadId && !!clinicId,
+    staleTime: 0, // Always refetch interactions
+    refetchOnWindowFocus: true,
+  });
+
+  // NEW: Fetch Instances (to resolve instance_id in interactions)
+  const { data: instancesList, isLoading: isLoadingInstances, error: instancesError } = useQuery<InstanceInfo[]>({
+    queryKey: ['instancesListLeadDetailPage', clinicId],
+    queryFn: async () => {
+      if (!clinicId) return [];
+      const { data, error } = await supabase
+        .from('north_clinic_config_instancias')
+        .select('id, nome_exibição, nome_instancia_evolution')
+        .eq('id_clinica', clinicId);
+      if (error) throw new Error(`Erro ao buscar instâncias: ${error.message}`);
+      return data || [];
+    },
+    enabled: !!clinicId && !!leadInteractions && leadInteractions.some(i => i.instance_id !== null), // Only fetch if there are interactions with instance_id
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Map instances for quick lookup
+  const instanceMap = useMemo(() => {
+    const map = new Map<number, InstanceInfo>();
+    instancesList?.forEach(instance => map.set(instance.id, instance));
+    return map;
+  }, [instancesList]);
+
 
   // Map stages and funnels for quick lookup
   const stageMap = useMemo(() => {
@@ -465,8 +532,8 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     navigate(-1); // Go back to the previous page in history
   };
 
-  const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels || isLoadingAllTags || isLoadingLeadTags;
-  const fetchError = fetchLeadError || stagesError || funnelsError || allTagsError || leadTagsError;
+  const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels || isLoadingAllTags || isLoadingLeadTags || isLoadingInteractions || isLoadingInstances; // Added new loading states
+  const fetchError = fetchLeadError || stagesError || funnelsError || allTagsError || leadTagsError || fetchInteractionsError || instancesError; // Added new error states
 
   const selectedStageFunnelName = useMemo(() => {
     if (formData.id_etapa === null || formData.id_etapa === undefined) return 'N/D';
@@ -506,17 +573,17 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
         </Button>
       </div>
 
-      <Card className="w-full">
+      <Card className="w-full mb-6"> {/* Added mb-6 for spacing */}
         <CardHeader>
           <CardTitle>Informações do Lead</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {isLoadingData ? (
+          {isLoadingData && !leadDetails ? ( // Only show full loading if no data yet
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
               <span className="text-lg text-primary">Carregando detalhes do lead...</span>
             </div>
-          ) : fetchError ? (
+          ) : fetchError && !leadDetails ? ( // Only show full error if no data yet
             <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
               <TriangleAlert className="h-5 w-5" />
               <p className="text-sm">Erro ao carregar lead: {fetchError.message}</p>
@@ -691,6 +758,86 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
               )}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* NEW: Lead Interactions History Section */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-6 w-6" /> Histórico de Interações
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingInteractions || isLoadingInstances ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <span className="text-lg text-primary">Carregando histórico...</span>
+            </div>
+          ) : fetchInteractionsError ? (
+            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-md flex items-center gap-2">
+              <TriangleAlert className="h-5 w-5" />
+              <p className="text-sm">Erro ao carregar histórico: {fetchInteractionsError.message}</p>
+            </div>
+          ) : (leadInteractions?.length ?? 0) === 0 ? (
+            <div className="p-4 bg-gray-50 text-gray-600 rounded-md text-center">
+              <Info className="h-10 w-10 mx-auto mb-3 text-gray-400" />
+              <p className="text-lg">Nenhuma interação registrada para este lead.</p>
+              <p className="text-sm mt-1">As interações serão exibidas aqui à medida que o lead interagir com anúncios, mensagens, etc.</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px] pr-4"> {/* Fixed height for scrollable area */}
+              <div className="space-y-4">
+                {leadInteractions?.map(interaction => {
+                  const interactionDate = format(new Date(interaction.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR });
+                  const instanceName = interaction.instance_id ? instanceMap.get(interaction.instance_id)?.nome_exibição || `ID ${interaction.instance_id}` : 'N/D';
+
+                  return (
+                    <div key={interaction.id} className="flex items-start gap-3 p-3 border border-gray-200 rounded-md bg-white shadow-sm">
+                      <div className="flex-shrink-0 mt-1">
+                        {interaction.interaction_type === 'ad_click' && <TagIcon className="h-5 w-5 text-blue-500" />}
+                        {interaction.interaction_type === 'conversation_start' && <MessageSquare className="h-5 w-5 text-green-500" />}
+                        {interaction.interaction_type === 'link_click' && <LinkIcon className="h-5 w-5 text-purple-500" />}
+                        {interaction.interaction_type === 'manual_creation' && <User className="h-5 w-5 text-gray-500" />}
+                        {/* Add more icons for other interaction types as needed */}
+                      </div>
+                      <div className="flex-grow">
+                        <p className="font-semibold text-gray-800 text-base capitalize">
+                          {interaction.interaction_type.replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">Data:</span> {interactionDate}
+                        </p>
+                        {interaction.ad_name && (
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Anúncio:</span> {interaction.ad_name}
+                          </p>
+                        )}
+                        {interaction.source_url && (
+                          <p className="text-sm text-gray-600 flex items-center gap-1">
+                            <span className="font-medium">URL:</span>
+                            <a href={interaction.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline truncate max-w-[calc(100%-40px)]">
+                              {interaction.source_url}
+                            </a>
+                          </p>
+                        )}
+                        {interaction.instance_id && (
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Instância:</span> {instanceName}
+                          </p>
+                        )}
+                        {interaction.metadata && Object.keys(interaction.metadata).length > 0 && (
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Detalhes:</span> {JSON.stringify(interaction.metadata)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
