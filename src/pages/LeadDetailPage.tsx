@@ -168,6 +168,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
   const { data: currentLeadTags, isLoading: isLoadingLeadTags, error: leadTagsError, refetch: refetchLeadTags } = useQuery<Tag[]>({
     queryKey: ['currentLeadTags', leadId, clinicId],
     queryFn: async () => {
+      console.log(`[LeadDetailPage] Fetching currentLeadTags for lead ${leadId} and clinic ${clinicId}`);
       if (!leadId || !clinicId) return [];
       // Set the RLS context for the clinic_code
       await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
@@ -177,7 +178,9 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
         .eq('lead_id', leadId);
       if (error) throw new Error(`Erro ao buscar tags do lead: ${error.message}`);
       // Flatten the nested data
-      return data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null) || [];
+      const fetchedTags = data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null) || [];
+      console.log(`[LeadDetailPage] Fetched currentLeadTags:`, fetchedTags);
+      return fetchedTags;
     },
     enabled: !!leadId && !!clinicId,
     staleTime: 0, // Always refetch lead tags
@@ -402,6 +405,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      console.log(`[LeadDetailPage] Calling LINK_LEAD_TAG_WEBHOOK_URL with payload:`, payload);
       const response = await fetch(LINK_LEAD_TAG_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -413,9 +417,12 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       }
       return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', leadId, clinicId] });
+    onSuccess: (_, variables) => {
       showSuccess("Tag vinculada com sucesso!");
+      console.log(`[LeadDetailPage] Invalidating currentLeadTags query for lead ${variables.leadId} and clinic ${clinicId}`);
+      setTimeout(() => { // Add a small delay
+        queryClient.invalidateQueries({ queryKey: ['currentLeadTags', variables.leadId, clinicId] });
+      }, 500);
     },
     onError: (err: Error) => {
       showError(`Erro ao vincular tag: ${err.message}`);
@@ -426,6 +433,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
       if (!clinicId) throw new Error("ID da clínica não disponível.");
       const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      console.log(`[LeadDetailPage] Calling UNLINK_LEAD_TAG_WEBHOOK_URL with payload:`, payload);
       const response = await fetch(UNLINK_LEAD_TAG_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -437,9 +445,12 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       }
       return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', leadId, clinicId] });
+    onSuccess: (_, variables) => {
       showSuccess("Tag desvinculada com sucesso!");
+      console.log(`[LeadDetailPage] Invalidating currentLeadTags query for lead ${variables.leadId} and clinic ${clinicId}`);
+      setTimeout(() => { // Add a small delay
+        queryClient.invalidateQueries({ queryKey: ['currentLeadTags', variables.leadId, clinicId] });
+      }, 500);
     },
     onError: (err: Error) => {
       showError(`Erro ao desvincular tag: ${err.message}`);
