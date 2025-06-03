@@ -88,15 +88,15 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
         {currentLeadTags.map((tag) => (
           <Badge
             key={tag.id}
-            // Updated styling for the badge to be neutral (light gray background, dark text, border)
-            className="flex items-center gap-1 pr-1 text-sm bg-gray-100 text-gray-800 border border-gray-300 rounded-full"
+            // Updated styling for the badge to match the desired purple/white look
+            className="flex items-center gap-1 pr-1 text-sm bg-primary text-primary-foreground border border-primary rounded-full"
           >
             {tag.name}
             <Button
               variant="ghost"
               size="icon"
-              // Updated styling for the remove button inside the badge (darker text, hover effect)
-              className="h-4 w-4 p-0 text-gray-600 hover:bg-gray-200 rounded-full"
+              // Updated styling for the remove button inside the badge
+              className="h-4 w-4 p-0 text-primary-foreground hover:bg-primary/80 rounded-full"
               onClick={() => onTagRemove(leadId, tag.id)}
               disabled={isSavingTags}
             >
