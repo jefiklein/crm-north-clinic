@@ -74,6 +74,7 @@ interface LeadInteraction {
   source_url: string | null;
   instance_id: number | null;
   metadata: any | null; // JSONB type
+  id_whatsapp: string | null; // NEW: Add id_whatsapp
 }
 
 // NEW: Interface for Instance Info (to resolve instance_id to name)
@@ -93,8 +94,8 @@ const UPDATE_LEAD_DETAILS_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/w
 
 // NEW: Webhook URLs for tag management
 const CREATE_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/86305271-8e6f-416a-9972-feb34aa63ee7"; // Updated
-const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
-const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
+const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
+const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
 
 
 const MAX_IMAGE_SIZE_MB = 5;
@@ -221,7 +222,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       if (!leadId || !clinicId) return [];
       const { data, error } = await supabase
         .from('lead_interactions')
-        .select('*')
+        .select('*, id_whatsapp') // NEW: Select id_whatsapp
         .eq('lead_id', leadId)
         .eq('clinic_id', clinicId)
         .order('created_at', { ascending: false }); // Order by most recent first
@@ -824,6 +825,11 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
                         {interaction.instance_id && (
                           <p className="text-sm text-gray-600">
                             <span className="font-medium">Instância:</span> {instanceName}
+                          </p>
+                        )}
+                        {interaction.id_whatsapp && ( // NEW: Display id_whatsapp
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">ID WhatsApp:</span> {interaction.id_whatsapp}
                           </p>
                         )}
                         {interaction.metadata && Object.keys(interaction.metadata).length > 0 && (
