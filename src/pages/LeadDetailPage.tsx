@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { formatPhone } from '@/lib/utils';
+import LeadTagManager from '@/components/LeadTagManager'; // Import the new component
 
 interface ClinicData {
   code: string;
@@ -54,6 +55,11 @@ interface FunnelDetails {
   nome_funil: string;
 }
 
+interface Tag {
+  id: number;
+  name: string;
+}
+
 interface LeadDetailPageProps {
   clinicData: ClinicData | null;
 }
@@ -61,6 +67,12 @@ interface LeadDetailPageProps {
 const MEDIA_UPLOAD_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
 const MEDIA_RETRIEVE_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
 const UPDATE_LEAD_DETAILS_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/update-lead-details";
+
+// NEW: Webhook URLs for tag management
+const CREATE_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/create-tag"; // Placeholder
+const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/link-lead-tag"; // Placeholder
+const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/unlink-lead-tag"; // Placeholder
+
 
 const MAX_IMAGE_SIZE_MB = 5;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -129,6 +141,46 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     },
     enabled: true, // Always enabled
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // NEW: Fetch all available tags for the clinic
+  const { data: allAvailableTags, isLoading: isLoadingAllTags, error: allTagsError, refetch: refetchAllTags } = useQuery<Tag[]>({
+    queryKey: ['allAvailableTags', clinicId],
+    queryFn: async () => {
+      if (!clinicId) return [];
+      // Set the RLS context for the clinic_code
+      await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
+      const { data, error } = await supabase
+        .from('north_clinic_tags')
+        .select('id, name')
+        .eq('id_clinica', clinicId)
+        .order('name', { ascending: true });
+      if (error) throw new Error(`Erro ao buscar tags disponíveis: ${error.message}`);
+      return data || [];
+    },
+    enabled: !!clinicId,
+    staleTime: 5 * 60 * 1000, // Cache tags for 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // NEW: Fetch tags currently linked to this lead
+  const { data: currentLeadTags, isLoading: isLoadingLeadTags, error: leadTagsError, refetch: refetchLeadTags } = useQuery<Tag[]>({
+    queryKey: ['currentLeadTags', leadId, clinicId],
+    queryFn: async () => {
+      if (!leadId || !clinicId) return [];
+      // Set the RLS context for the clinic_code
+      await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
+      const { data, error } = await supabase
+        .from('north_clinic_lead_tags')
+        .select('tag_id, north_clinic_tags(id, name)')
+        .eq('lead_id', leadId);
+      if (error) throw new Error(`Erro ao buscar tags do lead: ${error.message}`);
+      // Flatten the nested data
+      return data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null) || [];
+    },
+    enabled: !!leadId && !!clinicId,
+    staleTime: 0, // Always refetch lead tags
     refetchOnWindowFocus: false,
   });
 
@@ -319,12 +371,87 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     }
   };
 
+  // NEW: Mutations for tag management
+  const createTagMutation = useMutation({
+    mutationFn: async (tagName: string) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { name: tagName, id_clinica: clinicId };
+      const response = await fetch(CREATE_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao criar tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      const data = await response.json();
+      if (!data?.id) throw new Error("ID da nova tag não retornado.");
+      return { id: data.id, name: tagName } as Tag;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allAvailableTags', clinicId] });
+      showSuccess("Tag criada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao criar tag: ${err.message}`);
+    }
+  });
+
+  const linkTagMutation = useMutation({
+    mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      const response = await fetch(LINK_LEAD_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao vincular tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', leadId, clinicId] });
+      showSuccess("Tag vinculada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao vincular tag: ${err.message}`);
+    }
+  });
+
+  const unlinkTagMutation = useMutation({
+    mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      const response = await fetch(UNLINK_LEAD_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao desvincular tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', leadId, clinicId] });
+      showSuccess("Tag desvinculada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao desvincular tag: ${err.message}`);
+    }
+  });
+
   const handleBack = () => {
     navigate(-1); // Go back to the previous page in history
   };
 
-  const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels;
-  const fetchError = fetchLeadError || stagesError || funnelsError;
+  const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels || isLoadingAllTags || isLoadingLeadTags;
+  const fetchError = fetchLeadError || stagesError || funnelsError || allTagsError || leadTagsError;
 
   const selectedStageFunnelName = useMemo(() => {
     if (formData.id_etapa === null || formData.id_etapa === undefined) return 'N/D';
@@ -514,6 +641,21 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
                   </div>
                 )}
               </div>
+
+              {/* NEW: Lead Tag Manager */}
+              {leadId && clinicId && (
+                <LeadTagManager
+                  clinicId={clinicId}
+                  leadId={leadId}
+                  availableTags={allAvailableTags || []}
+                  currentLeadTags={currentLeadTags || []}
+                  isLoadingTags={isLoadingAllTags || isLoadingLeadTags}
+                  isSavingTags={linkTagMutation.isLoading || unlinkTagMutation.isLoading || createTagMutation.isLoading}
+                  onTagAdd={(leadId, tagId) => linkTagMutation.mutate({ leadId, tagId })}
+                  onTagRemove={(leadId, tagId) => unlinkTagMutation.mutate({ leadId, tagId })}
+                  onNewTagCreate={createTagMutation.mutateAsync}
+                />
+              )}
             </div>
           )}
           <div className="flex justify-end gap-4 pt-4 border-t">
