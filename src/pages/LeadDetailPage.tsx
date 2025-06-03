@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Ensure AvatarImage is imported
-import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon, ArrowLeft, Clock, MessageSquare, TagIcon } from 'lucide-react'; // Added Clock, MessageSquare, TagIcon
+import { Loader2, TriangleAlert, User, Camera, Trash2, Link as LinkIcon, ArrowLeft, Clock, MessageSquare, TagIcon, InfoIcon } from 'lucide-react'; // Added Clock, MessageSquare, TagIcon, InfoIcon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -781,7 +781,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
             </div>
           ) : (leadInteractions?.length ?? 0) === 0 ? (
             <div className="p-4 bg-gray-50 text-gray-600 rounded-md text-center">
-              <Info className="h-10 w-10 mx-auto mb-3 text-gray-400" />
+              <InfoIcon className="h-10 w-10 mx-auto mb-3 text-gray-400" />
               <p className="text-lg">Nenhuma interação registrada para este lead.</p>
               <p className="text-sm mt-1">As interações serão exibidas aqui à medida que o lead interagir com anúncios, mensagens, etc.</p>
             </div>
