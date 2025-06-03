@@ -140,55 +140,57 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
           </div>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command>
-            {/* CommandInput is now rendered inside PopoverTrigger */}
-            <CommandList>
-              <CommandEmpty>
-                {inputValue.trim() ? (
-                  <div className="p-2 text-center text-sm text-gray-500">
-                    Nenhuma tag encontrada.
-                  </div>
-                ) : (
-                  "Nenhuma tag."
-                )}
-              </CommandEmpty>
-              <CommandGroup>
-                {filteredAvailableTags.map((tag) => (
-                  <CommandItem
-                    key={tag.id}
-                    value={tag.name}
-                    onSelect={() => {
-                      if (!isTagAlreadyLinked(tag.id)) {
-                        onTagAdd(leadId, tag.id);
-                      } else {
-                        onTagRemove(leadId, tag.id);
-                      }
-                      setInputValue("");
-                      setOpen(false);
-                    }}
-                    disabled={isSavingTags}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isTagAlreadyLinked(tag.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <TagIconLucide className="mr-2 h-4 w-4 text-gray-500" /> {tag.name}
-                  </CommandItem>
-                ))}
-                {isNewTagOption && (
-                  <CommandItem
-                    onSelect={handleCreateNewTag}
-                    disabled={isCreatingNewTag || isSavingTags}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    {isCreatingNewTag ? "Criando..." : `Criar nova tag: "${inputValue}"`}
-                  </CommandItem>
-                )}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+          {open && ( // Conditionally render Command
+            <Command>
+              {/* CommandInput is now rendered inside PopoverTrigger */}
+              <CommandList>
+                <CommandEmpty>
+                  {inputValue.trim() ? (
+                    <div className="p-2 text-center text-sm text-gray-500">
+                      Nenhuma tag encontrada.
+                    </div>
+                  ) : (
+                    "Nenhuma tag."
+                  )}
+                </CommandEmpty>
+                <CommandGroup>
+                  {filteredAvailableTags.map((tag) => (
+                    <CommandItem
+                      key={tag.id}
+                      value={tag.name}
+                      onSelect={() => {
+                        if (!isTagAlreadyLinked(tag.id)) {
+                          onTagAdd(leadId, tag.id);
+                        } else {
+                          onTagRemove(leadId, tag.id);
+                        }
+                        setInputValue("");
+                        setOpen(false);
+                      }}
+                      disabled={isSavingTags}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isTagAlreadyLinked(tag.id) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <TagIconLucide className="mr-2 h-4 w-4 text-gray-500" /> {tag.name}
+                    </CommandItem>
+                  ))}
+                  {isNewTagOption && (
+                    <CommandItem
+                      onSelect={handleCreateNewTag}
+                      disabled={isCreatingNewTag || isSavingTags}
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      {isCreatingNewTag ? "Criando..." : `Criar nova tag: "${inputValue}"`}
+                    </CommandItem>
+                  )}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          )}
         </PopoverContent>
       </Popover>
       {isSavingTags && (
