@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import NewLeadModal from '@/components/NewLeadModal'; // Import NewLeadModal
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import LeadDetailModal from '@/components/LeadDetailModal'; // Import LeadDetailModal
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -95,11 +95,12 @@ function formatLeadTimestamp(iso: string | null): string {
 
 
 const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
-    const navigate = useNavigate(); // Initialize navigate
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
     const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false); // State for NewLeadModal
+    const [isLeadDetailModalOpen, setIsLeadDetailModalOpen] = useState(false); // State for LeadDetailModal
+    const [selectedLeadIdForModal, setSelectedLeadIdForModal] = useState<number | null>(null); // State to pass lead ID to modal
 
 
     const ITEMS_PER_PAGE = 15;
@@ -354,9 +355,17 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         refetchLeads(); // Refetch leads after adding a new one
     };
 
-    // Function to navigate to LeadDetailPage
-    const handleViewLeadDetails = (leadId: number) => {
-        navigate(`/dashboard/leads/${leadId}`);
+    // Function to open the LeadDetailModal
+    const openLeadDetailModal = (leadId: number) => {
+        setSelectedLeadIdForModal(leadId);
+        setIsLeadDetailModalOpen(true);
+    };
+
+    // Function to close the LeadDetailModal and refetch leads
+    const closeLeadDetailModal = () => {
+        setIsLeadDetailModalOpen(false);
+        setSelectedLeadIdForModal(null);
+        refetchLeads(); // Refetch leads after updating one
     };
 
 
@@ -434,7 +443,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                                 <div
                                     key={lead.id}
                                     className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => handleViewLeadDetails(lead.id)} // Navigate to detail page
+                                    onClick={() => openLeadDetailModal(lead.id)} // Open modal on click
                                 >
                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
@@ -502,6 +511,17 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                     clinicId={clinicData.id}
                     funnelIdForQuery={undefined} // Pass undefined as we don't have a specific funnel here
                     onLeadAdded={closeNewLeadModal} // Refetch leads after adding
+                />
+            )}
+
+            {/* Lead Detail Modal */}
+            {clinicData && (
+                <LeadDetailModal
+                    isOpen={isLeadDetailModalOpen}
+                    onClose={closeLeadDetailModal}
+                    leadId={selectedLeadIdForModal}
+                    clinicId={clinicData.id}
+                    onLeadUpdated={closeLeadDetailModal} // Refetch leads after updating
                 />
             )}
         </div>
