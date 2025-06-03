@@ -241,7 +241,7 @@ const UserRegistrationPage: React.FC = () => {
             if (isExistingUser) {
                 showSuccess("Usuário existente vinculado à clínica com sucesso!");
             } else {
-                showSuccess("Novo usuário cadastrado e vinculado à clínica com sucesso! O usuário precisará usar a opção 'Esqueceu sua senha?' na tela de login para definir a senha inicial.");
+                showSuccess("Novo usuário cadastrado e vinculado à clínica com sucesso!");
             }
             
             setEmail('');
