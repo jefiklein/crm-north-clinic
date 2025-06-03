@@ -159,8 +159,8 @@ const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/
 
 // NEW: Webhook URLs for tag management (copied from LeadDetailPage)
 const CREATE_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/86305271-8e6f-416a-9972-feb34aa63ee7"; // Updated
-const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/link-lead-tag";
-const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/unlink-lead-tag";
+const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
+const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/a663d7d8-1d28-4b27-8b92-f456e69a3ccc"; // Updated to new webhook
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
