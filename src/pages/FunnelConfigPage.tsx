@@ -775,6 +775,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                 )}
                             </div>
 
+                            {/* Conditional Content based on selectedActionType */}
                             {selectedActionType === 'message' && (
                                 <>
                                     <Label htmlFor="messageSelect" className="block mb-1 font-medium text-gray-700">
@@ -794,45 +795,43 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            {isComboboxOpen && ( // Conditionally render Command
-                                                <Command>
-                                                    <CommandInput placeholder="Buscar mensagem..." />
-                                                    <CommandList>
-                                                        {isLoadingSelectableMessages ? (
-                                                            <CommandEmpty>
-                                                                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando mensagens...
-                                                            </CommandEmpty>
-                                                        ) : selectableMessagesError ? (
-                                                            <CommandEmpty>
-                                                                <TriangleAlert className="h-5 w-5 text-red-500 mr-2" /> Erro: {selectableMessagesError.message}
-                                                            </CommandEmpty>
-                                                        ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
-                                                            <CommandEmpty>Nenhuma mensagem encontrada.</CommandEmpty>
-                                                        ) : (
-                                                            <CommandGroup>
-                                                                {selectableLeadsMessages?.map((msg) => (
-                                                                    <CommandItem
-                                                                        key={msg.id}
-                                                                        value={msg.nome_sequencia || `Mensagem ${msg.id}`} // Use nome_sequencia for search value
-                                                                        onSelect={() => {
-                                                                            setSelectedMessageToLink(msg.id);
-                                                                            setIsComboboxOpen(false);
-                                                                        }}
-                                                                    >
-                                                                        <Check
-                                                                            className={cn(
-                                                                                "mr-2 h-4 w-4",
-                                                                                selectedMessageToLink === msg.id ? "opacity-100" : "opacity-0"
-                                                                            )}
-                                                                        />
-                                                                        {msg.nome_sequencia}
-                                                                    </CommandItem>
-                                                                ))}
-                                                            </CommandGroup>
-                                                        )}
-                                                    </CommandList>
-                                                </Command>
-                                            )}
+                                            <Command>
+                                                <CommandInput placeholder="Buscar mensagem..." />
+                                                <CommandList>
+                                                    {isLoadingSelectableMessages ? (
+                                                        <CommandEmpty>
+                                                            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando mensagens...
+                                                        </CommandEmpty>
+                                                    ) : selectableMessagesError ? (
+                                                        <CommandEmpty>
+                                                            <TriangleAlert className="h-5 w-5 text-red-500 mr-2" /> Erro: {selectableMessagesError.message}
+                                                        </CommandEmpty>
+                                                    ) : (selectableLeadsMessages?.length ?? 0) === 0 ? (
+                                                        <CommandEmpty>Nenhuma mensagem encontrada.</CommandEmpty>
+                                                    ) : (
+                                                        <CommandGroup>
+                                                            {selectableLeadsMessages?.map((msg) => (
+                                                                <CommandItem
+                                                                    key={msg.id}
+                                                                    value={msg.nome_sequencia || `Mensagem ${msg.id}`} // Use nome_sequencia for search value
+                                                                    onSelect={() => {
+                                                                        setSelectedMessageToLink(msg.id);
+                                                                        setIsComboboxOpen(false);
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            selectedMessageToLink === msg.id ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {msg.nome_sequencia}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+                                                </CommandList>
+                                            </Command>
                                         </PopoverContent>
                                     </Popover>
 

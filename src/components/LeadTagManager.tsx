@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Check, ChevronsUpDown, PlusCircle, X, Tag as TagIconLucide } from "lucide-react"; // Added TagIconLucide
+import React, { useState, useEffect, useMemo } from "react";
+import { Check, ChevronsUpDown, PlusCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
@@ -48,7 +49,6 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null); // Ref for the CommandInput
 
   const filteredAvailableTags = useMemo(() => {
     const lowerInputValue = inputValue.toLowerCase();
@@ -78,126 +78,109 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
 
   const isNewTagOption = inputValue.trim() && !filteredAvailableTags.some(tag => tag.name.toLowerCase() === inputValue.trim().toLowerCase());
 
-  // Focus the input when the popover opens
-  useEffect(() => {
-    if (open && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [open]);
-
   return (
     <div className="space-y-3">
       <Label className="block text-sm font-medium text-gray-700">Tags do Lead</Label>
-      
+      <div className="flex flex-wrap gap-2 min-h-[38px] items-center">
+        {currentLeadTags.length === 0 && !isLoadingTags && (
+          <span className="text-sm text-gray-500">Nenhuma tag vinculada.</span>
+        )}
+        {currentLeadTags.map((tag) => (
+          <Badge
+            key={tag.id}
+            variant="secondary"
+            className="flex items-center gap-1 pr-1 text-sm"
+          >
+            {tag.name}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => onTagRemove(leadId, tag.id)}
+              disabled={isSavingTags}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </Badge>
+        ))}
+        {isLoadingTags && (
+          <span className="flex items-center text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando tags...
+          </span>
+        )}
+      </div>
+
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <div
+          <Button
+            variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[40px] cursor-pointer"
-            onClick={() => setOpen(true)} // Open popover on click
+            className="w-full justify-between"
+            disabled={isSavingTags || isLoadingTags}
           >
-            <div className="flex flex-wrap items-center gap-1">
-              {currentLeadTags.length === 0 && !isLoadingTags && !open && (
-                <span className="text-muted-foreground">Adicionar tags...</span>
-              )}
-              {currentLeadTags.map((tag) => (
-                <Badge
-                  key={tag.id}
-                  variant="secondary"
-                  className="flex items-center gap-1 pr-1 text-sm"
-                  onClick={(e) => e.stopPropagation()} // Prevent popover from closing when clicking badge
-                >
-                  {tag.name}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => onTagRemove(leadId, tag.id)}
-                    disabled={isSavingTags}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              ))}
-              {isLoadingTags && (
-                <span className="flex items-center text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...
-                </span>
-              )}
-              {open && ( // Render CommandInput directly when popover is open
-                <CommandInput
-                  ref={inputRef}
-                  placeholder="Buscar ou criar tag..."
-                  value={inputValue}
-                  onValueChange={setInputValue}
-                  className="h-auto flex-grow border-none shadow-none focus:ring-0"
-                  disabled={isSavingTags}
-                />
-              )}
-            </div>
+            {currentLeadTags.length > 0
+              ? `${currentLeadTags.length} tag(s) selecionada(s)`
+              : "Selecionar tags..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </div>
+          </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          {open && ( // Conditionally render Command
-            <Command>
-              {/* CommandInput is now rendered inside PopoverTrigger */}
-              <CommandList>
-                <CommandEmpty>
-                  {inputValue.trim() ? (
-                    <div className="p-2 text-center text-sm text-gray-500">
-                      Nenhuma tag encontrada.
-                    </div>
-                  ) : (
-                    "Nenhuma tag."
-                  )}
-                </CommandEmpty>
-                <CommandGroup>
-                  {filteredAvailableTags.map((tag) => (
-                    <CommandItem
-                      key={tag.id}
-                      value={tag.name}
-                      onSelect={() => {
-                        if (!isTagAlreadyLinked(tag.id)) {
-                          onTagAdd(leadId, tag.id);
-                        } else {
-                          onTagRemove(leadId, tag.id);
-                        }
-                        setInputValue("");
-                        setOpen(false);
-                      }}
-                      disabled={isSavingTags}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          isTagAlreadyLinked(tag.id) ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <TagIconLucide className="mr-2 h-4 w-4 text-gray-500" /> {tag.name}
-                    </CommandItem>
-                  ))}
-                  {isNewTagOption && (
-                    <CommandItem
-                      onSelect={handleCreateNewTag}
-                      disabled={isCreatingNewTag || isSavingTags}
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      {isCreatingNewTag ? "Criando..." : `Criar nova tag: "${inputValue}"`}
-                    </CommandItem>
-                  )}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          )}
+          <Command>
+            <CommandInput
+              placeholder="Buscar ou criar tag..."
+              value={inputValue}
+              onValueChange={setInputValue}
+            />
+            <CommandList>
+              <CommandEmpty>
+                {inputValue.trim() ? (
+                  <div className="p-2 text-center text-sm text-gray-500">
+                    Nenhuma tag encontrada.
+                  </div>
+                ) : (
+                  "Nenhuma tag."
+                )}
+              </CommandEmpty>
+              <CommandGroup>
+                {filteredAvailableTags.map((tag) => (
+                  <CommandItem
+                    key={tag.id}
+                    value={tag.name}
+                    onSelect={() => {
+                      if (!isTagAlreadyLinked(tag.id)) {
+                        onTagAdd(leadId, tag.id);
+                      } else {
+                        onTagRemove(leadId, tag.id);
+                      }
+                      setInputValue("");
+                      setOpen(false);
+                    }}
+                    disabled={isSavingTags}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        isTagAlreadyLinked(tag.id) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {tag.name}
+                  </CommandItem>
+                ))}
+                {isNewTagOption && (
+                  <CommandItem
+                    onSelect={handleCreateNewTag}
+                    disabled={isCreatingNewTag || isSavingTags}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    {isCreatingNewTag ? "Criando..." : `Criar nova tag: "${inputValue}"`}
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            </CommandList>
+          </Command>
         </PopoverContent>
       </Popover>
-      {isSavingTags && (
-        <div className="flex items-center text-sm text-gray-500 mt-2">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Salvando tags...
-        </div>
-      )}
     </div>
   );
 };
