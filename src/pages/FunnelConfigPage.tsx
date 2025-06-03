@@ -794,7 +794,7 @@ const FunnelConfigPage: React.FC<FunnelConfigPageProps> = ({ clinicData }) => {
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            {open && ( // Conditionally render Command
+                                            {isComboboxOpen && ( // Conditionally render Command
                                                 <Command>
                                                     <CommandInput placeholder="Buscar mensagem..." />
                                                     <CommandList>
