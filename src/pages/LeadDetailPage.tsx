@@ -189,16 +189,16 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
 
   // NEW: Fetch tags currently linked to this lead
   const { data: currentLeadTags, isLoading: isLoadingLeadTags, error: leadTagsError, refetch: refetchLeadTags } = useQuery<Tag[]>({
-    queryKey: ['currentLeadTags', selectedLeadDetails?.id, clinicId], // Use selectedLeadDetails.id
+    queryKey: ['currentLeadTags', leadDetails?.id, clinicId], // Use leadDetails.id
     queryFn: async () => {
-      console.log(`[LeadDetailPage] Fetching currentLeadTags for lead ${selectedLeadDetails?.id} and clinic ${clinicId}`);
-      if (!selectedLeadDetails?.id || !clinicId) return [];
+      console.log(`[LeadDetailPage] Fetching currentLeadTags for lead ${leadDetails?.id} and clinic ${clinicId}`);
+      if (!leadDetails?.id || !clinicId) return [];
       // Set the RLS context for the clinic_code (still needed for other RLS policies)
       await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
       const { data, error } = await supabase
         .from('north_clinic_lead_tags')
         .select('tag_id, north_clinic_tags(id, name, id_clinica)') // Include id_clinica in the join
-        .eq('lead_id', selectedLeadDetails.id) // Use selectedLeadDetails.id
+        .eq('lead_id', leadDetails.id) // Use leadDetails.id
         .eq('north_clinic_tags.id_clinica', clinicId); // Explicitly filter the joined table by clinicId
       
       console.log(`[LeadDetailPage] Raw Supabase response for currentLeadTags:`, data, error);
@@ -209,7 +209,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       console.log(`[LeadDetailPage] Processed currentLeadTags:`, fetchedTags);
       return fetchedTags;
     },
-    enabled: !!selectedLeadDetails?.id && !!clinicId,
+    enabled: !!leadDetails?.id && !!clinicId,
     staleTime: 0, // Always refetch lead tags
     refetchOnWindowFocus: false,
   });
