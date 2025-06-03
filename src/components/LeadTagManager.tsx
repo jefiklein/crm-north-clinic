@@ -67,6 +67,7 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
     try {
       const newTag = await onNewTagCreate(inputValue.trim(), clinicId);
       if (newTag) {
+        // Se a tag foi criada com sucesso, vincule-a imediatamente ao lead
         onTagAdd(leadId, newTag.id);
         setInputValue("");
         setOpen(false); // Fecha o popover após criar e adicionar
@@ -143,7 +144,11 @@ const LeadTagManager: React.FC<LeadTagManagerProps> = ({
                     key={tag.id}
                     value={tag.name} // Valor para navegação/seleção por teclado
                     onSelect={() => {
-                      onTagAdd(leadId, tag.id);
+                      if (!isTagAlreadyLinked(tag.id)) {
+                        onTagAdd(leadId, tag.id);
+                      } else {
+                        onTagRemove(leadId, tag.id);
+                      }
                       setInputValue("");
                       setOpen(false); // Fecha o popover após a seleção
                     }}
