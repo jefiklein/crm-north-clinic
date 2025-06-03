@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
 import { useLocation } from 'react-router-dom'; // Import useLocation
+import LeadTagManager from '@/components/LeadTagManager'; // Import the new component
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -85,6 +86,12 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
+// Interface for Tag (from LeadTagManager)
+interface Tag {
+  id: number;
+  name: string;
+}
+
 
 interface ConversasPageProps {
   clinicData: ClinicData | null;
@@ -147,8 +154,13 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
+
+// NEW: Webhook URLs for tag management (copied from LeadDetailPage)
+const CREATE_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/create-tag";
+const LINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/link-lead-tag";
+const UNLINK_LEAD_TAG_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/unlink-lead-tag";
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
@@ -457,6 +469,47 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   useEffect(() => {
       console.log("[ConversasPage] selectedLeadDetails query state updated. isLoadingSelectedLead:", isLoadingSelectedLead, "selectedLeadError:", selectedLeadError, "selectedLeadDetails:", selectedLeadDetails); // Add this log
   }, [isLoadingSelectedLead, selectedLeadError, selectedLeadDetails]);
+
+
+  // NEW: Fetch all available tags for the clinic (copied from LeadDetailPage)
+  const { data: allAvailableTags, isLoading: isLoadingAllTags, error: allTagsError, refetch: refetchAllTags } = useQuery<Tag[]>({
+    queryKey: ['allAvailableTags', clinicId],
+    queryFn: async () => {
+      if (!clinicId) return [];
+      // Set the RLS context for the clinic_code
+      await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
+      const { data, error } = await supabase
+        .from('north_clinic_tags')
+        .select('id, name')
+        .eq('id_clinica', clinicId)
+        .order('name', { ascending: true });
+      if (error) throw new Error(`Erro ao buscar tags disponíveis: ${error.message}`);
+      return data || [];
+    },
+    enabled: !!clinicId && hasPermission,
+    staleTime: 5 * 60 * 1000, // Cache tags for 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // NEW: Fetch tags currently linked to this lead (copied from LeadDetailPage)
+  const { data: currentLeadTags, isLoading: isLoadingLeadTags, error: leadTagsError, refetch: refetchLeadTags } = useQuery<Tag[]>({
+    queryKey: ['currentLeadTags', selectedLeadDetails?.id, clinicId], // Use selectedLeadDetails.id
+    queryFn: async () => {
+      if (!selectedLeadDetails?.id || !clinicId) return [];
+      // Set the RLS context for the clinic_code
+      await supabase.rpc('set_clinic_code_from_clinic_id', { clinic_id_param: clinicId });
+      const { data, error } = await supabase
+        .from('north_clinic_lead_tags')
+        .select('tag_id, north_clinic_tags(id, name)')
+        .eq('lead_id', selectedLeadDetails.id); // Use selectedLeadDetails.id
+      if (error) throw new Error(`Erro ao buscar tags do lead: ${error.message}`);
+      // Flatten the nested data
+      return data?.map(item => item.north_clinic_tags).filter((tag): tag is Tag => tag !== null) || [];
+    },
+    enabled: !!selectedLeadDetails?.id && !!clinicId && hasPermission, // Enable only if lead ID and clinic ID are available
+    staleTime: 0, // Always refetch lead tags
+    refetchOnWindowFocus: false,
+  });
 
 
   // Memoized maps for stages and funnels
@@ -926,6 +979,82 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   }, [emojiPickerRef.current]); // Removed messageInput from dependencies
 
 
+  // NEW: Mutations for tag management (copied from LeadDetailPage)
+  const createTagMutation = useMutation({
+    mutationFn: async (tagName: string) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { name: tagName, id_clinica: clinicId };
+      const response = await fetch(CREATE_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao criar tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      const data = await response.json();
+      if (!data?.id) throw new Error("ID da nova tag não retornado.");
+      return { id: data.id, name: tagName } as Tag;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allAvailableTags', clinicId] });
+      showSuccess("Tag criada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao criar tag: ${err.message}`);
+    }
+  });
+
+  const linkTagMutation = useMutation({
+    mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      const response = await fetch(LINK_LEAD_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao vincular tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', selectedLeadDetails?.id, clinicId] });
+      showSuccess("Tag vinculada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao vincular tag: ${err.message}`);
+    }
+  });
+
+  const unlinkTagMutation = useMutation({
+    mutationFn: async ({ leadId, tagId }: { leadId: number; tagId: number }) => {
+      if (!clinicId) throw new Error("ID da clínica não disponível.");
+      const payload = { lead_id: leadId, tag_id: tagId, id_clinica: clinicId };
+      const response = await fetch(UNLINK_LEAD_TAG_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ao desvincular tag: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentLeadTags', selectedLeadDetails?.id, clinicId] });
+      showSuccess("Tag desvinculada com sucesso!");
+    },
+    onError: (err: Error) => {
+      showError(`Erro ao desvincular tag: ${err.message}`);
+    }
+  });
+
+
   // --- Permission Check ---
   if (!clinicData) {
     console.log("[ConversasPage] Rendering: clinicData is null."); // Log permission check state
@@ -1116,6 +1245,23 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
                 <MessagesSquare className="h-5 w-5" /> {/* Changed icon to MessagesSquare */}
               </Button>
             </div>
+
+            {/* NEW: Lead Tag Manager Section */}
+            {selectedLeadDetails && clinicId && (
+                <div className="p-4 border-b border-gray-200 bg-gray-100 flex-shrink-0">
+                    <LeadTagManager
+                        clinicId={clinicId}
+                        leadId={selectedLeadDetails.id}
+                        availableTags={allAvailableTags || []}
+                        currentLeadTags={currentLeadTags || []}
+                        isLoadingTags={isLoadingAllTags || isLoadingLeadTags}
+                        isSavingTags={linkTagMutation.isLoading || unlinkTagMutation.isLoading || createTagMutation.isLoading}
+                        onTagAdd={(leadId, tagId) => linkTagMutation.mutate({ leadId, tagId })}
+                        onTagRemove={(leadId, tagId) => unlinkTagMutation.mutate({ leadId, tagId })}
+                        onNewTagCreate={createTagMutation.mutateAsync}
+                    />
+                </div>
+            )}
 
             <ScrollArea className="messages-area flex-grow p-4 flex flex-col">
               {!selectedConversationId ? (
