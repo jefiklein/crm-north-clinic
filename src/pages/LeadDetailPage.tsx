@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Input }
+from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -307,7 +308,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       showSuccess("Lead atualizado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['leadDetails', leadId, clinicId] }); // Invalidate to refetch latest data
       queryClient.invalidateQueries({ queryKey: ['paginatedLeads'] }); // Invalidate all leads list
-      navigate('/dashboard/3'); // Navigate back to AllLeadsPage
+      // No longer navigating back to /dashboard/3 here, as we use navigate(-1)
     } catch (e: any) {
       console.error("[LeadDetailPage] Save failed:", e);
       setError(e.message || "Ocorreu um erro desconhecido ao salvar.");
@@ -319,7 +320,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
   };
 
   const handleBack = () => {
-    navigate('/dashboard/3'); // Navigate back to AllLeadsPage
+    navigate(-1); // Go back to the previous page in history
   };
 
   const isLoadingData = isLoadingLead || isLoadingStages || isLoadingFunnels;
