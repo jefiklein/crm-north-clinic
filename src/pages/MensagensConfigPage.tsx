@@ -230,7 +230,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
-  const messageTextRef = useRef<HTMLTextAreaElement | null>(messageTextareaRef); // Corrected ref initialization
+  const messageTextRef = useRef<HTMLTextAreaElement | null>(null); // Corrected ref initialization
 
   // Determine context based on URL parameter
   const urlParams = new URLSearchParams(location.search); 
@@ -930,9 +930,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
       if (textarea) {
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
-          const newText = messageText.slice(0, start) + placeholderText + messageText.slice(end);
+          const text = messageText; 
+          const newText = text.slice(0, start) + placeholderText + text.slice(end);
 
-          setMessageText(newText);
+          setMessageText(newText); 
 
           setTimeout(() => {
               textarea.selectionStart = textarea.selectionEnd = start + placeholderText.length;
