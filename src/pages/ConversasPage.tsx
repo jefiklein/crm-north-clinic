@@ -147,7 +147,7 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
@@ -474,31 +474,26 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
   // Get Stage and Funnel Info Helper (uses the maps)
   const getStageAndFunnelInfo = (idEtapa: number | null): { etapa: string, funil: string, etapaClass: string, funilClass: string } => {
-      let stageName = 'Etapa Desconhecida';
-      let funnelName = 'Funil Desconhecido';
-      let etapaClass = 'bg-gray-100 text-gray-800 border border-gray-800'; // Default class
-      let funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; // Default class
-
-
+      let stageInfo = { etapa: 'Etapa Desconhecida', funil: 'Funil Desconhecido', etapaClass: '', funilClass: '' };
       if (idEtapa !== null) {
           const stage = stageMap.get(idEtapa);
           if (stage) {
-              stageName = stage.nome_etapa || 'Sem nome';
+              stageInfo.etapa = stage.nome_etapa || 'Sem nome';
               if (stage.id_funil !== null) {
                   const funnel = funnelMap.get(stage.id_funil);
                   if (funnel) {
-                      funnelName = funnel.nome_funil || 'Sem nome';
+                      stageInfo.funil = funnel.nome_funil || 'Sem nome';
                   }
               }
 
               // Determine classes based on names (copied from AllLeadsPage)
-              const etapaLower = stageName.toLowerCase();
+              const etapaLower = stageInfo.etapa.toLowerCase();
               if (etapaLower.includes('novo') || etapaLower.includes('lead')) { etapaClass = 'bg-blue-100 text-blue-800 border border-blue-800'; }
               else if (etapaLower.includes('agendado')) { etapaClass = 'bg-purple-100 text-purple-800 border border-purple-800'; } // Using purple for scheduled
               else if (etapaLower.includes('qualificação')) { etapaClass = 'bg-orange-100 text-orange-800 border border-orange-800'; } // Using orange for qualified
               else { etapaClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
 
-              const funnelLower = funnelName.toLowerCase();
+              const funnelLower = stageInfo.funil.toLowerCase();
                if (funnelLower.includes('vendas')) { funilClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
                else if (funnelLower.includes('recuperação')) { funilClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
                else if (funnelLower.includes('compareceram')) { funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
