@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, Smartphone } from 'lucide-react'; // Added Smartphone icon
+import { Search, TriangleAlert, Loader2, Smile, Send, Clock, XCircle, MessagesSquare } from 'lucide-react'; // Changed ExternalLink to MessagesSquare
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and useQueryClient
 import { format, isToday } from 'date-fns'; // Import format and isToday
 import { ptBR } from 'date-fns/locale'; // Import locale
@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Imp
 import { Label } from "@/components/ui/label"; // Import Label for RadioGroup
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
 import { cn, formatPhone } from '@/lib/utils'; // Utility for class names - Explicitly re-adding formatPhone import
+import { useLocation } from 'react-router-dom'; // Import useLocation
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -146,15 +147,21 @@ function getInitials(name: string | null): string {
 
 const REQUIRED_PERMISSION_LEVEL = 2;
 const MEDIA_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo';
-const SEND_MESSAGE_WEBHOOK_URL = 'https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
+const SEND_MESSAGE_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/enviar-para-fila'; // Webhook para enviar mensagem
 const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   console.log("[ConversasPage] Component Rendered. clinicData:", clinicData); // Log clinicData on render
   const queryClient = useQueryClient(); // Get query client instance
+  const location = useLocation(); // Hook to get current location
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  // Initialize selectedConversationId from URL parameter
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('remoteJid');
+  });
   const [messageInput, setMessageInput] = useState(''); // State for the message input
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
   // Removed selectedInstanceEvolutionName state
@@ -951,10 +958,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   const isLoadingLeadInfo = isLoadingSelectedLead || isLoadingStages || isLoadingFunnels;
   const leadInfoError = selectedLeadError || stagesError || funnelsError;
 
-  // Get the phone number for the WhatsApp link
-  const whatsappPhoneNumber = selectedConversationId ? selectedConversationId.split('@')[0] : '';
-  const whatsappLink = whatsappPhoneNumber ? `https://wa.me/${whatsappPhoneNumber}` : '#';
-
+  // Function to open WhatsApp chat
+  const handleOpenInWhatsapp = () => {
+    if (selectedConversationId) {
+      const phoneNumber = selectedConversationId.split('@')[0];
+      if (phoneNumber) {
+        window.open(`https://wa.me/${phoneNumber}`, '_blank');
+      } else {
+        showError("Número de telefone inválido para abrir no WhatsApp.");
+      }
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -1044,9 +1058,9 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
           {/* Conversation Detail Panel */}
           <div className="conversation-detail-panel flex-grow flex flex-col overflow-hidden bg-gray-50">
-            <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center bg-gray-100">
+            <div className="detail-header p-4 border-b border-gray-200 font-semibold flex-shrink-0 min-h-[60px] flex items-center justify-between bg-gray-100"> {/* Added justify-between */}
               {selectedConversationSummary ? (
-                <div className="flex flex-col flex-grow"> {/* Added flex-grow to this div */}
+                <div className="flex flex-col">
                     {/* Display nome_lead or formatted phone */}
                     <span id="conversationContactName" className="text-primary text-lg font-bold">
                         {selectedConversationSummary.nome_lead || formatPhone(selectedConversationSummary.remoteJid.split('@')[0]) || 'Selecione uma conversa'}
@@ -1090,18 +1104,17 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
               ) : (
                 <span className="text-primary text-lg font-bold">Selecione uma conversa</span>
               )}
-              {selectedConversationId && (
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-4 flex-shrink-0"
-                      asChild // Render as a child of Button, allowing it to be an <a>
-                  >
-                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer" title="Abrir no WhatsApp">
-                          <Smartphone className="h-4 w-4 mr-2" /> Abrir WhatsApp
-                      </a>
-                  </Button>
-              )}
+              {/* NEW: Open in WhatsApp Button */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleOpenInWhatsapp}
+                disabled={!selectedConversationId}
+                title="Abrir no WhatsApp"
+                className="ml-auto flex-shrink-0"
+              >
+                <MessagesSquare className="h-5 w-5" /> {/* Changed icon to MessagesSquare */}
+              </Button>
             </div>
 
             <ScrollArea className="messages-area flex-grow p-4 flex flex-col">

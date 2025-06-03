@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -26,11 +26,26 @@ interface InstanceInfo {
     id_server_evolution: number | null;
     confirmar_agendamento: boolean;
     id_funcionario?: number | null;
+    default_lead_stage_id?: number | null; // NEW: Add default_lead_stage_id
 }
 
 interface EmployeeInfo {
     id: number;
     nome: string;
+}
+
+// NEW: Define structure for Funnel Details
+interface FunnelDetails {
+    id: number;
+    nome_funil: string;
+}
+
+// NEW: Define structure for Funnel Stage
+interface FunnelStage {
+    id: number;
+    nome_etapa: string;
+    ordem: number | null;
+    id_funil: number;
 }
 
 interface InstanceDetailModalProps {
@@ -40,6 +55,9 @@ interface InstanceDetailModalProps {
   clinicId: string | number | null;
   employeesList: EmployeeInfo[];
   linkedEmployeeIds: Set<number>; // Set of employee IDs already linked to *any* instance
+  allFunnels: FunnelDetails[]; // NEW: Pass all funnels
+  allStages: FunnelStage[]; // NEW: Pass all stages (filtered by selected funnel in parent)
+  stagesMap: Map<number, FunnelStage>; // NEW: Pass stagesMap for quick lookup
   onSave: (data: {
     instanceId: number;
     nome_exibição: string;
@@ -49,6 +67,7 @@ interface InstanceDetailModalProps {
     historico: boolean;
     confirmar_agendamento: boolean;
     id_funcionario: number | null;
+    default_lead_stage_id: number | null; // NEW: Add to save data
   }) => void;
   isSaving: boolean;
 }
@@ -65,6 +84,9 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
   clinicId,
   employeesList,
   linkedEmployeeIds,
+  allFunnels, // NEW: Receive allFunnels
+  allStages, // NEW: Receive allStages
+  stagesMap, // NEW: Receive stagesMap
   onSave,
   isSaving,
 }) => {
@@ -76,8 +98,10 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
     historico: instanceData.historico,
     confirmar_agendamento: instanceData.confirmar_agendamento,
     id_funcionario: instanceData.id_funcionario ?? null,
+    default_lead_stage_id: instanceData.default_lead_stage_id ?? null, // NEW: Initialize
   });
   const [error, setError] = useState<string | null>(null);
+  const [selectedFunnelForStage, setSelectedFunnelForStage] = useState<number | null>(null); // NEW: State for selected funnel in stage dropdown
 
   useEffect(() => {
     if (isOpen) {
@@ -90,12 +114,44 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
         historico: instanceData.historico,
         confirmar_agendamento: instanceData.confirmar_agendamento,
         id_funcionario: instanceData.id_funcionario ?? null,
+        default_lead_stage_id: instanceData.default_lead_stage_id ?? null, // NEW: Initialize
       });
       setError(null);
       // Log para depuração do campo 'tipo'
       console.log("[InstanceDetailModal] Carregando dados da instância. Original Tipo:", instanceData.tipo, "Processed Tipo for form:", initialTipo);
+
+      // NEW: Set initial selected funnel for stage dropdown
+      if (instanceData.default_lead_stage_id) {
+          const stage = stagesMap.get(instanceData.default_lead_stage_id);
+          if (stage) {
+              setSelectedFunnelForStage(stage.id_funil);
+          } else {
+              setSelectedFunnelForStage(null);
+          }
+      } else {
+          setSelectedFunnelForStage(null);
+      }
     }
-  }, [isOpen, instanceData]);
+  }, [isOpen, instanceData, stagesMap]); // NEW: Add stagesMap to dependencies
+
+  // NEW: Effect to reset default_lead_stage_id if trackeamento is turned off
+  useEffect(() => {
+      if (!formData.trackeamento) {
+          setFormData(prev => ({ ...prev, default_lead_stage_id: null }));
+          setSelectedFunnelForStage(null);
+      }
+  }, [formData.trackeamento]);
+
+  // NEW: Effect to reset default_lead_stage_id if selected funnel changes and the current stage is not in the new funnel
+  useEffect(() => {
+      if (formData.trackeamento && selectedFunnelForStage !== null && formData.default_lead_stage_id !== null) {
+          const currentStage = stagesMap.get(formData.default_lead_stage_id);
+          if (currentStage && currentStage.id_funil !== selectedFunnelForStage) {
+              setFormData(prev => ({ ...prev, default_lead_stage_id: null }));
+          }
+      }
+  }, [selectedFunnelForStage, formData.trackeamento, formData.default_lead_stage_id, stagesMap]);
+
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
@@ -123,6 +179,12 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
       return;
     }
 
+    // NEW: Validate default_lead_stage_id if trackeamento is true
+    if (formData.trackeamento && formData.default_lead_stage_id === null) {
+        setError("Se 'Recebe Leads' está ativo, a etapa padrão para leads é obrigatória.");
+        return;
+    }
+
     onSave({
       instanceId: instanceData.id,
       nome_exibição: formData.nome_exibição.trim(),
@@ -132,8 +194,16 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
       historico: formData.historico,
       confirmar_agendamento: formData.confirmar_agendamento,
       id_funcionario: formData.id_funcionario,
+      default_lead_stage_id: formData.default_lead_stage_id, // NEW: Pass to onSave
     });
   };
+
+  // Filter stages based on selected funnel
+  const filteredStages = useMemo(() => {
+      if (selectedFunnelForStage === null) return [];
+      return allStages.filter(stage => stage.id_funil === selectedFunnelForStage);
+  }, [allStages, selectedFunnelForStage]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -227,6 +297,57 @@ const InstanceDetailModal: React.FC<InstanceDetailModalProps> = ({
             </Label>
           </div>
           <p className="text-xs text-gray-500 mt-1">Se ativado, esta instância terá um monitoramento e trackeamento de leads. Ative somente se essa instância é usada para prospecção e venda para leads.</p>
+
+          {/* NEW: Conditional Funnel and Stage selection */}
+          {formData.trackeamento && (
+              <>
+                  <div className="form-group">
+                      <Label htmlFor="default-lead-funnel">Funil Padrão para Novos Leads *</Label>
+                      <Select
+                          value={selectedFunnelForStage?.toString() || ''}
+                          onValueChange={(value) => {
+                              setSelectedFunnelForStage(value ? parseInt(value, 10) : null);
+                              setFormData(prev => ({ ...prev, default_lead_stage_id: null })); // Reset stage when funnel changes
+                          }}
+                          disabled={isSaving || (allFunnels?.length ?? 0) === 0}
+                      >
+                          <SelectTrigger id="default-lead-funnel">
+                              <SelectValue placeholder="Selecione o funil" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {allFunnels?.map(funnel => (
+                                  <SelectItem key={funnel.id} value={funnel.id.toString()}>{funnel.nome_funil}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      {(allFunnels?.length ?? 0) === 0 && (
+                          <p className="text-sm text-orange-600 mt-1">Nenhum funil disponível.</p>
+                      )}
+                  </div>
+                  <div className="form-group">
+                      <Label htmlFor="default-lead-stage">Etapa Padrão para Novos Leads *</Label>
+                      <Select
+                          value={formData.default_lead_stage_id?.toString() || ''}
+                          onValueChange={(value) => setFormData({ ...formData, default_lead_stage_id: value === 'none' ? null : parseInt(value, 10) })}
+                          disabled={isSaving || selectedFunnelForStage === null || (filteredStages?.length ?? 0) === 0}
+                      >
+                          <SelectTrigger id="default-lead-stage">
+                              <SelectValue placeholder="Selecione a etapa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="none">-- Nenhuma --</SelectItem>
+                              {filteredStages?.map(stage => (
+                                  <SelectItem key={stage.id} value={stage.id.toString()}>{stage.nome_etapa}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      {selectedFunnelForStage !== null && (filteredStages?.length ?? 0) === 0 && (
+                          <p className="text-sm text-orange-600 mt-1">Nenhuma etapa encontrada para o funil selecionado.</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">Novos leads recebidos por esta instância serão automaticamente cadastrados nesta etapa.</p>
+                  </div>
+              </>
+          )}
 
           {/* Ocultando o campo Salvar Histórico de Conversas */}
           {false && (

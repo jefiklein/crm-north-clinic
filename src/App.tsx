@@ -27,7 +27,6 @@ import UserListPage from "./pages/UserListPage";
 import RequestResetCodePage from "./pages/RequestResetCodePage";
 import SetNewPasswordPage from "./pages/SetNewPasswordPage"; 
 import ChangePasswordPage from "./pages/ChangePasswordPage"; // Import the new page
-import LeadDetailPage from "./pages/LeadDetailPage"; // Import the new LeadDetailPage
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -97,7 +96,6 @@ const App = () => {
               <Route path="register-user" element={<UserRegistrationPage />} />
               <Route path="15" element={<UserListPage clinicData={clinicData} />} />
               <Route path="change-password" element={<ChangePasswordPage />} /> {/* New route for ChangePasswordPage */}
-              <Route path="leads/:leadId" element={<LeadDetailPage clinicData={clinicData} />} /> {/* NEW ROUTE FOR LEAD DETAIL PAGE */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
               <Route path="*" element={<UnderConstructionPage />} />
             </Route>

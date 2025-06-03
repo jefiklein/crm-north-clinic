@@ -9,8 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; // Import cn and formatPhone
 import { supabase } from '@/integrations/supabase/client'; // Import Supabase client
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -36,7 +34,7 @@ interface FunnelDetails {
     nome_funil: string;
 }
 
-// Define the structure for Leads fetched from Supabase - UPDATED to use remoteJid and avatar_url
+// Define the structure for Leads fetched from Supabase - UPDATED to use remoteJid
 interface SupabaseLead {
     id: number;
     nome_lead: string | null;
@@ -46,7 +44,6 @@ interface SupabaseLead {
     lead_score: number | null;
     created_at: string; // ISO timestamp from DB
     sourceUrl?: string | null; // Optional source URL
-    avatar_url?: string | null; // NEW: Avatar URL
     // id_funil is not directly in north_clinic_leads_API, derived from id_etapa
 }
 
@@ -59,7 +56,7 @@ interface AllLeadsPageProps {
 // const N8N_BASE_URL = 'https://n8n-n8n.sbw0pc.easypanel.host';
 // const ALL_STAGES_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/43323d0c-2855-4a8c-8a4e-c38e2e801440`;
 // const ALL_FUNNELS_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/f95a53c6-7e87-4139-8d0b-cc3d26489f4a`;
-// const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
+const LEAD_DETAILS_WEBHOOK_URL = 'https://n8n-n8n.sbw0pc.easypanel.host/webhook/9c8216dd-f489-464e-8ce4-45c226489fa'; // Keep this for opening lead details
 
 
 // Helper functions (adapted from HTML)
@@ -89,25 +86,22 @@ function formatLeadTimestamp(iso: string | null): string {
     }
 }
 
-// Helper function to get initials for AvatarFallback
-function getInitials(name: string | null): string {
-  if (!name) return '??';
-  const parts = name.split(' ').filter(Boolean);
-  if (parts.length > 1) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  } else if (parts.length === 1) {
-    return parts[0].substring(0, 2).toUpperCase();
-  }
-  return '??';
+// UPDATED: Function to open lead details using remoteJid
+function openLeadDetails(remoteJid: string) {
+    if (!remoteJid) return;
+    // Extract the number part before the '@'
+    const phoneNumber = remoteJid.split('@')[0];
+    if (phoneNumber) {
+        // Open in a new tab
+        window.open(`${LEAD_DETAILS_WEBHOOK_URL}?phone=${phoneNumber}`, '_blank');
+    }
 }
 
 
 const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
-    const navigate = useNavigate(); // Initialize useNavigate
     const [searchTerm, setSearchTerm] = useState('');
     const [sortValue, setSortValue] = useState('created_at_desc'); // Use DB column name + direction
     const [currentPage, setCurrentPage] = useState(1);
-    // Removed isLeadDetailModalOpen and selectedLeadIdForDetail states
 
     const ITEMS_PER_PAGE = 15;
 
@@ -230,7 +224,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
 
     // Fetch Paginated, Filtered, and Sorted Leads from Supabase (already doing this)
-    const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError, refetch: refetchLeads } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
+    const { data: paginatedLeadsData, isLoading: isLoadingLeads, error: leadsError } = useQuery<{ leads: SupabaseLead[], totalCount: number } | null>({
         queryKey: ['paginatedLeads', clinicId, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue], // Re-added filters to query key
         queryFn: async ({ queryKey }) => {
             const [, currentClinicId, currentPage, itemsPerPage, currentSearchTerm, currentSortValue] = queryKey;
@@ -244,7 +238,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl, avatar_url', { count: 'exact' }) // Request exact count, added avatar_url
+                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
                 .eq('id_clinica', currentClinicId); // Re-added clinicId filter
 
             if (currentSearchTerm) { // Re-added search filter
@@ -349,18 +343,6 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
         }
     };
 
-    // Function to navigate to the LeadDetailPage
-    const openLeadDetails = (leadId: number) => {
-        navigate(`/dashboard/leads/${leadId}`);
-    };
-
-    // Function to handle lead update from modal (refetch leads list) - No longer needed here as it's a page
-    const handleLeadUpdated = () => {
-        // This function is now empty as the page will refetch its own data
-        // and the parent AllLeadsPage will refetch when returning to it.
-    };
-
-
     if (!clinicData) {
         return <div className="text-center text-red-500 p-6">Erro: Dados da clínica não disponíveis. Faça login novamente.</div>;
     }
@@ -435,17 +417,9 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                                 <div
                                     key={lead.id}
                                     className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => openLeadDetails(lead.id)} // Open modal with lead ID
+                                    onClick={() => openLeadDetails(lead.remoteJid)} // Use remoteJid here
                                 >
-                                    <Avatar className="h-10 w-10 mr-4 flex-shrink-0">
-                                        {lead.avatar_url ? (
-                                            <img src={lead.avatar_url} alt="Avatar" className="object-cover w-full h-full rounded-full" />
-                                        ) : (
-                                            <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">
-                                                {getInitials(lead.nome_lead)}
-                                            </AvatarFallback>
-                                        )}
-                                    </Avatar>
+                                    <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                         {/* Display formatted phone number extracted from remoteJid */}

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings, ArrowRight } from "lucide-react"; 
+import { Users, CalendarCheck, LineChart, MessageSquare, CalendarDays, ShoppingCart, Loader2, BadgeDollarSign, Scale, CalendarClock, CalendarHeart, Search, List, Kanban, Star, User, Info, TriangleAlert, MessageSquarePlus, Clock, Hourglass, Settings, ArrowRight, MessageSquareText, Repeat, Check, ChevronsUpDown, MessageSquareMore } from "lucide-react"; // Added MessageSquareMore icon
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { format } from 'date-fns';
 import { cn, formatPhone } from '@/lib/utils'; 
@@ -15,7 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; 
 import { showSuccess, showError } from '@/utils/toast'; 
 import NewLeadModal from '@/components/NewLeadModal';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Import Avatar components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -35,17 +34,17 @@ interface FunnelStage {
     id_funil: number;
 }
 
-// Define the structure for Funnel Leads (from Supabase)
+// Define the structure for Funnel Leads (from Supabase) - UPDATED to include remoteJid
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
     telefone: number | null;
+    remoteJid: string; // Added remoteJid
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
     created_at: string; 
     sourceUrl?: string | null; 
-    avatar_url?: string | null; // NEW: Avatar URL
 }
 
 // Define the structure for Funnel Details (from Supabase)
@@ -112,18 +111,6 @@ function formatLeadTimestamp(iso: string | null): string {
     }
 }
 
-// Helper function to get initials for AvatarFallback
-function getInitials(name: string | null): string {
-  if (!name) return '??';
-  const parts = name.split(' ').filter(Boolean);
-  if (parts.length > 1) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  } else if (parts.length === 1) {
-    return parts[0].substring(0, 2).toUpperCase();
-  }
-  return '??';
-}
-
 // Mapping from menu item ID (from URL) to actual funnel ID (for database queries)
 const menuIdToFunnelIdMap: { [key: number]: number } = {
     4: 1, 
@@ -146,7 +133,6 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [dragOverStageId, setDragOverStageId] = useState<number | null>(null); 
     const [isNewLeadModalOpen, setIsNewLeadModal] = useState(false); 
-    // Removed isLeadDetailModalOpen and selectedLeadIdForDetail states
 
     const ITEMS_PER_PAGE = 15;
     const clinicId = clinicData?.id;
@@ -248,7 +234,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         refetchOnWindowFocus: false,
     });
 
-    const { data: leadsQueryData, isLoading: isLoadingLeads, error: leadsError, refetch: refetchLeads } = useQuery<LeadsQueryData | null>({
+    const { data: leadsQueryData, isLoading: isLoadingLeads, error: leadsError } = useQuery<LeadsQueryData | null>({
         queryKey: ['funnelLeads', clinicId, funnelIdForQuery, currentView, currentPage, ITEMS_PER_PAGE, searchTerm, sortValue, stagesData?.map(s => s.id).join(',')], 
         queryFn: async ({ queryKey }) => {
             const [, currentClinicId, currentFunnelIdForQuery, currentView, currentPage, itemsPerPage, currentSearchTerm, currentSortValue, stagesDependency] = queryKey;
@@ -273,7 +259,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, id_etapa, origem, lead_score, created_at, sourceUrl, avatar_url', { count: currentView === 'list' ? 'exact' : undefined }) // Added avatar_url
+                .select('id, nome_lead, telefone, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Select remoteJid
                 .eq('id_clinica', currentClinicId) 
                 .in('id_etapa', stageIds); 
 
@@ -434,7 +420,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
     }, [totalItems, currentPage, currentView]); 
 
     const handlePageChange = (page: number) => {
-        if (currentView === 'list' && page >= 1 && page >= totalPages) { // Corrected condition
+        if (currentView === 'list' && page >= 1 && page <= totalPages) {
             setCurrentPage(page);
         }
     };
@@ -502,7 +488,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
     const handleConfigureMessages = () => {
         if (!clinicCode || funnelIdForQuery === undefined) {
-            showError("Código da clínica ou ID do funil não disponível para navegação.");
+            showError("Dados necessários para navegação não disponíveis.");
             return;
         }
         navigate(`/dashboard/funnel-config/${menuIdParam}`);
@@ -525,17 +511,15 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
         queryClient.invalidateQueries({ queryKey: ['funnelLeads', clinicId, funnelIdForQuery] });
     };
 
-    // Function to navigate to the LeadDetailPage
-    const openLeadDetails = (leadId: number) => {
-        navigate(`/dashboard/leads/${leadId}`);
+    // NEW: Function to navigate to conversations page with specific lead
+    const handleOpenLeadConversation = (remoteJid: string) => {
+        if (!clinicCode) {
+            showError("Código da clínica não disponível para abrir conversa.");
+            return;
+        }
+        // Navigate to the conversations page (route 2) with the remoteJid as a URL parameter
+        navigate(`/dashboard/2?remoteJid=${encodeURIComponent(remoteJid)}`);
     };
-
-    // Function to handle lead update from modal (refetch leads list) - No longer needed here as it's a page
-    const handleLeadUpdated = () => {
-        // This function is now empty as the page will refetch its own data
-        // and the parent FunnelPage will refetch when returning to it.
-    };
-
 
     if (isInvalidFunnel) {
         console.error("FunnelPage: Invalid funnel ID or clinic data. Rendering UnderConstructionPage.", {
@@ -680,23 +664,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                                 e.dataTransfer.setData('text/plain', String(lead.id)); 
                                                             }}
                                                             onDragEnd={() => setDragOverStageId(null)} 
-                                                            onClick={() => openLeadDetails(lead.id)} // Open modal with lead ID
                                                         >
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                                                    {lead.avatar_url ? (
-                                                                        <img src={lead.avatar_url} alt="Avatar" className="object-cover w-full h-full rounded-full" />
-                                                                    ) : (
-                                                                        <AvatarFallback className="bg-gray-300 text-gray-800 text-xs font-semibold">
-                                                                            {getInitials(lead.nome_lead)}
-                                                                        </AvatarFallback>
-                                                                    )}
-                                                                </Avatar>
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <div className="lead-name font-medium text-sm truncate">{lead.nome_lead || "S/ Nome"}</div>
-                                                                    <div className="lead-phone text-xs text-gray-600 truncate">{formatPhone(lead.telefone)}</div>
-                                                                </div>
-                                                            </div>
+                                                            <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
+                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
                                                             {lead.lead_score !== null && (
                                                                 <div className="lead-score flex items-center gap-1 mb-2">
                                                                     {renderStars(lead.lead_score)}
@@ -710,11 +680,26 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                                     className="p-0 h-auto text-primary text-xs"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation(); 
-                                                                        openLeadDetails(lead.id); // Open modal with lead ID
+                                                                        console.log("Detalhes do Lead:", lead); 
+                                                                        alert("Detalhes do Lead logados no console do navegador."); 
                                                                     }}
                                                                 >
                                                                     Detalhes
                                                                 </Button>
+                                                                {lead.remoteJid && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 p-0 ml-2"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenLeadConversation(lead.remoteJid);
+                                                                        }}
+                                                                        title="Abrir Conversa no WhatsApp"
+                                                                    >
+                                                                        <MessageSquareMore className="h-4 w-4 text-green-600" />
+                                                                    </Button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -735,18 +720,9 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                              return (
                                                 <div
                                                     key={lead.id}
-                                                    className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                                                    onClick={() => openLeadDetails(lead.id)} // Open modal with lead ID
+                                                    className="lead-item flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
                                                 >
-                                                    <Avatar className="h-10 w-10 mr-4 flex-shrink-0">
-                                                        {lead.avatar_url ? (
-                                                            <img src={lead.avatar_url} alt="Avatar" className="object-cover w-full h-full rounded-full" />
-                                                        ) : (
-                                                            <AvatarFallback className="bg-gray-300 text-gray-800 text-sm font-semibold">
-                                                                {getInitials(lead.nome_lead)}
-                                                            </AvatarFallback>
-                                                        )}
-                                                    </Avatar>
+                                                    <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
                                                         <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
@@ -796,11 +772,26 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                         className="ml-4 flex-shrink-0"
                                                         onClick={(e) => {
                                                             e.stopPropagation(); 
-                                                            openLeadDetails(lead.id); // Open modal with lead ID
+                                                            console.log("Detalhes do Lead:", lead); 
+                                                            alert("Detalhes do Lead logados no console do navegador."); 
                                                         }}
                                                     >
                                                         Detalhes
                                                     </Button>
+                                                    {lead.remoteJid && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="ml-2 flex-shrink-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenLeadConversation(lead.remoteJid);
+                                                            }}
+                                                            title="Abrir Conversa no WhatsApp"
+                                                        >
+                                                            <MessageSquareMore className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             );
                                         })}
