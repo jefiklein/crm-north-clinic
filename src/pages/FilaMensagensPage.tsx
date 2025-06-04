@@ -42,10 +42,10 @@ interface QueueItem {
     url_arquivo: string | null;
     nome_grupo?: string | null;
     nome_instancia_enviado?: string | null;
-    sequence_instance_id: number | null; // Reverted to old name
+    automation_instance_id: number | null; // Corrected to match DB schema
     sequence_step_id: number | null;
     sequence_step_order: number | null;
-    lead_active_sequences?: { // Reverted to old name
+    lead_automation_instances?: { // Corrected to match DB table name
         lead_id: number;
         sequence_id: number;
         status: string;
@@ -110,7 +110,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
     const [currentQueueDate, setCurrentQueueDate] = useState<Date>(startOfDay(new Date()));
     const [expandedMessages, setExpandedMessages] = new useState<Set<string>>(new Set()); 
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null); 
-    const [expandedSequences, setExpandedSequences] = useState<Set<number>>(new Set()); // State for expanded sequence groups
+    const [expandedSequences, setExpandedSequences] = useState<Set<number | null>>(new Set()); // State for expanded sequence groups
 
     const clinicId = clinicData?.id;
     const dateString = format(currentQueueDate, 'yyyy-MM-dd');
@@ -129,12 +129,12 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                     *,
                     nome_grupo,
                     nome_instancia_enviado,
-                    lead_active_sequences (
+                    lead_automation_instances(
                         lead_id,
                         sequence_id,
                         status,
-                        north_clinic_leads_API ( nome_lead ),
-                        north_clinic_mensagens_sequencias ( nome_sequencia )
+                        north_clinic_leads_API(nome_lead),
+                        north_clinic_mensagens_sequencias(nome_sequencia)
                     )
                 `)
                 .eq('id_clinica', clinicId)
@@ -196,11 +196,11 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         return map;
     }, [instancesList]);
 
-    // Group queue items by sequence_instance_id
+    // Group queue items by automation_instance_id
     const groupedQueueItems = useMemo(() => {
         const groups = new Map<number | null, QueueItem[]>();
         queueItems?.forEach(item => {
-            const key = item.sequence_instance_id; // Use sequence_instance_id as the key
+            const key = item.automation_instance_id; // Corrected to automation_instance_id
             if (!groups.has(key)) {
                 groups.set(key, []);
             }
@@ -271,7 +271,7 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
         });
     };
 
-    const toggleExpandSequence = (sequenceInstanceId: number) => {
+    const toggleExpandSequence = (sequenceInstanceId: number | null) => { // Allow null for key
         setExpandedSequences(prev => {
             const newSet = new Set(prev);
             if (newSet.has(sequenceInstanceId)) {
@@ -424,10 +424,10 @@ const FilaMensagensPage: React.FC<FilaMensagensPageProps> = ({ clinicData }) => 
                                     const isSequenceExpanded = expandedSequences.has(sequenceInstanceId);
                                     const firstItemInSequence = items[0]; // Use first item for sequence details
                                     
-                                    const sequenceName = firstItemInSequence.lead_active_sequences?.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sequência Desconhecida';
-                                    const leadName = firstItemInSequence.lead_active_sequences?.north_clinic_leads_API?.nome_lead || 'Lead Desconhecido';
+                                    const sequenceName = firstItemInSequence.lead_automation_instances?.north_clinic_mensagens_sequencias?.nome_sequencia || 'Sequência Desconhecida';
+                                    const leadName = firstItemInSequence.lead_automation_instances?.north_clinic_leads_API?.nome_lead || 'Lead Desconhecido';
                                     const groupTitle = `Sequência: "${sequenceName}" para ${leadName}`;
-                                    const sequenceStatus = firstItemInSequence.lead_active_sequences?.status || 'unknown';
+                                    const sequenceStatus = firstItemInSequence.lead_automation_instances?.status || 'unknown';
                                     const sequenceStatusClass = getStatusClass(sequenceStatus);
                                     const totalSteps = items.length; // Number of steps in this instance
 
