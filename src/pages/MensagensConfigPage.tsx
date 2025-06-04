@@ -207,7 +207,8 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   );
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
-  const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null);
+  const [mediaSavedUrl, setMediaSavedUrl] = useState<string | null>(null); // This is the key from DB
+  const [mediaStatus, setMediaStatus] = useState<{ isLoading: boolean, error: string | null }>({ isLoading: false, error: null }); // New state for media loading
   const [messageContext, setMessageContext] = useState<string | null>(null); 
 
   // State for cashback timing 
@@ -241,6 +242,43 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const isGeneralContext = messageContext === 'clientes'; 
   const isCashbackContext = messageContext === 'cashback';
   const isLeadsContext = messageContext === 'leads';
+
+  // Supabase Edge Function URL for media retrieval
+  const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://eencnctntsydevijdhdu.supabase.co/functions/v1/get-signed-url";
+
+
+  // Function to fetch signed URL for media preview
+  const fetchSignedUrlForPreview = async (fileKey: string) => {
+    if (!fileKey) {
+      setMediaPreviewUrl(null);
+      setMediaStatus({ isLoading: false, error: null });
+      return;
+    }
+    setMediaStatus({ isLoading: true, error: null });
+    try {
+      const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileKey: fileKey }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Falha ao obter URL: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+      const responseData = await response.json();
+      const signedUrl = responseData?.signedUrl; // Directly expect 'signedUrl' property
+      if (signedUrl) {
+        setMediaPreviewUrl(signedUrl);
+        setMediaStatus({ isLoading: false, error: null });
+      } else {
+        throw new Error('URL assinada não encontrada na resposta.');
+      }
+    } catch (e: any) {
+      console.error("Error fetching signed URL:", e);
+      setMediaPreviewUrl(null);
+      setMediaStatus({ isLoading: false, error: e.message || 'Erro ao carregar preview.' });
+    }
+  };
 
 
   // Fetch All Funnels (for Leads context filter)
@@ -314,6 +352,9 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
       setLoading(true);
       setError(null);
+      setMediaPreviewUrl(null); // Clear preview on load
+      setMediaStatus({ isLoading: false, error: null }); // Reset media status
+
       try {
         const { data: instancesData, error: instancesError } = await supabase
           .from("north_clinic_config_instancias")
@@ -387,7 +428,14 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
             setScheduledTime(formattedScheduledTime); 
 
             setSelectedGroup(messageData.grupo ?? null); 
-            setMediaSavedUrl(messageData.url_arquivo ?? null);
+            setMediaSavedUrl(messageData.url_arquivo ?? null); // Set the key from DB
+
+            // NEW: If there's a saved media URL, fetch its signed URL for preview
+            if (messageData.url_arquivo) {
+                fetchSignedUrlForPreview(messageData.url_arquivo);
+            } else {
+                setMediaPreviewUrl(null);
+            }
 
             setTargetType(
               messageData.para_cliente ? "Cliente" : messageData.para_funcionario ? "Funcionário" : "Grupo"
@@ -426,6 +474,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
           setScheduledTime("");
           setSelectedGroup(null); 
           setMediaSavedUrl(null);
+          setMediaPreviewUrl(null); // Clear preview for new message
 
           setTargetType(contextParam === 'cashback' ? 'Cliente' : contextParam === 'leads' ? 'Cliente' : 'Grupo'); 
 
@@ -725,7 +774,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     setError(null);
 
     try {
-      let url_arquivo = mediaSavedUrl;
+      let url_arquivo = mediaSavedUrl; // Start with the existing saved URL key
       if (mediaFile) {
         const formData = new FormData();
         formData.append("data", mediaFile, mediaFile.name);
@@ -757,7 +806,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         modelo_mensagem: messageText,
         ativo: active,
         hora_envio: scheduledTime || null,
-        url_arquivo: url_arquivo || null,
+        url_arquivo: url_arquivo || null, // Use the key, not the signed URL
         prioridade: 1,
         context: messageContext,
         servicos_vinculados: [],
@@ -879,7 +928,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   const showTimingFieldsLeads = isLeadsContext; 
   const showScheduledTimeLeads = false; 
 
-  const showSendingOrder = !!mediaFile || !!mediaSavedUrl;
+  const showSendingOrder = !!mediaFile || !!mediaPreviewUrl; // Use mediaPreviewUrl for existing files
 
   const handleCancel = () => {
     if (!clinicData?.code) return;
@@ -1372,31 +1421,34 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
                     }
                   }}
                 />
+                {mediaStatus.isLoading && (
+                    <div className="flex items-center text-primary text-sm mt-2">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando preview...
+                    </div>
+                )}
+                {mediaStatus.error && (
+                    <div className="text-red-600 text-sm flex items-center gap-1 mt-2">
+                        <TriangleAlert className="h-4 w-4" /> {mediaStatus.error}
+                    </div>
+                )}
                 {mediaPreviewUrl && (
                   <div className="mt-2">
-                    {mediaFile?.type.startsWith("image/") && (
+                    {mediaFile?.type.startsWith("image/") || mediaSavedUrl?.includes('.jpg') || mediaSavedUrl?.includes('.png') || mediaSavedUrl?.includes('.gif') || mediaSavedUrl?.includes('.webp') ? (
                       <img
                         src={mediaPreviewUrl}
                         alt="Preview da mídia"
                         className="max-w-xs rounded"
                       />
-                    )}
-                    {mediaFile?.type.startsWith("video/") && (
+                    ) : mediaFile?.type.startsWith("video/") || mediaSavedUrl?.includes('.mp4') || mediaSavedUrl?.includes('.webm') || mediaSavedUrl?.includes('.mov') ? (
                       <video
                         src={mediaPreviewUrl}
                         controls
                         className="max-w-xs rounded"
                       />
-                    )}
-                    {mediaFile?.type.startsWith("audio/") && (
+                    ) : mediaFile?.type.startsWith("audio/") || mediaSavedUrl?.includes('.mp3') || mediaSavedUrl?.includes('.ogg') || mediaSavedUrl?.includes('.wav') ? (
                       <audio src={mediaPreviewUrl} controls />
-                    )}
+                    ) : null}
                   </div>
-                )}
-                {!mediaPreviewUrl && mediaSavedUrl && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Mídia salva: {mediaSavedUrl}
-                  </p>
                 )}
                 <p className="text-sm text-gray-500 mt-1">
                   Imagem (JPG, PNG, GIF, WEBP - máx 5MB), Vídeo (MP4, WEBM, MOV -
