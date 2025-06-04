@@ -13,14 +13,24 @@ serve(async (req) => {
 
   try {
     const { fileKey } = await req.json();
-    console.log("Edge Function: Received fileKey:", fileKey); // Added log
+    console.log("Edge Function: Received raw fileKey:", fileKey);
 
-    if (!fileKey) {
-      return new Response(JSON.stringify({ error: 'fileKey is required' }), {
+    if (!fileKey || typeof fileKey !== 'string') {
+      return new Response(JSON.stringify({ error: 'fileKey is required and must be a string' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
+
+    // Extract the path within the bucket.
+    // Assuming fileKey is always in the format 'bucket-name/path/to/file.ext'
+    // We need to remove 'north-clinic/' from the beginning of the fileKey.
+    const bucketName = 'north-clinic';
+    const filePathInBucket = fileKey.startsWith(`${bucketName}/`)
+      ? fileKey.substring(`${bucketName}/`.length)
+      : fileKey; // Fallback if for some reason the prefix isn't there (though it should be)
+
+    console.log("Edge Function: Extracted filePathInBucket:", filePathInBucket);
 
     // Initialize Supabase client with service role key for secure access
     const supabase = createClient(
@@ -33,10 +43,9 @@ serve(async (req) => {
       }
     );
 
-    // IMPORTANT: Changed 'media' to 'north-clinic' based on your provided URL example.
     const { data, error } = await supabase.storage
-      .from('north-clinic') // <--- CORRECTED BUCKET NAME HERE
-      .createSignedUrl(fileKey, 3600); // URL valid for 1 hour (3600 seconds)
+      .from(bucketName) // Specify the bucket name
+      .createSignedUrl(filePathInBucket, 3600); // Pass only the path within the bucket
 
     if (error) {
       console.error("Error creating signed URL:", error);
