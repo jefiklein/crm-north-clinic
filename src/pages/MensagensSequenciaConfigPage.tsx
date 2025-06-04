@@ -135,44 +135,23 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
 
-      const responseText = await response.text();
-
+      // --- START MODIFIED PARSING LOGIC ---
       if (!response.ok) {
-        throw new Error(`Falha (${response.status}) ao obter URL: ${responseText.substring(0,150)}`);
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(`Falha (${response.status}) ao obter URL: ${errorData.message || 'Erro desconhecido'}`);
       }
 
-      if (!responseText.trim()) {
-        console.warn(`[MensagensSequenciaConfigPage] Webhook retornou resposta vazia para ${fileKey} (step ${stepId}).`);
-        throw new Error("Webhook de recuperação de arquivo retornou uma resposta vazia.");
-      }
-
-      let signedUrl: string | null = null;
-      try {
-        const data = JSON.parse(responseText);
-        signedUrl = data?.signedUrl || data?.signedURL || data?.url || data?.link || (typeof data === 'string' ? data : null);
-        if (!signedUrl && Array.isArray(data) && data.length > 0) {
-            if (typeof data[0] === 'string' && data[0].startsWith('http')) {
-                signedUrl = data[0];
-            } else if (data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link) {
-                signedUrl = data[0]?.signedUrl || data[0]?.signedURL || data[0]?.url || data[0]?.link;
-            }
-        }
-
-      } catch (jsonError) {
-        if (responseText.startsWith('http://') || responseText.startsWith('https://')) {
-          signedUrl = responseText;
-        } else {
-          console.error(`[MensagensSequenciaConfigPage] Resposta não é JSON nem URL válida para ${fileKey} (step ${stepId}):`, responseText.substring(0, 200));
-          throw new Error(`Resposta inesperada do webhook: ${responseText.substring(0,100)}`);
-        }
-      }
+      const data = await response.json();
+      const signedUrl = data?.signedUrl; // Directly expect 'signedUrl' property
 
       if (signedUrl) {
         setMediaPreviewUrls(prev => ({ ...prev, [stepId]: signedUrl }));
         setMediaPreviewStatus(prev => ({ ...prev, [stepId]: { isLoading: false, error: null } }));
       } else {
-        throw new Error(`URL assinada não extraída da resposta do webhook. Resposta recebida: ${responseText.substring(0,200)}`);
+        throw new Error(`URL assinada não encontrada na resposta da Edge Function.`);
       }
+      // --- END MODIFIED PARSING LOGIC ---
+
     } catch (e: any) {
       console.error(`[MensagensSequenciaConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);
       setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
