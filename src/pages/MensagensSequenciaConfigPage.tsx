@@ -133,7 +133,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // Removed 'apikey' header as it's not needed for Edge Function calls
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Re-added the apikey header
         },
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
@@ -566,7 +566,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           handleUpdateStep(stepId, { text: newText });
 
           setTimeout(() => {
-              textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+              textarea.selectionStart = textarea.selectionEnd = start + placeholderText.length;
               textarea.focus();
           }, 0);
       }
@@ -619,17 +619,17 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-gray-100 p-6 overflow-auto">
-      <Card className="w-full">
+      <Card className="w-full"> 
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {isLoadingData ? (
+          {isLoadingData ? ( 
             <div className="flex items-center justify-center gap-2 text-primary">
               <Loader2 className="animate-spin" />
               Carregando dados...
             </div>
-          ) : fetchError ? (
+          ) : fetchError ? ( 
             <div className="text-red-600 font-semibold flex items-center gap-2">
                 <TriangleAlert className="h-5 w-5" />
                 {fetchError.message || "Erro ao carregar dados."}
@@ -707,6 +707,39 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {(step.type === 'texto') && (
+                          <div>
+                              <Label htmlFor={`messageText-${step.id}`}>Texto da Mensagem *</Label>
+                              <div className="relative">
+                                  <Textarea
+                                      id={`messageText-${step.id}`}
+                                      rows={4}
+                                      value={step.text || ''}
+                                      onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })}
+                                      ref={el => messageTextareaRefs.current.set(step.id, el)}
+                                      placeholder="Digite a mensagem principal. Use {variaveis}, *para negrito*, _para itálico_..."
+                                      disabled={saving}
+                                  />
+                                  <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="absolute right-2 top-2"
+                                      onClick={() => toggleEmojiPickerForStep(step.id)}
+                                      type="button"
+                                      aria-label="Inserir emoji"
+                                  >
+                                      <Smile />
+                                  </Button>
+                                  <div className="absolute z-50 top-full right-0 mt-1" hidden={showEmojiPickerForStep !== step.id}>
+                                      <emoji-picker
+                                          ref={el => emojiPickerRefs.current.set(step.id, el)}
+                                          style={{ width: "300px", height: "300px" }}
+                                      />
+                                  </div>
+                              </div>
+                          </div>
+                      )}
 
                       {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
                         <>
