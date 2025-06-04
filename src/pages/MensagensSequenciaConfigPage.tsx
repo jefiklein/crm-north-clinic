@@ -133,7 +133,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
+          // Removed 'apikey' header as it's not needed for Edge Function calls
         },
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
@@ -566,7 +566,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
           handleUpdateStep(stepId, { text: newText });
 
           setTimeout(() => {
-              textarea.selectionStart = textarea.selectionEnd = start + placeholderText.length;
+              textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
               textarea.focus();
           }, 0);
       }

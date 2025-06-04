@@ -231,7 +231,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
 
   // Emoji picker ref
   const emojiPickerRef = useRef<HTMLElement | null>(null);
-  const messageTextRef = useRef<HTMLTextAreaElement | null>(null); // Corrected ref initialization
+  const messageTextRef = useRef<HTMLTextAreaAreaElement | null>(null); // Corrected ref initialization
 
   // Determine context based on URL parameter
   const urlParams = new URLSearchParams(location.search); 
@@ -260,7 +260,7 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
+          // Removed 'apikey' header as it's not needed for Edge Function calls
         },
         body: JSON.stringify({ fileKey: fileKey }),
       });
