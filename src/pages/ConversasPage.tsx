@@ -208,7 +208,7 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
   // Ref for the sentinel div at the end of messages
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   // Ref for the message textarea
-  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaAreaElement | null>(null);
   // Ref for the emoji picker element
   const emojiPickerRef = useRef<HTMLElement | null>(null);
 
@@ -613,12 +613,16 @@ const ConversasPage: React.FC<ConversasPageProps> = ({ clinicData }) => {
 
           console.log(`[ConversasPage] Message ${msg.id}: Attempting to fetch media with key: ${msg.url_arquivo}`); // Log fetch attempt
           try {
+              const headers = { 
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // ADDED: Authorization header
+              };
+              console.log(`[ConversasPage] Message ${msg.id}: Sending headers:`, headers);
+
               const response = await fetch(MEDIA_WEBHOOK_URL, {
                   method: 'POST',
-                  headers: { 
-                    'Content-Type': 'application/json',
-                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
-                  },
+                  headers: headers,
                   body: JSON.stringify({ fileKey: msg.url_arquivo })
               });
 

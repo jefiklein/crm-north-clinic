@@ -129,22 +129,36 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
     setMediaPreviewUrls(prev => ({ ...prev, [stepId]: null }));
 
     try {
+      console.log(`[MensagensSequenciaConfigPage] fetchSignedUrlForPreview: Requesting signed URL for key: ${fileKey}, step: ${stepId}`);
+      const headers = { 
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // ADDED: Authorization header
+      };
+      console.log(`[MensagensSequenciaConfigPage] fetchSignedUrlForPreview: Sending headers:`, headers);
+
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Re-added the apikey header
-        },
+        headers: headers,
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
 
-      // --- START MODIFIED PARSING LOGIC ---
+      console.log(`[MensagensSequenciaConfigPage] fetchSignedUrlForPreview: Response status: ${response.status}, OK: ${response.ok}`);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        const errorText = await response.text();
+        console.error(`[MensagensSequenciaConfigPage] fetchSignedUrlForPreview: Raw error response:`, errorText);
+        let errorData;
+        try {
+            errorData = JSON.parse(errorText);
+        } catch (e) {
+            errorData = { message: response.statusText };
+        }
         throw new Error(`Falha (${response.status}) ao obter URL: ${errorData.message || 'Erro desconhecido'}`);
       }
 
       const data = await response.json();
+      console.log(`[MensagensSequenciaConfigPage] fetchSignedUrlForPreview: Parsed response data:`, data);
       const signedUrl = data?.signedUrl; // Directly expect 'signedUrl' property
 
       if (signedUrl) {
@@ -153,7 +167,6 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       } else {
         throw new Error(`URL assinada não encontrada na resposta da Edge Function.`);
       }
-      // --- END MODIFIED PARSING LOGIC ---
 
     } catch (e: any) {
       console.error(`[MensagensSequenciaConfigPage] Error fetching signed URL for key ${fileKey} (step ${stepId}):`, e);

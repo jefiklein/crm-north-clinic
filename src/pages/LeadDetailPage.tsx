@@ -332,19 +332,36 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     }
     setAvatarUploadStatus({ isLoading: true, error: null });
     try {
+      console.log(`[LeadDetailPage] fetchSignedUrlForPreview: Requesting signed URL for key: ${fileKey}`);
+      const headers = { 
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // ADDED: Authorization header
+      };
+      console.log(`[LeadDetailPage] fetchSignedUrlForPreview: Sending headers:`, headers);
+
       const response = await fetch(MEDIA_RETRIEVE_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
-        },
+        headers: headers,
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
+
+      console.log(`[LeadDetailPage] fetchSignedUrlForPreview: Response status: ${response.status}, OK: ${response.ok}`);
+
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Falha ao obter URL: ${response.status} - ${errorText.substring(0, 100)}`);
+        console.error(`[LeadDetailPage] fetchSignedUrlForPreview: Raw error response:`, errorText);
+        let errorData;
+        try {
+            errorData = JSON.parse(errorText);
+        } catch (e) {
+            errorData = { message: response.statusText };
+        }
+        throw new Error(`Falha (${response.status}) ao obter URL: ${errorData.message || 'Erro desconhecido'}`);
       }
+
       const responseData = await response.json();
+      console.log(`[LeadDetailPage] fetchSignedUrlForPreview: Parsed response data:`, responseData);
       const signedUrl = responseData?.signedUrl || responseData?.signedURL || responseData?.url || responseData?.link;
       if (signedUrl) {
         setAvatarPreviewUrl(signedUrl);
