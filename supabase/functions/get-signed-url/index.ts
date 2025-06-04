@@ -32,9 +32,8 @@ serve(async (req) => {
       }
     );
 
-    // IMPORTANT: Replace 'your-bucket-name' with the actual name of your Supabase Storage bucket
-    // where your media files are stored (e.g., 'media', 'files', 'public').
-    // You can find this in your Supabase project under Storage.
+    // IMPORTANT: Replace 'media' with the actual name of your Supabase Storage bucket
+    // where your media files are stored. You can find this in your Supabase project under Storage.
     const { data, error } = await supabase.storage
       .from('media') // <--- VERIFIQUE E ALTERE ESTE NOME DO BUCKET SE NECESSÁRIO
       .createSignedUrl(fileKey, 3600); // URL valid for 1 hour (3600 seconds)

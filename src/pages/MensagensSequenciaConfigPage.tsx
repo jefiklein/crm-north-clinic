@@ -58,15 +58,6 @@ interface Instance {
   nome_instancia_evolution: string | null;
 }
 
-// Constants for file validation
-const MAX_IMAGE_SIZE_MB = 5;
-const MAX_VIDEO_SIZE_MB = 10;
-const MAX_AUDIO_SIZE_MB = 10;
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov'];
-const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav'];
-
 // Interface for webhook response (assuming it might return success/error flags)
 interface WebhookResponse {
     success?: boolean;
@@ -74,6 +65,7 @@ interface WebhookResponse {
     message?: string;
     // Add other expected fields from webhook response if any
 }
+
 
 const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
   clinicData,
@@ -110,9 +102,19 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
   const clinicId = clinicData?.id;
   const clinicCode = clinicData?.code; // This is the authentication string, not the numeric ID
 
-  const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
+  // Constants for file validation
+  const MAX_IMAGE_SIZE_MB = 5;
+  const MAX_VIDEO_SIZE_MB = 10;
+  const MAX_AUDIO_SIZE_MB = 10;
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov'];
+  const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav'];
+
+  // UPDATED: Use Supabase Edge Function URL for media retrieval
+  const RECUPERAR_ARQUIVO_WEBHOOK_URL = "https://eencnctntsydevijdhdu.supabase.co/functions/v1/get-signed-url";
   const ENVIAR_ARQUIVO_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
-  const N8N_CREATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d4843b5";
+  const N8N_CREATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/c85d9288-8072-43c6-8028-6df18d483b5";
   const N8N_UPDATE_SEQUENCE_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/editar-mensagem-v2";
 
   // Function to fetch signed URL (modified to be more flexible with webhook response)
@@ -130,7 +132,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arquivo_key: fileKey, clinicId: clinicId }), // Use clinicId (numeric)
+        body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
 
       const responseText = await response.text();
@@ -270,7 +272,7 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
       }
     }
     loadMessageForEditing();
-  }, [clinicId, isEditing, messageIdToEdit, toast]);
+  }, [clinicData?.id, isEditing, messageIdToEdit, toast]);
 
   const handleAddStep = (type: MessageStepType = 'texto') => {
       const newStepId = Date.now().toString() + Math.random().toString().slice(2, 8);
@@ -723,40 +725,6 @@ const MensagensSequenciaConfigPage: React.FC<{ clinicData: ClinicData | null }> 
                           </SelectContent>
                         </Select>
                       </div>
-
-                      {step.type === 'texto' && (
-                        <div>
-                          <Label htmlFor={`step-text-${step.id}`}>Conteúdo do Texto *</Label>
-                          <div className="relative">
-                            <Textarea
-                              id={`step-text-${step.id}`}
-                              rows={4}
-                              value={step.text || ''}
-                              onChange={(e) => handleUpdateStep(step.id, { text: e.target.value })}
-                              ref={el => messageTextareaRefs.current.set(step.id, el)}
-                              placeholder="Digite o texto. Use {variaveis}, *para negrito*, _para itálico_..."
-                              disabled={saving}
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="absolute right-2 top-2"
-                              onClick={() => toggleEmojiPickerForStep(step.id)}
-                              type="button"
-                              aria-label="Inserir emoji"
-                              disabled={saving}
-                            >
-                              <Smile />
-                            </Button>
-                            <div className="absolute z-50 top-full right-0 mt-1" hidden={showEmojiPickerForStep !== step.id}>
-                                <emoji-picker
-                                  ref={el => emojiPickerRefs.current.set(step.id, el)}
-                                  style={{ width: "300px", height: "300px" }}
-                                />
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       {(step.type === 'imagem' || step.type === 'video' || step.type === 'audio') && (
                         <>

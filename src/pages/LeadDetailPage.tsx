@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input }
 from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button } } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Ensure AvatarImage is imported
@@ -89,7 +89,8 @@ interface LeadDetailPageProps {
 }
 
 const MEDIA_UPLOAD_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/enviar-para-supabase";
-const MEDIA_RETRIEVE_WEBHOOK_URL = "https://north-clinic-n8n.hmvvay.easypanel.host/webhook/recuperar-arquivo";
+// UPDATED: Use Supabase Edge Function URL for media retrieval
+const MEDIA_RETRIEVE_WEBHOOK_URL = "https://eencnctntsydevijdhdu.supabase.co/functions/v1/get-signed-url";
 const UPDATE_LEAD_DETAILS_WEBHOOK_URL = "https://n8n-n8n.sbw0pc.easypanel.host/webhook/update-lead-details";
 
 // NEW: Webhook URLs for tag management
@@ -335,7 +336,7 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
       const response = await fetch(MEDIA_RETRIEVE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arquivo_key: fileKey }),
+        body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
       if (!response.ok) {
         const errorText = await response.text();
