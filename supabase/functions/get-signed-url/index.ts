@@ -13,6 +13,7 @@ serve(async (req) => {
 
   try {
     const { fileKey } = await req.json();
+    console.log("Edge Function: Received fileKey:", fileKey); // Added log
 
     if (!fileKey) {
       return new Response(JSON.stringify({ error: 'fileKey is required' }), {
@@ -32,10 +33,9 @@ serve(async (req) => {
       }
     );
 
-    // IMPORTANT: Replace 'media' with the actual name of your Supabase Storage bucket
-    // where your media files are stored. You can find this in your Supabase project under Storage.
+    // IMPORTANT: Changed 'media' to 'north-clinic' based on your provided URL example.
     const { data, error } = await supabase.storage
-      .from('media') // <--- VERIFIQUE E ALTERE ESTE NOME DO BUCKET SE NECESSÁRIO
+      .from('north-clinic') // <--- CORRECTED BUCKET NAME HERE
       .createSignedUrl(fileKey, 3600); // URL valid for 1 hour (3600 seconds)
 
     if (error) {
