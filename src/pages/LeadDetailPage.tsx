@@ -334,7 +334,10 @@ const LeadDetailPage: React.FC<LeadDetailPageProps> = ({ clinicData }) => {
     try {
       const response = await fetch(MEDIA_RETRIEVE_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
+        },
         body: JSON.stringify({ fileKey: fileKey }), // Pass fileKey directly
       });
       if (!response.ok) {

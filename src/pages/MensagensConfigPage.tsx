@@ -258,7 +258,10 @@ const MensagensConfigPage: React.FC<{ clinicData: ClinicData | null }> = ({
     try {
       const response = await fetch(RECUPERAR_ARQUIVO_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, // Adicionado o apikey
+        },
         body: JSON.stringify({ fileKey: fileKey }),
       });
       if (!response.ok) {
