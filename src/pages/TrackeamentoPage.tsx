@@ -15,6 +15,7 @@ import { cn, formatPhone } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added this import
 
 // Define the structure for clinic data
 interface ClinicData {
