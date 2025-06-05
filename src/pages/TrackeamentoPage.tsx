@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
-import { Search, Loader2, TriangleAlert, Info, CalendarDays, ChevronLeft, ChevronRight, MessageSquare, User, List } from "lucide-react";
+import { Search, Loader2, TriangleAlert, Info, CalendarDays, ChevronLeft, ChevronRight, MessageSquare, User, List, ChevronDown, ChevronUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, addMonths, startOfMonth, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
