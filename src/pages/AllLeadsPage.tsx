@@ -40,6 +40,7 @@ interface FunnelDetails {
 interface SupabaseLead {
     id: number;
     nome_lead: string | null;
+    telefone: number | null; // Keep telefone for display, remoteJid for actions
     remoteJid: string; // Use remoteJid instead of telefone
     id_etapa: number | null;
     origem: string | null;
@@ -214,7 +215,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
                  if (funnelLower.includes('vendas')) { stageInfo.funnelClass = 'bg-green-100 text-green-800 border border-green-800'; } // Using green for sales
                  else if (funnelLower.includes('recuperação')) { stageInfo.funnelClass = 'bg-red-100 text-red-800 border border-red-800'; } // Using red for recovery
                  else if (funnelLower.includes('compareceram')) { stageInfo.funilClass = 'bg-yellow-100 text-yellow-800 border border-yellow-800'; } // Using yellow for compareceram
-                 else { stageInfo.funnelClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
+                 else { stageInfo.funilClass = 'bg-gray-100 text-gray-800 border border-gray-800'; } // Default
             }
         }
         return stageInfo;
@@ -236,7 +237,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
+                .select('id, nome_lead, telefone, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: 'exact' }) // Request exact count
                 .eq('id_clinica', currentClinicId); // Re-added clinicId filter
 
             if (currentSearchTerm) { // Re-added search filter
@@ -283,7 +284,7 @@ const AllLeadsPage: React.FC<AllLeadsPageProps> = ({ clinicData }) => {
             console.log('[AllLeadsPage] Supabase fetch result:', { data, error, count });
 
             if (error) {
-                console.error("AllLeadsPage: Supabase fetch error:", error);
+                console.error("[AllLeadsPage] Supabase fetch error:", error);
                 throw new Error(`Erro ao buscar leads: ${error.message}`);
             }
 

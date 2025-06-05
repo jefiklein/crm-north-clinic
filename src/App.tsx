@@ -27,8 +27,7 @@ import UserListPage from "./pages/UserListPage";
 import RequestResetCodePage from "./pages/RequestResetCodePage";
 import SetNewPasswordPage from "./pages/SetNewPasswordPage"; 
 import ChangePasswordPage from "./pages/ChangePasswordPage";
-import LeadDetailPage from "./pages/LeadDetailPage"; 
-import TrackeamentoPage from "./pages/TrackeamentoPage"; // Import the new page
+import LeadDetailPage from "./pages/LeadDetailPage"; // Import the new page
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -85,7 +84,7 @@ const App = () => {
               <Route path="" element={<DashboardPage clinicData={clinicData} />} />
               <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
               <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
-              <Route path="leads/:leadId" element={<LeadDetailPage clinicData={clinicData} />} /> 
+              <Route path="leads/:leadId" element={<LeadDetailPage clinicData={clinicData} />} /> {/* New route for LeadDetailPage */}
               <Route path="14" element={<CashbackBalancePage clinicData={clinicData} />} />
               <Route path="14/sales" element={<CashbackSalesPage clinicData={clinicData} />} />
               <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
@@ -99,7 +98,6 @@ const App = () => {
               <Route path="register-user" element={<UserRegistrationPage />} />
               <Route path="15" element={<UserListPage clinicData={clinicData} />} />
               <Route path="change-password" element={<ChangePasswordPage />} />
-              <Route path="16" element={<TrackeamentoPage clinicData={clinicData} />} /> {/* New route for TrackeamentoPage */}
               <Route path=":funnelId" element={<FunnelPage clinicData={clinicData} />} />
               <Route path="*" element={<UnderConstructionPage />} />
             </Route>
