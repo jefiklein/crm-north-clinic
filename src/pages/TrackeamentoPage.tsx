@@ -15,7 +15,8 @@ import { cn, formatPhone } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added this import
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs components
 
 // Define the structure for clinic data
 interface ClinicData {
@@ -95,6 +96,7 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
     const [sortValue, setSortValue] = useState('created_at_desc');
     const [currentPage, setCurrentPage] = useState(1);
     const [expandedLeads, setExpandedLeads] = useState<Set<number>>(new Set()); // State for expanded lead interactions
+    const [viewMode, setViewMode] = useState<'leads_created' | 'interactions_in_month'>('leads_created'); // New state for view mode
 
     const ITEMS_PER_PAGE = 15;
 
@@ -104,38 +106,45 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
 
     // Fetch leads with interactions using the RPC function
     const { data: leadsData, isLoading, error, refetch } = useQuery<LeadWithInteractions[]>({
-        queryKey: ['trackedLeads', clinicId, currentMonthNum, currentYearNum],
+        queryKey: ['trackedLeads', clinicId, currentMonthNum, currentYearNum, viewMode], // Add viewMode to query key
         queryFn: async () => {
             if (!clinicId) {
                 console.error("TrackeamentoPage: ID da clínica não disponível para buscar leads.");
                 throw new Error("ID da clínica não disponível para buscar leads.");
             }
 
-            console.log(`[TrackeamentoPage] Calling Supabase RPC 'get_leads_with_interactions_by_month' for clinic ${clinicId}, month ${currentMonthNum}, year ${currentYearNum}...`);
+            let rpcFunctionName: string;
+            if (viewMode === 'leads_created') {
+                rpcFunctionName = 'get_leads_with_interactions_by_month';
+                console.log(`[TrackeamentoPage] Calling Supabase RPC '${rpcFunctionName}' for clinic ${clinicId}, month ${currentMonthNum}, year ${currentYearNum}...`);
+            } else { // viewMode === 'interactions_in_month'
+                rpcFunctionName = 'get_leads_with_interactions_in_month';
+                console.log(`[TrackeamentoPage] Calling Supabase RPC '${rpcFunctionName}' for clinic ${clinicId}, month ${currentMonthNum}, year ${currentYearNum}...`);
+            }
 
             try {
-                const { data, error } = await supabase.rpc('get_leads_with_interactions_by_month', {
+                const { data, error } = await supabase.rpc(rpcFunctionName, {
                     p_clinic_id: clinicId,
                     p_month: currentMonthNum,
                     p_year: currentYearNum
                 });
 
-                console.log('[TrackeamentoPage] RPC response data:', data, 'error:', error);
+                console.log(`[TrackeamentoPage] RPC '${rpcFunctionName}' response data:`, data, 'error:', error);
 
                 if (error) {
-                    console.error("Trackeamento RPC error:", error);
+                    console.error(`Trackeamento RPC '${rpcFunctionName}' error:`, error);
                     throw new Error(`Erro ao buscar leads: ${error.message}`);
                 }
 
                 if (!Array.isArray(data)) {
-                     console.error("Trackeamento RPC returned non-array data:", data);
+                     console.error(`Trackeamento RPC '${rpcFunctionName}' returned non-array data:`, data);
                      throw new Error("Formato de resposta inesperado da função RPC.");
                 }
 
                 return data as LeadWithInteractions[];
 
             } catch (err: any) {
-                console.error('Erro na chamada da função RPC de trackeamento:', err);
+                console.error(`Erro na chamada da função RPC de trackeamento (${rpcFunctionName}):`, err);
                 throw err;
             }
         },
@@ -322,6 +331,16 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
                 </div>
             </div>
 
+            {/* New Tabs for View Mode */}
+            <div className="flex justify-center mb-6">
+                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'leads_created' | 'interactions_in_month')}>
+                    <TabsList>
+                        <TabsTrigger value="leads_created">Leads Criados no Mês</TabsTrigger>
+                        <TabsTrigger value="interactions_in_month">Interações no Mês</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </div>
+
             <Card className="leads-list-container">
                 <CardContent className="p-0 flex-grow overflow-y-auto">
                     {overallLoading ? (
@@ -343,7 +362,7 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
                     ) : totalItems === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 bg-gray-50 rounded-md">
                             <Info className="h-16 w-16 mb-6 mx-auto text-gray-400" />
-                            <span className="text-lg text-center">Nenhum lead encontrado para {currentMonthYear}.</span>
+                            <span className="text-lg text-center">Nenhum lead encontrado para {currentMonthYear} nesta visualização.</span>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
