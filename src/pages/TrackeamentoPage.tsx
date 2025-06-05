@@ -53,8 +53,7 @@ interface Interaction {
 interface LeadWithInteractions {
     lead_id: number;
     nome_lead: string | null;
-    telefone: number | null;
-    remote_jid: string;
+    remote_jid: string; // Removed 'telefone'
     id_etapa: number | null;
     origem: string | null;
     source_url: string | null;
@@ -176,7 +175,7 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
         const lowerSearchTerm = searchTerm.toLowerCase();
         const filtered = leadsData.filter(lead => {
             const name = lead.nome_lead?.toLowerCase() || '';
-            const phone = lead.telefone ? String(lead.telefone).toLowerCase() : '';
+            const phone = lead.remote_jid ? String(lead.remote_jid.split('@')[0]).toLowerCase() : ''; // Use remote_jid
             const origin = lead.origem?.toLowerCase() || '';
             // Filter by name, phone, or origin
             return name.includes(lowerSearchTerm) || phone.includes(lowerSearchTerm) || origin.includes(lowerSearchTerm);
@@ -367,7 +366,7 @@ const TrackeamentoPage: React.FC<TrackeamentoPageProps> = ({ clinicData }) => {
                                                         <div className="flex items-center gap-2">
                                                             <User className="h-5 w-5 text-primary" />
                                                             {lead.nome_lead || "S/ Nome"}
-                                                            <span className="text-sm text-gray-500 ml-2">{formatPhone(lead.telefone)}</span>
+                                                            <span className="text-sm text-gray-500 ml-2">{formatPhone(lead.remote_jid.split('@')[0])}</span>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-gray-700 whitespace-nowrap">{lead.origem || 'N/D'}</TableCell>

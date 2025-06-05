@@ -38,8 +38,7 @@ interface FunnelStage {
 interface FunnelLead {
     id: number;
     nome_lead: string | null;
-    telefone: number | null;
-    remoteJid: string; // Added remoteJid
+    remoteJid: string; // Added remoteJid, removed 'telefone'
     id_etapa: number | null;
     origem: string | null;
     lead_score: number | null;
@@ -260,7 +259,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
 
             let query = supabase
                 .from('north_clinic_leads_API')
-                .select('id, nome_lead, telefone, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Select remoteJid
+                .select('id, nome_lead, remoteJid, id_etapa, origem, lead_score, created_at, sourceUrl', { count: currentView === 'list' ? 'exact' : undefined }) // Select remoteJid
                 .eq('id_clinica', currentClinicId) 
                 .in('id_etapa', stageIds); 
 
@@ -672,7 +671,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                             onDragEnd={() => setDragOverStageId(null)} 
                                                         >
                                                             <div className="lead-name font-medium text-sm mb-1">{lead.nome_lead || "S/ Nome"}</div>
-                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.telefone)}</div>
+                                                            <div className="lead-phone text-xs text-gray-600 mb-2">{formatPhone(lead.remoteJid.split('@')[0])}</div>
                                                             {lead.lead_score !== null && (
                                                                 <div className="lead-score flex items-center gap-1 mb-2">
                                                                     {renderStars(lead.lead_score)}
@@ -730,7 +729,7 @@ const FunnelPage: React.FC<FunnelPageProps> = ({ clinicData }) => {
                                                     <User className="h-6 w-6 mr-4 text-primary flex-shrink-0" />
                                                     <div className="lead-info flex flex-col flex-1 min-w-0 mr-4">
                                                         <span className="lead-name font-medium text-base truncate">{lead.nome_lead || "S/ Nome"}</span>
-                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.telefone)}</span>
+                                                        <span className="lead-phone text-sm text-gray-600">{formatPhone(lead.remoteJid.split('@')[0])}</span>
                                                     </div>
                                                     <div className="lead-details flex flex-col text-sm text-gray-600 min-w-[150px] mr-4">
                                                         {lead.origem && <div className="lead-origin truncate">Origem: {lead.origem}</div>}
