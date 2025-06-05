@@ -27,8 +27,8 @@ import UserListPage from "./pages/UserListPage";
 import RequestResetCodePage from "./pages/RequestResetCodePage";
 import SetNewPasswordPage from "./pages/SetNewPasswordPage"; 
 import ChangePasswordPage from "./pages/ChangePasswordPage";
-import LeadDetailPage from "./pages/LeadDetailPage"; // Import the new page
-import TrackeamentoPage from "./pages/TrackeamentoPage"; // Import TrackeamentoPage
+import LeadDetailPage from "./pages/LeadDetailPage";
+import TrackeamentoPage from "./pages/TrackeamentoPage";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "./contexts/AuthContext";
@@ -86,7 +86,8 @@ const App = () => {
               <Route path="12" element={<FilaMensagensPage clinicData={clinicData} />} />
               <Route path="3" element={<AllLeadsPage clinicData={clinicData} />} />
               <Route path="leads/:leadId" element={<LeadDetailPage clinicData={clinicData} />} />
-              <Route path="13" element={<TrackeamentoPage clinicData={clinicData} />} /> {/* NEW: Route for TrackeamentoPage */}
+              <Route path="13" element={<UnderConstructionPage />} /> {/* Rota para NPS (Em Construção) */}
+              <Route path="16" element={<TrackeamentoPage clinicData={clinicData} />} /> {/* Rota para Trackeamento */}
               <Route path="14" element={<CashbackBalancePage clinicData={clinicData} />} />
               <Route path="14/sales" element={<CashbackSalesPage clinicData={clinicData} />} />
               <Route path="14/messages" element={<CashbackMessagesPage clinicData={clinicData} />} />
