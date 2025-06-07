@@ -15,15 +15,13 @@ interface ClinicData {
   code: string;
   nome: string;
   id: string | number | null;
-  acesso_crm: boolean;
-  acesso_config_msg: boolean;
   id_permissao: number;
 }
 
 interface MenuItem {
   id: string | number; // Allow id to be string or number
   nome: string; // Corresponds to 'label' in previous structure
-  webhook_url?: string; // URL to navigate to (can be external or internal) - Keeping for data structure but not used for navigation logic here
+  // webhook_url?: string; // Removed as column is gone
   icon_class?: string; // Old Font Awesome class (kept for reference if needed elsewhere)
   icon_key?: string; // New column for Lucide icon key
   permissao_necessaria: number; // Required permission level
@@ -246,7 +244,6 @@ const iconMap: { [key: string]: React.ElementType } = {
   'rss': Rss,
   'save': Save,
   'scale': Scale,
-  'scan': Scan,
   'scissors': Scissors,
   'search': Search,
   'send': Send,
@@ -429,8 +426,8 @@ export const Sidebar: React.FC = () => {
 
       try {
         const { data, error } = await supabase
-          .from('north_clinic_crm_menu')
-          .select('id, nome, webhook_url, icon_class, icon_key, permissao_necessaria, ordem, ativo, parent_id, is_group') // Select the new icon_key, parent_id, is_group columns
+          .from('menu') // Changed table name from 'north_clinic_crm_menu' to 'menu'
+          .select('id, nome, icon_class, icon_key, permissao_necessaria, ordem, ativo, parent_id, is_group') // Removed 'webhook_url' from select
           .eq('ativo', true) // Assuming 'ativo' column exists and filters active items
           .order('ordem', { ascending: true }); // Order by 'ordem'
 
